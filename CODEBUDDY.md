@@ -287,6 +287,38 @@ cd motion/head-turn
 
 其他相关脚本：`chroma_key.py`（dominance-v2 抠色，**只用于离线**生成透明帧）、`loop_cleanup.py`（首尾接缝处理）。
 
+### 抠图环节的替代方案：RVM AI 抠图（2026-09-11 已装好并验证）
+
+用户反馈 chroma key（dominance-v2）的人物轮廓发糊。替代工具 **Robust Video Matting (RVM)**
+已安装在 `/home/vii/tool-github/RobustVideoMatting/`（独立 venv + CPU 版 torch，模型权重已下载，
+**不依赖 oil-motion 的 venv**）。完整使用文档：`/home/vii/tool-github/RobustVideoMatting/使用说明.md`。
+
+**工作流（绿幕视频 → 抠图 → 帧序列）：**
+
+```bash
+cd /home/vii/tool-github/RobustVideoMatting
+# 一步出全部带 alpha 的透明 PNG（despill 去绿镶边默认开启，绿幕素材别关）
+.venv/bin/python run_matting.py --input "temp/人物头部左右转动---添加项链.mp4" --outdir 输出目录
+```
+
+RVM 直接输出 `0001.png 0002.png …`（帧数 = 视频总帧数，带 RGBA alpha），
+**替代「切帧 + 去绿幕」两步**；产物可直接接 oil-motion 后续的选帧/裁切/打包。
+
+**可选参数：**
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `--variant` | `resnet50` | `resnet50` 质量高 / `mobilenetv3` 快约 3 倍 |
+| `--downsample-ratio` | 自动（720p→0.375，1080p→0.25） | 输入缩放比例，轮廓发虚时试 0.5 |
+| `--no-despill` | 关闭（即默认开 despill） | 仅非绿幕素材使用；绿幕素材关掉会出现绿镶边 |
+
+**性能**：CPU（无显卡）720p 约 2.8 帧/秒，121 帧全片约 45 秒。
+
+**注意事项：**
+- despill 是按「人物不含真实绿色」假设写的（当前素材蓝衬衫+黑发，安全）；换含绿色衣物的素材必须 `--no-despill` 并改用其他去溢色方案。
+- RVM 只改善**边缘质量**，不改善**源分辨率**：墨迹 586px 的模糊上限依然存在，不要指望换抠图工具解决整体发糊。
+- 当前状态（2026-09-11）：已安装、已跑通冒烟测试（对比图确认 despill 后边缘干净），**主流水线尚未切换**；用户确认后才替换 `chroma_key.py` 环节，切换后 `motion/` 的选帧/打包步骤不变。
+
 ### 图集容量的硬上限
 
 浏览器纹理单边上限 4096px，且运行时**只接受一张主图集**：
