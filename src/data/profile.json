@@ -9,10 +9,10 @@
     "indexLabel": "SIDE INDEX"
   },
   "cards": [
-    { "no": "01", "title": "基本信息", "theta": -46, "href": "#basic" },
-    { "no": "02", "title": "教育背景", "theta": -22, "href": "#education" },
-    { "no": "03", "title": "专业技能", "theta": 22, "href": "#skills" },
-    { "no": "04", "title": "项目经历", "theta": 46, "href": "#projects" }
+    { "no": "01", "title": "基本信息", "theta": -46, "href": "#basic", "lookFrame": 4 },
+    { "no": "02", "title": "教育背景", "theta": -22, "href": "#education", "lookFrame": 14 },
+    { "no": "03", "title": "专业技能", "theta": 22, "href": "#skills", "lookFrame": 19 },
+    { "no": "04", "title": "项目经历", "theta": 46, "href": "#projects", "lookFrame": 30 }
   ],
   "infoBar": [
     { "label": "编号", "value": "NO.001" },

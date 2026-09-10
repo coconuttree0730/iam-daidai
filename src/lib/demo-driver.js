@@ -168,6 +168,7 @@ for (const view of views) {
     view,
     target,
     animator,
+    frameCount, // 供触摸定格帧换算 progress：frame / (frameCount - 1)
     insets: readInsets(view.dataset.personInset),
     warp: parseFrameWarp(view.dataset.frameWarp, frameCount),
     personRect: null, // 本舞台自己的死区矩形
@@ -213,19 +214,28 @@ const measure = () => {
   }
 };
 
-/* 逐舞台推进帧序号。舞台自己的矩形还没量到（display:none 等）时保持第 0 帧。 */
+/* 逐舞台推进帧序号。舞台自己的矩形还没量到（display:none 等）时保持第 0 帧。
+   触摸定格帧（pinnedFrame）优先于角度映射：移动端点卡片时人物直接转向
+   该卡指定的姿态帧，缓动与切图仍走同一个 animator/renderer（雪碧图定位），
+   不经过 warp 重定时——卡片配比就是素材里的真实帧号。 */
+let pinnedFrame = null;
+
 function applyProgress() {
   for (const m of mounted) {
-    const p =
-      pointer.active && m.personRect
-        ? progressFromPointer({
-            x: pointer.x,
-            y: pointer.y,
-            rect: m.personRect,
-            spans: m.spans,
-            warp: m.warp,
-          })
-        : 0;
+    let p;
+    if (pinnedFrame != null && m.frameCount > 1) {
+      p = clamp01(pinnedFrame / (m.frameCount - 1));
+    } else if (pointer.active && m.personRect) {
+      p = progressFromPointer({
+        x: pointer.x,
+        y: pointer.y,
+        rect: m.personRect,
+        spans: m.spans,
+        warp: m.warp,
+      });
+    } else {
+      p = 0;
+    }
     m.animator.setProgress(p);
     if (m === anchor) state.progress = p;
   }
@@ -249,7 +259,21 @@ if (anchor) {
 /* 指针作用域是整个文档，不是舞台盒子。
    人物矩形的方向角才是坐标系，舞台只决定视差的比例基准——
    指针在视口四角（舞台之外或被卡片压住的区域）时仍然应该跟随。 */
+/* 触摸/笔点到带 data-look-frame 的卡片 → 定格到该帧；点到其他位置 →
+   解除定格，回到方向角映射（"触摸哪里看哪里"）。鼠标一律不参与定格——
+   桌面的悬停跟随手感是调好的，不因点击卡片而改变（2026-09-11 用户指定）。 */
+const lookFrameFrom = (event) => {
+  const el =
+    event.target instanceof Element ? event.target.closest('[data-look-frame]') : null;
+  if (!el) return null;
+  const frame = Number.parseInt(el.getAttribute('data-look-frame') ?? '', 10);
+  return Number.isFinite(frame) && frame >= 0 ? frame : null;
+};
+
 const handlePointer = (event) => {
+  if (event.type === 'pointerdown' && event.pointerType !== 'mouse') {
+    pinnedFrame = lookFrameFrom(event);
+  }
   pointer.x = event.clientX;
   pointer.y = event.clientY;
   pointer.active = true;

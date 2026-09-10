@@ -5,6 +5,8 @@
 // 组件本身不计算坐标——加一张卡片只要往 profile.json 的 cards 里加一条。
 //
 // data-depth 供视差脚本读取：扇形外沿的卡片看起来更近，位移给得更多。
+// data-look-frame 供触摸脚本读取：移动端点到这张卡时，人物定格到图集的这一帧
+// （0 起、相对 frameCount；走的是雪碧图 background-position 切图，不是单帧图片）。
 interface Props {
   /** 编号，如 "01" */
   no: string;
@@ -16,15 +18,18 @@ interface Props {
   href: string;
   /** 视差景深系数，由父级按 |theta| 归一化后传入 */
   depth: number;
+  /** 触摸本卡时人物定格到的图集帧号（0 起） */
+  lookFrame: number;
 }
 
-const { no, title, theta, href, depth } = Astro.props;
+const { no, title, theta, href, depth, lookFrame } = Astro.props;
 ---
 
 <a
   class="card"
   href={href}
   data-depth={depth}
+  data-look-frame={lookFrame}
   style={`--theta: ${theta}deg`}
   aria-label={`${no} ${title}`}
 >
