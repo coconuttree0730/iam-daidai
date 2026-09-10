@@ -232,12 +232,21 @@ let pinnedFrame = null;
  * 跳转前把帧号写进 sessionStorage，从板块页返回首页时若期间没有触其他位置，
  * 人物初始就定格回该卡姿态。触其他任何位置 = 取消未决跳转 + 回首帧 + 清存储
  * （原有语义不变，只是顺带清状态）。鼠标与键盘激活（Enter）完全不走这条路。
- * 延时 500ms ≈ 人物从 0 帧缓动到 30 帧的时长（animator smoothTime 0.11 /
- * maxSpeed 92 帧/s 实测 0→45 帧 ~0.49s），姿态基本转到位再进卡片。 */
-const NAV_DELAY = 500;
+ * 延时按行程自适应：定格帧离正面越远，转身要的时间越长。
+ *   延时 ≈ |frame| ÷ (frameCount×2 帧/s) + 140ms 余量
+ * （maxSpeed 与 motion.js 的 createFrameAnimator 同式 = frameCount×2）。
+ * 实测换算：f4→~185ms、f14→~290ms、f19→~350ms、f30→~465ms——
+ * 近卡跟手，远卡姿态转完再进（用户 2026-09-11 反馈 0.5s 一刀切偏久）。 */
+const NAV_DELAY_MARGIN = 140;
 const PIN_KEY = 'daidai:pinned-frame';
 let lastPointerType = ''; // click 事件拿不到可靠的 pointerType，用最近一次 pointerdown 的
 let pendingNav = null; // { href, timer }
+
+const navDelayFor = (frame) => {
+  const count = anchor?.frameCount ?? 0;
+  if (count < 2) return 350;
+  return Math.round((frame / (count * 2)) * 1000) + NAV_DELAY_MARGIN;
+};
 
 const cancelPendingNav = () => {
   if (pendingNav) {
@@ -373,7 +382,7 @@ window.addEventListener('click', (event) => {
     timer: setTimeout(() => {
       pendingNav = null;
       window.location.href = href;
-    }, NAV_DELAY),
+    }, navDelayFor(pinnedFrame ?? 0)),
   };
 });
 
