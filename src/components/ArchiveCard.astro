@@ -1,0 +1,40 @@
+---
+// 档案卡片：扇形里的一张。
+//
+// 位置与旋转完全由 CSS 从 --theta 和 --fan-r 推导（见 hero.css 的 .card），
+// 组件本身不计算坐标——加一张卡片只要往 profile.json 的 cards 里加一条。
+//
+// data-depth 供视差脚本读取：扇形外沿的卡片看起来更近，位移给得更多。
+interface Props {
+  /** 编号，如 "01" */
+  no: string;
+  /** 中文标题 */
+  title: string;
+  /** 径向角（度）。同时决定卡片在扇形上的位置与卡片自身的旋转角 */
+  theta: number;
+  /** 点击目标（导航入口） */
+  href: string;
+  /** 视差景深系数，由父级按 |theta| 归一化后传入 */
+  depth: number;
+}
+
+const { no, title, theta, href, depth } = Astro.props;
+---
+
+<a
+  class="card"
+  href={href}
+  data-depth={depth}
+  style={`--theta: ${theta}deg`}
+  aria-label={`${no} ${title}`}
+>
+  <span class="card-top">
+    <span class="card-no">{no}</span>
+    <span class="card-dots" aria-hidden="true"></span>
+  </span>
+  <span class="card-title">{title}</span>
+  <span class="card-bottom">
+    <span class="card-dash" aria-hidden="true"></span>
+    <span class="barcode" aria-hidden="true"></span>
+  </span>
+</a>

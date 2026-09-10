@@ -1,0 +1,846 @@
+/* 首页 hero 版式
+ *
+ * 参考图：1920×1080（16:9）。下文「实测」均按 1080×608 的目视坐标换算，
+ * 并在注释里给出占位比例，方便对照调参。
+ *
+ * 版式的骨架是一条公式，不是四个硬编码坐标：
+ *   卡片中心 = 轴心 + R·(sin θ, −cos θ)，且卡片旋转角 = θ
+ * 用 CSS 表达就是 .card 的 transform 里 rotate(θ) 之后再来一发 translateY(−R)。
+ * 改半径、改角度、加卡片都只动变量，不动位置代码。
+ *
+ * 注意：本项目 global.css 里已有一个 .sprite 类（旧 demo 的人物层），
+ * 这里刻意避开该名字，改用 .hero-figure，两个文件互不干扰。
+ */
+
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/anton.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Archivo Black";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/archivo-black.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Great Vibes";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/great-vibes.woff2") format("woff2");
+}
+
+.stage {
+  /* ── 版式旋钮：本文件所有可调参数都在这里 ───────────────────────── */
+  --paper: #eeedeb;
+  --card: #fdfdfc;
+  --ink: #131211;
+  --red: #cf0a1a;          /* 实测中位 #ba040d（JPEG 压暗），按观感上调 */
+  --ghost: #c3c1be;        /* 描边大字的描边色，实测 luma 189 / 背景 237 */
+  --hair: rgba(19, 18, 17, 0.16);
+
+  /* 扇形轴心：2026-09-10 从 101%（≈底边中点）抬到 90%。
+   *
+   * 为什么抬：轴心在 101% 时，四张卡到「头部中心」的距离是内圈 284px /
+   * 外圈 566px，比值 1.99；外圈卡片极角已经到 −106°，翻过水平线落到了
+   * 头心下方——弧线抱的是下巴与肩膀，不是头。实测外圈卡片 AABB 底边
+   * 699px 越过 .title-en 顶边 680px，连通域分析里卡 01 与「PERSONAL」、
+   * 卡 04 与「ARCHIVE」的字母直接粘连。
+   *
+   * 抬到 90% 后（1920×1080 实测）：
+   *   内圈中心 y 390 → 262，外圈 566 → 440（整组上移 ~127px）
+   *   距头心 322 / 552，比值 1.71（外圈不再翻过水平线，极角 −93°）
+   *   外圈底边 573，离标题带 107px
+   * 横向位置只由 R·sinθ 决定，抬轴心不改 R，所以左右留白不变。
+   *
+   * 但 90% 不是恒等于安全：又窄又高的视口（1024×1366）里 design-h 被宽度项
+   * 压到 533，扇形随之变小，轴心却仍钉在 90% 屏高 → 外圈卡底 953px 越过
+   * `.title-en` 带顶 914px。所以写成"取 90% 与安全上界的较小值"：
+   *   外圈卡底 = pivot − 0.695·D + 0.1757·D   （D = design-h，0.1757 是
+   *     卡片旋转 46° 后的垂直半高系数 (1.64·cos46 + sin46)/2·0.189·... 见推导）
+   *   标题带顶 = 0.735·H − 0.8·--solid-size   （.title-en 的 bottom 是 26.5%，
+   *     行高 0.8）
+   *   要求二者净空 ≥ 28px → pivot ≤ 0.735H − 0.8·solid-size − 28px + 0.5193·D
+   * 在 1920×1080 / 1440×900 / 2560×1440 上该上界分别是 96.4% / 95.8% / 91.9%，
+   * 都大于 90%，所以宽屏行为与固定 90% 完全一致；只有窄高比例才会被下压。
+   */
+  --fan-pivot-y: min(
+    90%,
+    calc(73.5% - 0.8 * var(--solid-size) - 28px + 0.5193 * var(--design-h))
+  );
+
+  /* ── 人物与扇形的共同尺度 ────────────────────────────────────────
+   *
+   * 立绘是位图，清晰度由「显示高度 ÷ 图集单格高度」决定。单格原始高 602px
+   * （源素材是 1280×720 视频，602 已贴近可提取上限，加分辨率这条路走不通），
+   * 原值 85vh 在 1920×1071 下解析为 910px → 1.51× 放大，肉眼可见发虚。
+   * 收到 70vh / 上限 790px：1920×1071 → 750px（1.25×）；790px 这个天花板
+   * 同时保证 2K/4K 屏上的倍率不再爬升（790 / 602 ≈ 1.31×）。
+   *
+   * 扇形半径必须与人物同源。两者共用一个 --design-h 后，
+   * 「内圈卡片中心落在头顶下方 0.01H + 0.049·--design-h」与尺度无关——
+   * 人物缩小时头部仍嵌在内圈两卡之间，构图不会散。
+   * 若只改 --figure-h 而不改 --fan-r，头部会跌到卡片带下方，
+   * 版式从"卡片绕着头部"变成"卡片在天上"，这是本文件最容易踩的坑。
+   */
+  /* 共同尺度同时受"横向不能把外圈卡推出屏"约束。
+   *
+   * 要求 R = --design-h（人物与扇形同尺度），而 --fan-r 的横向上限是
+   *   R ≤ (50vw − 32px)/sin46° − --card-h · 1.335,  --card-h = 0.189·design-h
+   * 代进去解 design-h：
+   *   design-h ≤ (50vw − 32px) / (0.719 × (1 + 0.189 × 1.335))
+   *            = (50vw − 32px) / 0.9004
+   * 不写这一项时，901–1200 这一段半径会被横向上限截住（R/design-h 掉到 0.79）
+   * 而卡片仍按 design-h 缩放，卡片相对半径变大，于是彼此压叠并压住英文标题：
+   * 实测 901×800 → 01×02、03×04 互压，01 压 PERSONAL、04 压 ARCHIVE。
+   * 写进去之后这一段随宽度平滑缩档，R 恒等于 design-h，不再有断点。
+   * 只在 < 1200 生效（1200 时该项解出 630，正好等于 70vh 档）。
+   */
+  --design-h: min(70vh, 790px, calc((50vw - 32px) / 0.9004));
+
+  /* 半径的横向上限按卡片实际占位反解,而不是拍一个 vw 系数:
+     外侧卡片中心距中轴 = R·sin θmax,再加卡片旋转后的横向半宽
+     (≈ 0.96·--card-h) 与安全边,必须落在半屏之内。
+     反解得 R ≤ (50vw − 安全边) / sin46° − --card-h · 0.96/sin46°。
+     sin46° = 0.719; 用 ±46° 是因为 2026-09-10 内圈从 ±18° 推到 ±22°,
+     外圈同步推到 ±46°。其中 32px 同时覆盖"左右各 6px 边距"。 */
+  --fan-r: min(var(--design-h), calc((50vw - 32px) / 0.719 - var(--card-h) * 1.335));
+
+  /* 卡片高度同样锚在 --design-h 上：参考图里 card-h / 人物高 = 172/910 ≈ 0.189。
+     不与人物同尺度会直接破坏构图——内圈两卡之间的空档 ≈ 0.618·R − 1.64·card-h，
+     而头部宽度 ≈ 0.2·人物高；card-h 不缩，空档就会窄于头宽。
+     实测 1101×900：card-h 固定 172 时空档只有 107px、头宽约 126px，
+     头把「专业技能」吃掉一半；跟随 0.189 后空档 194px。
+     用比例而不是 clamp(vh)：构图在任意视口都是同一张图按比例缩放，
+     不会在某个宽度档位突然失衡。 */
+  --card-h: calc(var(--design-h) * 0.189);
+  --card-ratio: 1.64;                   /* 实测卡片 200 × 122 */
+
+  /* 立绘单格高度 = 共同尺度本身。人物 ink 占单格 97.3% 且底边贴舞台底，
+     因此头顶落在 1 − 0.973·--design-h/H 处，随尺度自动重算，不写死比例。 */
+  --figure-h: var(--design-h);
+
+  --ghost-size: clamp(120px, 15vw, 430px);
+  --ghost-stretch: 1.35;                /* 参考图描边字比 Anton 更窄更高 */
+  /* 2026-09-10 用户要求"桌面镂空字母上移 30px"。
+     写成 calc(% − px) 而不是把 36% 调小：百分比随舞台高变化，
+     同一个 36% 在 1080 高上是 389px、在 720 高上只有 259px，
+     调百分比会让"上移量"在不同屏幕上差出一倍。px 项是恒定位移量。 */
+  --ghost-top: calc(36% - 30px);
+
+  --solid-size: min(clamp(46px, 12vh, 132px), 8.15vw);
+  /*                          ↑ 8.15vw 是"两词必须放得下"反解出来的：
+     .title-en 是 space-between 的两词，容器宽 = 100vw·(1 − 3.4% − 6.8%) = 89.8%，
+     Archivo Black 两词共 11.01em（PERSONAL 8 字 × 0.751 + ARCHIVE 7 字 × 0.715）。
+     11.01em ≤ 0.898·100vw → em ≤ 8.15vw。
+     只写 12vh 时 901×800 的字号是 96px，两词 1057px > 容器 809px →
+     空间不够，space-between 退化成"两词贴在一起"，右词边界 987.7px
+     越出视口 87px 被 overflow:hidden 裁掉。宽度项在 ≥1200 不生效
+     （1200 时 8.15vw = 97.8 > 12vh 的 96），所以宽屏行为不变。 */
+  --solid-baseline: 73.5%;                /* 实测基线 y 447/608 */
+  --solid-left: 3.4%;                     /* 实测 PERSONAL 左边界 x 37/1080 */
+  --solid-right: 6.8%;                    /* 实测 ARCHIVE 右边界 x 1007/1080 */
+  --zh-left: 1.85%;
+  --zh-bottom: 11.4%;                     /* 实测「个人档案馆」底边 y 539/608 */
+
+  --bar-h: max(42px, 6.6%);               /* 实测黑条 40/608 = 6.6% 舞台高 */
+  --ui: clamp(6.5px, 0.85vw, 13px);       /* 装饰角标的统一尺度单位 */
+
+  --font-cjk: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
+    "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  position: relative;
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--paper);
+  font-family: var(--font-cjk);
+  color: var(--ink);
+}
+
+/* ── L1 背景：纸感底色 + 顶部一点提亮 ───────────────────────────── */
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(130% 86% at 50% 4%, #ffffff 0%, rgba(255, 255, 255, 0) 58%);
+}
+
+/* ── L2 描边大字：空心、超宽、两端出血 ─────────────────────────── */
+.ghost {
+  position: absolute;
+  left: 50%;
+  top: var(--ghost-top);
+  z-index: 1;
+  transform: translateX(-50%) scaleY(var(--ghost-stretch));
+  transform-origin: top center;
+  font-family: "Anton", "Archivo Black", Impact, sans-serif;
+  font-size: var(--ghost-size);
+  line-height: 0.82;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1.4px var(--ghost);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ── L3 实心大字：与大写字母同基线，中间留出人物位 ──────────────── */
+.title {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.title-en {
+  position: absolute;
+  left: var(--solid-left);
+  right: var(--solid-right);
+  bottom: calc(100% - var(--solid-baseline));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4%;
+  font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+  font-size: var(--solid-size);
+  line-height: 0.8;
+  letter-spacing: -0.005em;
+}
+.title-en em { font-style: normal; }
+.title-en .w-left { color: var(--red); }
+.title-en .w-right { color: var(--ink); }
+
+.title-zh {
+  position: absolute;
+  left: var(--zh-left);
+  bottom: var(--zh-bottom);
+  font-family: var(--font-cjk);
+  font-weight: 900;
+  font-size: calc(var(--solid-size) * 1.06);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* ── L4 人物：实心大字与卡片之上 ──────────────────────────────────
+ *
+ * 层序契约（数值即 z-index 声明顺序，改版式时不要交叉）：
+ *   1 描边大字 · 2 实心大字 · 3 卡片容器(.fan) · 5 人物 · 6 装饰角标 · 7 信息条
+ *   例外：≤640px 时 .fan 提到 7（卡片压人物），见文件末尾手机档注释。
+ *
+ * 人物在卡片之上是明确要求：头若被卡片边缘横切会断层，
+ * 代价是头顶会压住内圈卡片（02/03）的内下角，以及卡片 hover 抬起时
+ * 会滑到人物身后——这两条是有意接受的，不要"顺手修回去"。
+ */
+.hero-person {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 5;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.hero-figure {
+  display: block;
+  height: var(--figure-h);
+  aspect-ratio: 482 / 602;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 800% 600%;
+  will-change: background-position;
+}
+
+/* ── L3 卡片：共半径扇形（桌面层序在人物之下，见 L4 注释；
+       ≤640px 改为单行横排 + 层序在人物之上，见文件末尾手机档） ──── */
+.fan {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.card {
+  position: absolute;
+  left: 50%;
+  top: var(--fan-pivot-y);
+  width: calc(var(--card-h) * var(--card-ratio));
+  height: var(--card-h);
+  /* 卡内所有尺寸以 em 表达，随 --card-h 整体缩放 */
+  font-size: calc(var(--card-h) * 0.164);
+
+  transform-origin: 50% 50%;
+  /* 读序：最右的先作用。
+     translate(-50%,-50%) → 把元素盒中心对到轴心上；
+     rotate(var(--theta)) → 转到径向角。**只管定位**；
+     translateY(-R + --py-lift) → 沿旋转后的自身 Y 轴推到半径上
+       （hover 时 --py-lift 让卡沿径向稍稍收向轴心，见 .card:hover）；
+     rotate(var(--tilt)) → 卡面自身相对径向的姿态，默认 0（顺着半径），
+       hover 时设成 −θ 即回正成水平；
+     scale(--scale) → 绕自身中心缩放。
+
+     **rotate(θ) 与 rotate(--tilt) 必须分开、且 tilt 必须在 translateY 之后。**
+     合写成 rotate(calc(θ + tilt)) 时 θ 会同时当定位角用：hover 把 --tilt 设成
+     −θ 等于把定位角也归零，卡片会沿半径 R 的圆环甩到"正上方"。
+     实测 1920×1080：悬停卡 01/04 中心位移 598.8px、卡 02/03 位移 293px，
+     恰等于 R·(|sinθ|, 1−cosθ|)（R=766，θ=46°/22°）——这就是用户报的
+     「四张卡片会乱跳」。拆开后悬停位移降到 --py-lift 量级（≈20px）。
+
+     另外注意：2026-09-10 起已删除 translate(var(--px), var(--py)) 一段。
+     parallax.js 仍在写 --px/--py，但不再被消费，鼠标移动卡片完全不动。 */
+  transform:
+    translate(-50%, -50%)
+    rotate(var(--theta))
+    translateY(calc(-1 * var(--fan-r) + var(--py-lift, 0px)))
+    rotate(var(--tilt, 0deg))
+    scale(var(--scale, 1));
+
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 0.8em 0.95em;
+  border: 0.1em solid var(--ink);
+  border-radius: 0.62em;
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: 0 0.5em 1.2em rgba(19, 18, 17, 0.07);
+  pointer-events: auto;
+  will-change: transform;
+  transition:
+    transform 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.34s ease,
+    border-color 0.34s ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  /* 只回正卡面姿态，不改变径向位置——位置由前面那发 rotate(var(--theta))
+     独占（见 .card 的 transform 注释）。 */
+  --tilt: calc(var(--theta) * -1);
+  --scale: 1.07;
+  --py-lift: calc(var(--card-h) * -0.14);
+  box-shadow: 0 1.1em 2.2em rgba(19, 18, 17, 0.18);
+}
+
+.card:focus-visible {
+  outline: 0.16em solid rgba(207, 10, 26, 0.5);
+  outline-offset: 0.18em;
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.card-no {
+  font-family: "Archivo Black", var(--font-cjk);
+  font-weight: 400;
+  font-size: 1em;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--red);
+}
+
+.card-dots {
+  flex: none;
+  width: 1.05em;
+  height: 0.7em;
+  background-image: radial-gradient(circle, var(--ink) 0.075em, transparent 0.08em);
+  background-size: 0.35em 0.35em;
+}
+
+.card-title {
+  align-self: center;
+  font-family: var(--font-cjk);
+  font-weight: 900;
+  /* 4 字标题要占满卡内宽度但不可溢出（窄屏 --card-h 最小 60px 时余量最紧） */
+  font-size: 1.9em;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.card-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.card-dash {
+  flex: none;
+  width: 1.1em;
+  height: 0.19em;
+  background: var(--red);
+}
+
+/* 条码：用重复线性渐变拼出不规则竖条，卡片与角标共用 */
+.barcode {
+  flex: none;
+  height: 0.46em;
+  width: 1.5em;
+  opacity: 0.9;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 0.07em,
+    transparent 0.07em 0.12em,
+    var(--ink) 0.12em 0.2em,
+    transparent 0.2em 0.24em,
+    var(--ink) 0.24em 0.28em,
+    transparent 0.28em 0.35em
+  );
+}
+
+/* ── L6 装饰角标 ───────────────────────────────────────────────── */
+.chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  user-select: none;
+}
+.chrome > * { position: absolute; }
+
+/* 左上：黑实心块 + 三条红斜杠 */
+.mark-tl {
+  top: 5.4%;
+  left: 2.8%;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ui) * 0.9);
+}
+.mark-tl .blk {
+  width: calc(var(--ui) * 3.7);
+  height: calc(var(--ui) * 1.2);
+  background: var(--ink);
+}
+.mark-tl .slashes {
+  display: flex;
+  gap: calc(var(--ui) * 0.3);
+}
+.mark-tl .slashes i {
+  width: calc(var(--ui) * 1);
+  height: calc(var(--ui) * 1.55);
+  background: var(--red);
+  transform: skewX(-17deg);
+}
+
+/* 右上：刻度点线 + 红色空心圈 */
+.mark-tr {
+  top: 5.4%;
+  right: 3.2%;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ui) * 1.2);
+}
+.mark-tr .ticks {
+  width: calc(var(--ui) * 8);
+  height: calc(var(--ui) * 1.1);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 calc(var(--ui) * 0.22),
+    transparent calc(var(--ui) * 0.22) calc(var(--ui) * 1.15)
+  );
+}
+.mark-tr .ring {
+  width: calc(var(--ui) * 1.5);
+  height: calc(var(--ui) * 1.5);
+  border: calc(var(--ui) * 0.22) solid var(--red);
+  border-radius: 50%;
+}
+
+/* 左侧中部：点阵 + 红短横 + 等宽小字 + 刻度 */
+.side-index {
+  left: 2.6%;
+  top: 31%;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ui) * 0.6);
+}
+.side-index .matrix {
+  width: calc(var(--ui) * 7.4);
+  height: calc(var(--ui) * 4.6);
+  background-image: radial-gradient(
+    circle,
+    rgba(19, 18, 17, 0.5) calc(var(--ui) * 0.14),
+    transparent calc(var(--ui) * 0.16)
+  );
+  background-size: calc(var(--ui) * 1.15) calc(var(--ui) * 1.15);
+}
+.side-index .row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ui) * 0.55);
+}
+.side-index .dash {
+  width: calc(var(--ui) * 3.2);
+  height: calc(var(--ui) * 0.34);
+  background: var(--red);
+}
+.side-index small {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: #8d8a86;
+}
+.side-index .ruler {
+  width: calc(var(--ui) * 11);
+  height: calc(var(--ui) * 1.1);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 calc(var(--ui) * 0.16),
+    transparent calc(var(--ui) * 0.16) calc(var(--ui) * 0.85)
+  );
+}
+
+/* 右下：手写体 + 细引线 + 红黑斜杠组 + 条码 */
+.mark-br {
+  right: 3.2%;
+  bottom: calc(var(--bar-h) + 2.4%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(var(--ui) * 1.1);
+}
+.mark-br .script {
+  font-family: "Great Vibes", cursive;
+  /* 实测手写体 ≈ 43/608 = 7% 舞台高，换算字号约 7vh */
+  font-size: clamp(20px, 7vh, 68px);
+  line-height: 0.9;
+  color: var(--red);
+}
+.mark-br .underline {
+  width: calc(var(--ui) * 13);
+  height: calc(var(--ui) * 0.24);
+  background: var(--red);
+  opacity: 0.9;
+}
+.mark-br .row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ui) * 1.1);
+}
+.mark-br .lead {
+  width: calc(var(--ui) * 12);
+  height: calc(var(--ui) * 0.14);
+  background: var(--ink);
+  opacity: 0.45;
+}
+.mark-br .slashset {
+  display: flex;
+  gap: calc(var(--ui) * 0.22);
+}
+.mark-br .slashset i {
+  width: calc(var(--ui) * 1.5);
+  height: calc(var(--ui) * 0.95);
+  transform: skewX(-17deg);
+  background: var(--ink);
+}
+.mark-br .slashset i:nth-child(-n + 2) { background: var(--red); }
+.mark-br .barcode {
+  width: calc(var(--ui) * 11);
+  height: calc(var(--ui) * 1.5);
+}
+
+/* 左下：红短横 + 刻度（与「个人档案馆」同一条视觉基线） */
+.mark-bl {
+  left: var(--zh-left);
+  bottom: calc(var(--bar-h) + 1.6%);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ui) * 1.2);
+}
+.mark-bl .dash {
+  width: calc(var(--ui) * 1.6);
+  height: calc(var(--ui) * 0.34);
+  background: var(--red);
+}
+.mark-bl .ruler {
+  width: calc(var(--ui) * 17);
+  height: calc(var(--ui) * 1.1);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(19, 18, 17, 0.5) 0 calc(var(--ui) * 0.16),
+    transparent calc(var(--ui) * 0.16) calc(var(--ui) * 0.9)
+  );
+}
+
+/* ── L7 底部信息条 ─────────────────────────────────────────────── */
+.infobar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  height: var(--bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 2.2vw, 42px);
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-cjk);
+  font-weight: 900;
+  /* 实测条内文字 ≈ 5.2% 舞台高 */
+  font-size: clamp(15px, 5.2vh, 44px);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.infobar .sep {
+  flex: none;
+  width: 2px;
+  height: 1.05em;
+  background: var(--red);
+}
+/* 占位态：未填真实数据时用弱化的字重，避免看起来像已完成 */
+.infobar .item[data-placeholder] {
+  color: rgba(255, 255, 255, 0.52);
+  font-weight: 500;
+}
+
+/* ── 无障碍 ────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+}
+
+/* ── 分档降级 ───────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .stage {
+    /* 卡片高度不再单独降档：--card-h 是 --design-h 的比例函数，
+       这里只要不动 --design-h，卡片就自动跟着文字档一起缩。 */
+    --ghost-size: clamp(104px, 16vw, 320px);
+    /* 同基础档：必须带上 8.15vw 的宽度项，否则 901–1100 这一段
+       两词仍会溢出容器（1101×900 实测两词需 1189px、容器只有 989px）。 */
+    --solid-size: min(clamp(40px, 10.5vh, 112px), 8.15vw);
+  }
+}
+
+@media (max-width: 900px) {
+  .stage {
+    /* 只改共同尺度：--figure-h 与 --fan-r 都是它的函数（见基础档定义），
+       一改全改，不会出现"人物缩了但卡片没缩"的失衡。
+       宽度项与基础档同理（见 --design-h 注释）：640–900 这一段 50vw 很小，
+       不夹住设计高就会有 R < design-h，卡片相对半径变大而互相压叠。 */
+    --design-h: min(62vh, 540px, calc((50vw - 32px) / 0.9004));
+    /* 竖屏平板是"高但不够宽"的极端比例：半径被横向约束锁死后扇形整体下沉。
+       85% 是"卡片下缘刚好落到头顶附近"解出来的（D=391 @768×1024 时外圈卡底
+       673px、头顶 643px），再低就会压住英文标题，再高卡片就离头太远。
+       实测 95%（旧值）时 768×1024 外圈卡底 816px、标题带顶 685px——
+       卡片整片盖在「PERSONAL」「ARCHIVE」上。 */
+    --fan-pivot-y: min(
+      85%,
+      calc(75% - 0.8 * var(--solid-size) - 28px + 0.5193 * var(--design-h))
+    );
+    --ghost-top: 28%;
+    --ghost-size: clamp(88px, 17vw, 230px);
+    /* 标题必须跟着共同尺度一起缩：这一段 design-h 会被宽度项压到 320–490，
+       固定 9vh（≈81px @900h）会让标题比人物还抢眼。
+       0.155 来自原 9vh/58vh 的比例，上下限沿用旧值；
+       8.35vw 是同基础档的"两词放得下"上界（本档左右各 4% → 容器 92%）。 */
+    --solid-size: min(clamp(34px, calc(var(--design-h) * 0.155), 84px), 8.35vw);
+    --solid-left: 4%;
+    --solid-right: 4%;
+    /* 73.5% 在这个档位会把标题带顶推到卡片下缘之上（641×900 只剩 −7px 余量）。
+       75% 下移 1.5% 屏高，实测最紧的 641×900 也有 6.6px 净空。 */
+    --solid-baseline: 75%;
+    --zh-bottom: 8%;
+    --bar-h: max(38px, 7.5%);
+  }
+  .side-index { display: none; }
+  /* 手写体缩小，避免与外侧卡片的下缘叠在一起 */
+  .mark-br .script { font-size: clamp(18px, 5vh, 44px); }
+}
+
+/* ── 手机（≤640px）────────────────────────────────────────────────
+ *
+ * 2026-09-10 起改为「卡片行贴 viewport 顶部」布局。保留扇形公式推导
+ * （仍写在基础档），只是 ≤640 不消费它；手机档用单行横排 + 槽位平移。
+ *
+ * 垂直节奏预算（360×680 实测，卡宽 73 / 卡高 44.5）：
+ *   卡片行  top 62 → 底 106.5      （22 → 42 → 62，用户两次各要下移 20px）
+ *   空档    68.7px
+ *   描边大字 top 155.2（14% + 60px）→ 底 289.8
+ *   人物头顶 258                   → 描边字底已进到头部，镂空字衬在头部之后
+ * 两个偏移都是用户 2026-09-10 指定的绝对位移（卡片 +20px ×2、描边字 +40/+20px），
+ * 都用 calc(% ± px) 写：百分比项保持稿面比例，px 项保证位移量在任何屏高下不变。
+ * 早前 --ghost-top 是 22%（= 149.6px），卡片行底 66.5 与描边字之间空 83px
+ * （占屏高 12%），hero 上半截读起来是"一排卡 + 一段空白 + 半截字"，节奏断开。
+ *
+ * 横向预算（英文标题）：.title-en 是 space-between，可用宽 = 100vw − 左右
+ * 各 5%。Archivo Black 实测每字符 ≈ 0.751em（大写）/ 0.715em（含
+ * letter-spacing −0.005em），两词 15 字符 = 11.01em。
+ *   11.01em ≤ 0.90 × 100vw  →  em ≤ 8.17vw
+ * 取 7.9vw 留余量。旧值 clamp(24px, 6.4vh, 44px) 在 360×680 下是 43.5px，
+ * 总宽 479px > 视口 360 → 实测 .w-right 右边界 510px，被 overflow:hidden
+ * 裁掉，屏幕上只剩"ARCH"，这是移动端"标题缺字"的真因（不是人物遮挡）。
+ */
+@media (max-width: 640px) {
+  .stage {
+    /* 横向预算 = 4 张卡 + 3 个间隙 + 左右各一份 --edge。
+       --edge 除了视觉安全边，还必须算上外侧卡旋转后角落的外扩量
+       (--card-w/2)(1−cos8°) + (--card-h/2)sin8° ≈ 5px——
+       早期只留 12px，实测 501px 宽下卡 01/04 的角会越到 x=2.9px（安全边是 6px）。 */
+    --slot-gap: 10px;
+    --edge: 19px;
+    --card-w: calc((100vw - 3 * var(--slot-gap) - 2 * var(--edge)) / 4);
+    --slot: calc(var(--card-w) + var(--slot-gap));
+    /* 卡片行的顶部锚点。22px（紧贴状态栏下沿）→ 42px（2026-09-10 第一轮）
+       → 62px（同日第二轮，用户再要下移 20px）。
+       钉死成 px 而不是用 svh：顶部锚对状态栏高度不敏感，
+       换成 svh 会让"下移 20px"在不同浏览器 chrome 高度下缩水。 */
+    --card-top: 62px;
+    /* 行高 + 顶部留出锚点位的合计高度——供 ghost / solid / figure 等
+       向下偏移时共用。card-h 由 --card-w 反解。 */
+    --card-row-h: calc(var(--card-top) + var(--card-h));
+
+    --card-h: calc(var(--card-w) / var(--card-ratio));
+    /* 人物从底部锚定，高度与桌面保持物理尺寸；这里只影响 z-index 安排。 */
+    --figure-h: min(62vh, 440px);
+    --figure-pad: calc(var(--figure-h) * 0.0272);
+
+    /* 2026-09-10 用户要求"移动端镂空字母下移 40px"（+40px），同日再过一轮 +20px。
+       与桌面同理写成 calc(% + px) —— 14% 是稿面基准，px 项是恒定位移量。
+       累计 +60px 后描边字下沿进入头部，镂空字衬在头部之后（桌面同款语感）。 */
+    --ghost-top: calc(14% + 60px);
+    --ghost-size: 38vw;
+    --ghost-stretch: 1.2;
+    /* 按"两词 11.01em 必须放进 0.90×100vw"反解，见文件头横向预算。 */
+    --solid-size: clamp(18px, 7.9vw, 44px);
+    /* 舞台高的 CSS 表达式（.stage 本体 = height:100svh + min-height:620px）。
+       只在 ≤640 档定义：下面拆两词定位时，`top` 的百分比基准是
+       `.title-en` 的盒高（= 0.8·S，太小），拿不到舞台高，必须显式给出。 */
+    --stage-h: max(620px, 100svh);
+    /* 2026-09-10 深夜修正：上一轮把整个 .title-en（含 ARCHIVE）一起下移了，
+       用户指出「只要红色 PERSONAL 下移，ARCHIVE 保留原位」。
+       所以 --solid-baseline 恢复原值 68%（= ARCHIVE 所在行），红色 PERSONAL
+       的下移改由 .w-left 单独承担（见 --solid-drop 与 .w-left 规则）。 */
+    --solid-baseline: 68%;
+    --solid-left: 5%;
+    --solid-right: 5%;
+    /* 红色 PERSONAL 相对 .title-en 基线的下移量，让它单独落到人物胸部。
+       推导（全部是实测系数，别凭感觉改）：
+         68% 基线下 红词盒顶 y = 0.68·H − 7.718 − 0.8S
+             （H = 舞台高；7.718 = 0.68×42.88 − 21.44，42.88 与 21.44 是
+              `.title` 这个 h1 的 UA margin 0.67em×2em×16px 带来的偏移）
+         目标盒顶 = 胸部 y − 0.018S = H − 0.4684F − 0.018S
+             （胸部 = 单格 y=320 → (1−320/602)·figure-h；0.018S 是墨迹在
+              行盒内的上缩，让【墨迹顶】而不是盒顶落在胸部线上）
+         Δ = 0.32H − 0.4684F + 0.782S + 7.718
+       439×863 解得 Δ=104.9（与上一轮整行下移量一致）；320×568 解得 60.9，
+       640×900 解得 124.0，均满足「墨迹顶 = 胸部 y」逐 px 吻合。 */
+    --solid-drop: calc(
+      0.32 * var(--stage-h) - 0.4684 * var(--figure-h)
+      + 0.782 * var(--solid-size) + 7.72px
+    );
+    /* 中文标题锁在红词下方 5px（用户指定"上下间隔 5px"）。
+       推导：红词盒高 = 0.8·S（line-height .8），墨迹在盒内上缩 0.018·S、
+       下缩 0.061·S；中文字号 = 1.06·S、line-height 1，墨迹在盒内上缩 0.069·S。
+       故 墨迹间隔 = B_z − B_p − 0.930·S，令其 = 5 得 B_z = B_p + 0.930·S + 5。
+       写成 bottom 偏移即下式（21.44px 是 `.title` 这个 h1 的 UA 默认
+       margin：0.67em × 2em × 16px，它让 `.title` 高 = 舞台高 − 42.88、
+       整块下移 21.44；改 h1 字号或重置 margin 都必须重解这两个常数）。 */
+    --zh-bottom: calc(0.4684 * var(--figure-h) - 1.712 * var(--solid-size) - 26.44px);
+    --bar-h: max(38px, 7.5%);
+  }
+
+  /* 拆掉 .title 的层叠上下文，让各子层各自参与根层叠：
+       红色 PERSONAL 提到人物之上（z 6，与「个人档案馆」同层）——
+         用户 2026-09-10 指定「红色 personal 位于人物上层」；
+       黑色 ARCHIVE 留在人物之下（z 4）——"被人物切开"是这套版式的语感，
+         用户明确要求「archive 黑色字体保持不动，位于人物后」；
+       中文标题也在人物之上（z 6）——它是真标题，人物几乎占满整宽时
+       必须可读（360 宽下人物盒 337px，旧层序下「档案馆」三字全被吃掉）。
+
+     **`.title-en` 自己也必须是 `z-index: auto`**。它一旦带 z-index 就建立
+     层叠上下文，`.w-left` 的 z 只在容器内部比大小，永远爬不出人物那一层——
+     这正是"给 .w-left 设了 z-index 却看不出效果"的原因。
+     两个 <em> 是 `.title-en` 的 flex item：按 Flexbox 规范 z-index 对
+     static 的 flex item 同样生效，这里再显式给 `position: relative` 兜底
+     （不依赖单一引擎行为）。 */
+  .title { z-index: auto; }
+  .title-en { z-index: auto; }
+  /* 红词单独下移到胸部（--solid-drop 推导见 .stage 变量块）：
+     relative + top 只做视觉位移，不动 flex 布局——黑词 ARCHIVE
+     留在 68% 基线原位，被人物切开（z 4 在人物之下）。 */
+  .title-en .w-left { position: relative; z-index: 6; top: var(--solid-drop); }
+  .title-en .w-right { position: relative; z-index: 4; }
+  .title-zh { z-index: 6; }
+
+  /* 卡片层提到人物之上。7 与信息条同层，靠 DOM 顺序取胜
+     （HeroStage.astro 里 infobar 在 fan 之后），信息条仍压在最上。 */
+  .fan { z-index: 7; }
+
+  /* 单行横排：不再沿半径推出，改为沿 X 轴按槽位平移。
+     卡片行的顶边中点 = 100svh 顶部往下 --card-top 处，
+     旋转只让卡面绕顶边摆——四张卡的顶部严格对齐 hero 顶栏基线。 */
+  .card {
+    top: var(--card-top);
+    bottom: auto;
+    width: var(--card-w);
+    height: var(--card-h);
+    transform-origin: 50% 0%;
+    /* 窄屏不叠加视差：没有常驻指针，触摸拖动会把卡片推离顶部 22px 基准。
+       --px/--py 仍由脚本写入（harness 完整），只是这里不参与变换。 */
+    transform:
+      translate(calc(-50% + var(--slot-dx, 0px)), var(--py-lift, 0px))
+      rotate(calc(var(--theta) + var(--tilt, 0deg)))
+      scale(var(--scale, 1));
+  }
+
+  /* θ 由 profile.json 内联下发（style="--theta:-42deg"），内联声明优先级高于
+     类选择器，窄屏覆盖必须带 !important。顺序 1..4 与 profile.json 的 cards 绑定。
+     这里 θ 只负责卡面倾斜（不再兼作径向角），±8/±3 保留浅弧的语感。 */
+  .fan .card:nth-child(1) { --theta: -8deg !important; --slot-dx: calc(var(--slot) * -1.5); }
+  .fan .card:nth-child(2) { --theta: -3deg !important; --slot-dx: calc(var(--slot) * -0.5); }
+  .fan .card:nth-child(3) { --theta: 3deg !important; --slot-dx: calc(var(--slot) * 0.5); }
+  .fan .card:nth-child(4) { --theta: 8deg !important; --slot-dx: calc(var(--slot) * 1.5); }
+
+  .mark-tr,
+  .mark-bl,
+  .mark-br .lead { display: none; }
+
+  /* 横排四张互不遮挡，标题只需满足"4 字 × 字号 ≤ 卡宽 − 内边距 − 边框"。
+     最紧的是 320px：卡宽 66.5 → 内宽 52.6，12px 字号恰好放下 48px。
+     字号按视口宽定量（px）而不是 em，是因为卡宽由 100vw 反解、
+     不再与 --card-h 成比例；用 em 会在窄屏提前溢出。 */
+  .card-title {
+    font-size: clamp(12px, 3.35vw, 16px);
+    justify-self: start;
+  }
+
+  /* About Me 整体下压并缩小，避免与外侧卡片的下缘叠在一起 */
+  .mark-br { bottom: calc(var(--bar-h) + 0.8%); gap: calc(var(--ui) * 0.7); }
+  .mark-br .script { font-size: clamp(18px, 5vh, 40px); }
+
+  .infobar {
+    font-size: clamp(13px, 3.6vw, 20px);
+    gap: 12px;
+  }
+}

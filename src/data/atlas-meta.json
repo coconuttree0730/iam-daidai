@@ -1,0 +1,24 @@
+{
+  "_comment": "构建时静态 import 的图集元数据（唯一数据源）。asset 必须带前导斜杠指向 public/，否则子路径部署会 404。改 columns/rows/cellWidth/cellHeight 后必须同步重跑预算门：motion/head-turn/build/motion-budget-atlas.json。",
+  "frameCount": 46,
+  "columns": 8,
+  "rows": 6,
+  "cellWidth": 482,
+  "cellHeight": 602,
+  "atlasWidth": 3856,
+  "atlasHeight": 3612,
+  "asset": "/motion/atlas.webp",
+  "contentBox": {
+    "_comment": "人物墨迹在单格内的**并集**包围盒（跨全部 46 帧），归一化成四边内缩分数（左 上 右 下）。打包按墨迹并集裁切，四边各留 8px 透明垫 → 8/482、8/602。帧随动的『人物图片区域矩形』= 立绘元素盒按此内缩，使『区域内 = 第 0 帧』指的是人物图片的实际区域而不是透明垫。改图集后重测：ffmpeg -i atlas.webp -vf alphaextract,format=gray -f rawvideo -pix_fmt gray -，再逐格求 alpha>16 的像素包围盒并取并集。",
+    "left": 0.0166,
+    "top": 0.0133,
+    "right": 0.0166,
+    "bottom": 0.0133
+  },
+  "display": {
+    "_comment": "主体在页面上的 CSS 显示尺寸 = 单格像素 ÷ DPR。预算门以此为准，若与实际显示尺寸不符会判 atlas-budget-exceeded。",
+    "width": 241,
+    "height": 301,
+    "dpr": 2
+  }
+}

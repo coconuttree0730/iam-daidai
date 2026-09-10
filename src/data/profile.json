@@ -1,0 +1,23 @@
+{
+  "_comment": "首页 hero 的唯一数据源。改文案只改这里，不要改组件。cards[].theta 是卡片在扇形里的径向角（度），同时也是卡片自身的旋转角——见 src/styles/hero.css 的 .card 说明。theta 的取值还有一个约束：内圈两卡（±22°）必须移到人物头部轮廓之外,否则人物层置顶后会把「教育背景/专业技能」的字吃掉——改动前请先跑 qa/check.sh 看『标题被人物覆盖』。桌面板式当前采用 ±46°/±22°（2026-09-10,内圈从 ±18° 外推到 ±22° 离开面部鬓角,外圈同步从 ±42° 扩到 ±46° 保持视觉间距,02/03 不再贴头,01/04 也更靠近屏外角）。注意 ≤640px 时本字段被 hero.css 手机档用 !important 覆盖为 ±8/±3（那里 θ 只表示卡面倾斜，位置由槽位平移决定），改这里的值只影响桌面与平板。infoBar 的 value 为 null 时组件渲染 label 作为占位。",
+  "hero": {
+    "ghostEn": "PERSONAL ARCHIVE",
+    "solidLeft": "PERSONAL",
+    "solidRight": "ARCHIVE",
+    "titleZh": "个人档案馆",
+    "script": "About Me",
+    "indexLabel": "SIDE INDEX"
+  },
+  "cards": [
+    { "no": "01", "title": "基本信息", "theta": -46, "href": "#basic" },
+    { "no": "02", "title": "教育背景", "theta": -22, "href": "#education" },
+    { "no": "03", "title": "专业技能", "theta": 22, "href": "#skills" },
+    { "no": "04", "title": "项目经历", "theta": 46, "href": "#projects" }
+  ],
+  "infoBar": [
+    { "label": "姓名", "value": null },
+    { "label": "性别", "value": null },
+    { "label": "年龄", "value": null },
+    { "label": "政治面貌", "value": null }
+  ]
+}

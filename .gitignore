@@ -1,0 +1,37 @@
+# 构建产物
+dist/
+.astro/
+
+# 依赖
+node_modules/
+
+# 本地缓存与临时文件
+.npm-cache/
+.npm-tools/
+.tmp/
+temp/
+
+# 系统
+.DS_Store
+Thumbs.db
+*.log
+
+# ── Agent/流水线产物：不是项目主体，不进版本库（2026-09-11）──
+# 素材流水线（oil-motion）的中间产物与母版，运行时只用 public/motion/ 下的副本
+motion/
+# QA 脚本的输出（截图/报告/JSON）
+qa/out/
+# WorkBuddy 项目记忆与工作数据
+.workbuddy/
+# safe-delete 护栏在本项目里落下的回收站
+.Trash-*/
+
+# ── Agent/流水线产物：不是项目主体，不进版本库（2026-09-11）──
+# 素材流水线（oil-motion）的中间产物与母版，运行时只用 public/motion/ 下的副本
+motion/
+# QA 脚本的输出（截图/报告/JSON）
+qa/out/
+# WorkBuddy 项目记忆与工作数据
+.workbuddy/
+# safe-delete 护栏在本项目里落下的回收站
+.Trash-*/

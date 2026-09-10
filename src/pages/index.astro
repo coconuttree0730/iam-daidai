@@ -1,0 +1,24 @@
+---
+// 首页 = 个人档案馆 hero
+//
+// 四张档案卡片（基本信息 / 教育背景 / 专业技能 / 项目经历）绕底边中点呈扇形展开，
+// 中间是鼠标跟随的人物立绘——指针横向位置驱动 121 帧原片里内容感知挑出的 46 帧。
+//
+// 文案与卡片数据在 src/data/profile.json；
+// 版式尺寸与角度在 src/styles/hero.css 顶部的变量块里，改版式只动那一处。
+import Base from '../layouts/Base.astro';
+import HeroStage from '../components/HeroStage.astro';
+import '../styles/hero.css';
+import profile from '../data/profile.json';
+---
+
+<Base
+  title={`${profile.hero.titleZh} · Personal Archive`}
+  description="个人档案馆：基本信息、教育背景、专业技能、项目经历。移动鼠标可与人物立绘互动。"
+>
+  <HeroStage />
+
+  <script>
+    import '../lib/demo-driver.js';
+  </script>
+</Base>

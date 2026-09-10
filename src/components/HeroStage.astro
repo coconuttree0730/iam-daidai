@@ -1,0 +1,112 @@
+---
+// 首页 hero：七层结构（背景 / 描边大字 / 实心大字 / 卡片 / 人物 / 角标 / 信息条）
+//
+// 这个组件只负责"摆哪几层、层的顺序"，具体尺寸与位置全在 hero.css 的变量里。
+// 注意人物排在卡片之后：层序上人物压住卡片（见 hero.css 的 L4 层序契约）。
+// 例外是 ≤640px：卡片改为单行横排并压到人物头顶上方 40px，层序反转为卡片在上
+// （只改 z-index，DOM 顺序与可访问性读序保持不变：文字 → 人物 → 目录 → 角标 → 信息条）。
+// 人物层复用既有图集：舞台本身就是帧随动的指针监听目标（data-sprite-view），
+// 所以鼠标在整个 hero 区域内移动都能驱动人物转向，卡片不会把事件截断。
+//
+// data-person-inset 定义「人物图片区域矩形」——帧随动的极点与死区：
+//   区域内 → 第 0 帧；区域外按方向角分四象限扫完整段帧序。
+//   取值是相对立绘元素盒的四边内缩分数（左 上 右 下），来自图集的 contentBox
+//   （人物墨迹并集包围盒；元素盒四边各含约 1.7% 透明垫）。
+//   要试不同的死区范围，改这一个属性即可，不必碰脚本。
+// 卡片数据来自 src/data/profile.json，图集参数来自 src/data/atlas-meta.json，
+// 都是构建时静态 import——运行时零 fetch。
+import ArchiveCard from './ArchiveCard.astro';
+import atlas from '../data/atlas-meta.json';
+import profile from '../data/profile.json';
+
+const { hero, cards, infoBar } = profile;
+const { contentBox } = atlas;
+const personInset = [contentBox.left, contentBox.top, contentBox.right, contentBox.bottom].join(' ');
+
+// 景深：以最大张角为基准归一化，外沿卡片位移更大（看起来离观众更近）
+const maxTheta = Math.max(...cards.map((card) => Math.abs(card.theta))) || 1;
+const cardsWithDepth = cards.map((card) => ({
+  ...card,
+  depth: Number((0.55 + (Math.abs(card.theta) / maxTheta) * 0.75).toFixed(3)),
+}));
+---
+
+<main
+  class="stage"
+  data-sprite-view
+  data-asset={atlas.asset}
+  data-frame-count={atlas.frameCount}
+  data-columns={atlas.columns}
+  data-rows={atlas.rows}
+  data-person-inset={personInset}
+>
+  <div class="ghost" aria-hidden="true">{hero.ghostEn}</div>
+
+  <h1 class="title">
+    <span class="sr-only">{hero.titleZh} · {hero.solidLeft} {hero.solidRight}</span>
+    <span class="title-en" aria-hidden="true">
+      <em class="w-left">{hero.solidLeft}</em>
+      <em class="w-right">{hero.solidRight}</em>
+    </span>
+    <span class="title-zh" aria-hidden="true">{hero.titleZh}</span>
+  </h1>
+
+  <div class="hero-person">
+    <div
+      class="hero-figure"
+      data-sprite
+      role="img"
+      aria-label={`鼠标跟随人物立绘，共 ${atlas.frameCount} 帧`}
+    ></div>
+  </div>
+
+  <nav class="fan" aria-label="档案目录">
+    {cardsWithDepth.map((card) => <ArchiveCard {...card} />)}
+  </nav>
+
+  <div class="chrome" aria-hidden="true">
+    <div class="mark-tl">
+      <span class="blk"></span>
+      <span class="slashes"><i></i><i></i><i></i></span>
+    </div>
+
+    <div class="mark-tr">
+      <span class="ticks"></span>
+      <span class="ring"></span>
+    </div>
+
+    <div class="side-index">
+      <span class="matrix"></span>
+      <span class="row"><i class="dash"></i><small>{hero.indexLabel}</small></span>
+      <span class="ruler"></span>
+    </div>
+
+    <div class="mark-br">
+      <span class="script">{hero.script}</span>
+      <span class="underline"></span>
+      <span class="row">
+        <i class="lead"></i>
+        <span class="slashset"><i></i><i></i><i></i><i></i></span>
+        <span class="barcode"></span>
+      </span>
+    </div>
+
+    <div class="mark-bl">
+      <i class="dash"></i>
+      <span class="ruler"></span>
+    </div>
+  </div>
+
+  <footer class="infobar">
+    {
+      infoBar.map((item, index) => (
+        <Fragment>
+          {index > 0 && <span class="sep" />}
+          <span class="item" data-placeholder={item.value === null ? true : undefined}>
+            {item.value ?? item.label}
+          </span>
+        </Fragment>
+      ))
+    }
+  </footer>
+</main>
