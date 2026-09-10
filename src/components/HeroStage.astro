@@ -23,6 +23,12 @@ const { hero, cards, infoBar } = profile;
 const { contentBox } = atlas;
 const personInset = [contentBox.left, contentBox.top, contentBox.right, contentBox.bottom].join(' ');
 
+// 姿态重定时（可选契约）：素材是手势时间轴，姿态峰不在象限段中心，
+// 线性映射会让左半区"领先一个象限"。控制点与依据见 atlas-meta.json 的 frameWarp。
+const frameWarp = atlas.frameWarp
+  ? atlas.frameWarp.points.map(([p, f]) => `${p}:${f}`).join(' ')
+  : undefined;
+
 // 景深：以最大张角为基准归一化，外沿卡片位移更大（看起来离观众更近）
 const maxTheta = Math.max(...cards.map((card) => Math.abs(card.theta))) || 1;
 const cardsWithDepth = cards.map((card) => ({
@@ -39,6 +45,7 @@ const cardsWithDepth = cards.map((card) => ({
   data-columns={atlas.columns}
   data-rows={atlas.rows}
   data-person-inset={personInset}
+  data-frame-warp={frameWarp}
 >
   <div class="ghost" aria-hidden="true">{hero.ghostEn}</div>
 
@@ -99,13 +106,19 @@ const cardsWithDepth = cards.map((card) => ({
 
   <footer class="infobar">
     {
-      infoBar.map((item, index) => (
-        <Fragment>
-          {index > 0 && <span class="sep" />}
-          <span class="item" data-placeholder={item.value === null ? true : undefined}>
-            {item.value ?? item.label}
-          </span>
-        </Fragment>
+      // 左右两组：黑条在人物之下（z 4 < 5），居中排布会被人物躯干压住，
+      // 拆成两簇分置两侧，让文字从人物身边露出。每组内用红色竖线分隔。
+      [infoBar.slice(0, 2), infoBar.slice(2)].map((group) => (
+        <div class="group">
+          {group.map((item, index) => (
+            <Fragment>
+              {index > 0 && <span class="sep" />}
+              <span class="item" data-placeholder={item.value === null ? true : undefined}>
+                {item.value ?? item.label}
+              </span>
+            </Fragment>
+          ))}
+        </div>
       ))
     }
   </footer>

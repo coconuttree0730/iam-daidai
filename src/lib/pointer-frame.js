@@ -141,10 +141,13 @@ export function reachableSpans(rect, page, steps = 720) {
 /**
  * 指针坐标 → 归一化帧进度 ∈ [0,1]，供 createFrameAnimator.setProgress 消费。
  *
- * @param {{x:number,y:number,rect:object,spans?:object}} p
+ * @param {{x:number,y:number,rect:object,spans?:object,warp?:(p:number)=>number}} p
  *   spans 由 reachableSpans() 预先算好；缺省时退化为不做归一化的 rel/90。
+ *   warp 为可选的姿态重定时映射（进度→进度，单调），由数据层提供
+ *   （见 atlas-meta.json 的 frameWarp）：素材是手势时间轴而非朝向库，
+ *   姿态峰不在段中心时用它把峰对回去。缺省恒等。
  */
-export function progressFromPointer({ x, y, rect, spans }) {
+export function progressFromPointer({ x, y, rect, spans, warp }) {
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) return 0;
   if (containsPoint(rect, x, y)) return 0; // 契约 1：矩形内 = 第 0 帧
 
@@ -156,5 +159,6 @@ export function progressFromPointer({ x, y, rect, spans }) {
     span && span[1] - span[0] > 1e-6
       ? clamp01((rel - span[0]) / (span[1] - span[0]))
       : rel / 90;
-  return clamp01((base + u * 90) / 360);
+  const p = clamp01((base + u * 90) / 360);
+  return warp ? clamp01(warp(p)) : p;
 }

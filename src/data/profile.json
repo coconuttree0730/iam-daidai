@@ -15,9 +15,9 @@
     { "no": "04", "title": "项目经历", "theta": 46, "href": "#projects" }
   ],
   "infoBar": [
-    { "label": "姓名", "value": null },
-    { "label": "性别", "value": null },
-    { "label": "年龄", "value": null },
-    { "label": "政治面貌", "value": null }
+    { "label": "编号", "value": "NO.001" },
+    { "label": "密级", "value": "密级 公开" },
+    { "label": "状态", "value": "OPEN TO WORK" },
+    { "label": "署名", "value": "DAIDAI" }
   ]
 }

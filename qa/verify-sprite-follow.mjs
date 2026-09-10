@@ -202,14 +202,15 @@ function pointOutsideRect(rect, page, theta, margin = 2) {
   return null;
 }
 
-function expectedFrame(x, y, rect, spans, frameCount) {
+function expectedFrame(x, y, rect, spans, frameCount, warpFn = null) {
   if (insideRect(x, y, rect)) return 0;
   const phi = phiOf(x, y, rect);
   const base = Math.floor(phi / 90) * 90;
   const rel = phi - base;
   const [lo, hi] = spans[QUAD_SEQ[base / 90]];
   const u = hi - lo > 1e-9 ? Math.min(1, Math.max(0, (rel - lo) / (hi - lo))) : rel / 90;
-  return ((base + u * 90) / 360) * (frameCount - 1);
+  const p = (base + u * 90) / 360;
+  return (warpFn ? warpFn(p) : p) * (frameCount - 1);
 }
 
 /** 象限归属：phi ∈ (0,90) 左下 / (90,180) 左上 / (180,270) 右上 / (270,360) 右下 */
@@ -469,6 +470,7 @@ try {
          columns: Number(view.dataset.columns), rows: Number(view.dataset.rows),
          frameCount: Number(view.dataset.frameCount),
          personInset: view.dataset.personInset ?? '',
+         frameWarp: view.dataset.frameWarp ?? '',
          hasReadout: !!document.querySelector('[data-frame]'),
          cards: document.querySelectorAll('[data-depth]').length,
        };
@@ -501,6 +503,40 @@ try {
   };
   const page = { left: 0, top: 0, width: W, height: H };
   const spans = reachableSpans(rect, page);
+
+  /* 契约 5) 的独立实现：姿态重定时（atlas-meta.json frameWarp，"进度:帧"对）。
+     素材是手势时间轴而非朝向库，姿态峰不在象限段中心——映射在进度轴上做
+     单调分段线性重定时，把峰对回段中心。与被测代码分别独立解析。 */
+  const warpPts = String(geom.frameWarp ?? '')
+    .trim()
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+    .map((pair) => pair.split(':').map(Number))
+    .filter(([p, f]) => Number.isFinite(p) && Number.isFinite(f))
+    .sort((a, b) => a[0] - b[0]);
+  const hasWarp = warpPts.length >= 2;
+  const applyWarp = (p) => {
+    if (!hasWarp) return p;
+    const last = frameCount - 1;
+    if (p <= warpPts[0][0]) return Math.min(1, Math.max(0, warpPts[0][1] / last));
+    const lastPt = warpPts[warpPts.length - 1];
+    if (p >= lastPt[0]) return Math.min(1, Math.max(0, lastPt[1] / last));
+    for (let i = 1; i < warpPts.length; i++) {
+      if (p <= warpPts[i][0]) {
+        const [p0, f0] = warpPts[i - 1];
+        const [p1, f1] = warpPts[i];
+        const t = (p - p0) / (p1 - p0 || 1);
+        return Math.min(1, Math.max(0, (f0 + t * (f1 - f0)) / last));
+      }
+    }
+    return p;
+  };
+  if (hasWarp) {
+    console.log(
+      `姿态重定时：${warpPts.map(([p, f]) => `${p}→${f}`).join('  ')}（TR/BR 上段与线性恒等）`
+    );
+  }
+
   const padX = Math.max(20, Math.min(PAD, rect.left - 2, W - (rect.left + rect.width) - 2));
   const padY = Math.max(20, Math.min(PAD, rect.top - 2));
 
@@ -559,7 +595,7 @@ try {
       x,
       y,
       quadrant,
-      expected: expectedFrame(x, y, rect, spans, frameCount),
+      expected: expectedFrame(x, y, rect, spans, frameCount, applyWarp),
       frame: settled.frame,
       settleMs: settled.ms,
       settled: !settled.timeout,
@@ -598,8 +634,8 @@ try {
     /* 端点方向本身就是象限边界（rel=0 与 rel=90 各是一条半轴，也就是接缝），
        正好落在边界上时象限归属是零测度的，所以往段内缩 0.5° 再探。 */
     for (const [tag, rel, want] of [
-      ['start', spans[q][0] + 0.5, (base / 360) * (frameCount - 1)],
-      ['end', spans[q][1] - 0.5, ((base + 90) / 360) * (frameCount - 1)],
+      ['start', spans[q][0] + 0.5, applyWarp(base / 360) * (frameCount - 1)],
+      ['end', spans[q][1] - 0.5, applyWarp((base + 90) / 360) * (frameCount - 1)],
     ]) {
       const theta = ((base + rel + 90) * Math.PI) / 180;
       const p = pointOutsideRect(rect, page, theta);
@@ -638,12 +674,17 @@ try {
       check(r.frame === 0, `${r.name} 在人物矩形内应停在第 0 帧，实测 ${r.frame}`);
       continue;
     }
-    const lo = ORDER[r.quadrant] * band;
-    const hi = lo + band;
-    check(
-      r.frame >= Math.floor(lo - 0.5) && r.frame <= Math.ceil(hi + 0.5),
-      `${r.name} 落在【${r.quadrant}】象限，帧应落在 [${(lo - 0.5).toFixed(1)}, ${(hi + 0.5).toFixed(1)}]，实测 ${r.frame}`
-    );
+    /* 象限带断言只在**线性映射**下成立：重定时会把某些象限的取值移出
+       名义 1/4 带（如 TL 铺 f5–17.5，低于带下沿 11.25），正确性由
+       下面的"与重定时期望 ±2"断言把守，带检查随之关闭。 */
+    if (!hasWarp) {
+      const lo = ORDER[r.quadrant] * band;
+      const hi = lo + band;
+      check(
+        r.frame >= Math.floor(lo - 0.5) && r.frame <= Math.ceil(hi + 0.5),
+        `${r.name} 落在【${r.quadrant}】象限，帧应落在 [${(lo - 0.5).toFixed(1)}, ${(hi + 0.5).toFixed(1)}]，实测 ${r.frame}`
+      );
+    }
     check(
       Math.abs(r.frame - Math.round(r.expected)) <= 2,
       `${r.name}（${r.quadrant}）帧与契约期望 ${r.expected.toFixed(1)} 偏差超过 ±2，实测 ${r.frame}`
@@ -850,7 +891,7 @@ try {
       const settled = await settleStages(send, ids, grids);
       const frame = settled.frames?.[ids.indexOf(p.stage.i)] ?? null;
       const want = Math.round(
-        expectedFrame(x, y, p.stage.rect, p.stage.spans, p.stage.frameCount)
+        expectedFrame(x, y, p.stage.rect, p.stage.spans, p.stage.frameCount, null)
       );
       const q = quadrantOf(x, y, p.stage.rect);
       rowsOut.push({ ...p, name: p.name, x, y, quadrant: q, want, frame, settleMs: settled.ms, settled: !settled.timeout });

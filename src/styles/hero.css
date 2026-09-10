@@ -236,7 +236,10 @@
 /* ── L4 人物：实心大字与卡片之上 ──────────────────────────────────
  *
  * 层序契约（数值即 z-index 声明顺序，改版式时不要交叉）：
- *   1 描边大字 · 2 实心大字 · 3 卡片容器(.fan) · 5 人物 · 6 装饰角标 · 7 信息条
+ *   1 描边大字 · 2 实心大字 · 4 卡片容器(.fan) 与 信息条(.infobar，DOM 在后) ·
+ *   5 人物 · 6 装饰角标
+ *   信息条与卡片同层（桌面无叠区，靠 DOM 顺序压卡片之上）；
+ *   信息条在人物之下（2026-09-11 用户指定：人物压住黑条）。
  *   例外：≤640px 时 .fan 提到 7（卡片压人物），见文件末尾手机档注释。
  *
  * 人物在卡片之上是明确要求：头若被卡片边缘横切会断层，
@@ -579,26 +582,33 @@
   );
 }
 
-/* ── L7 底部信息条 ─────────────────────────────────────────────── */
+/* ── L4 底部信息条（与 .fan 同层靠 DOM 顺序压其上；人物 z 5 压住本条）── */
 .infobar {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 7;
+  z-index: 4;
   height: var(--bar-h);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: clamp(14px, 2.2vw, 42px);
+  /* 左右两组分置两侧：黑条在人物之下，居中排布会被躯干压住 */
+  justify-content: space-between;
+  padding-inline: clamp(24px, 4.5vw, 84px);
   background: var(--ink);
   color: #fff;
   font-family: var(--font-cjk);
   font-weight: 900;
-  /* 实测条内文字 ≈ 5.2% 舞台高 */
-  font-size: clamp(15px, 5.2vh, 44px);
+  /* 字号跟屏宽走（两侧各只有 (100vw−人物宽)/2−padding 可用，跟 vh 走会在
+     矮宽视口撑爆出屏）。1.95vw 在 1280→25px、1920→30px（封顶）。 */
+  font-size: clamp(12px, 1.95vw, 30px);
   letter-spacing: 0.04em;
   white-space: nowrap;
+}
+.infobar .group {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 42px);
 }
 .infobar .sep {
   flex: none;
@@ -793,8 +803,8 @@
   .title-en .w-right { position: relative; z-index: 4; }
   .title-zh { z-index: 6; }
 
-  /* 卡片层提到人物之上。7 与信息条同层，靠 DOM 顺序取胜
-     （HeroStage.astro 里 infobar 在 fan 之后），信息条仍压在最上。 */
+  /* 卡片层提到人物之上（z 7）。信息条保持 z 4、在人物之下——手机档与桌面
+     一致（2026-09-11 用户确认），与横排卡片无叠区，层序互不影响。 */
   .fan { z-index: 7; }
 
   /* 单行横排：不再沿半径推出，改为沿 X 轴按槽位平移。
@@ -840,7 +850,11 @@
   .mark-br .script { font-size: clamp(18px, 5vh, 40px); }
 
   .infobar {
-    font-size: clamp(13px, 3.6vw, 20px);
+    /* 手机档字号：条已在人物之下，文字允许被躯干遮住（用户 2026-09-11 确认），
+       字号只需保证两侧露出的部分可读。 */
+    font-size: clamp(11px, 2.1vw, 18px);
+  }
+  .infobar .group {
     gap: 12px;
   }
 }

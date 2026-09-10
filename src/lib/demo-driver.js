@@ -86,6 +86,39 @@ const readInsets = (value) => {
   return n;
 };
 
+/* 姿态重定时表（可选，data-frame-warp="进度:帧 进度:帧 …"）。
+ * 素材是手势时间轴而非朝向库，姿态峰不在象限段中心（2026-09-11 逐帧质心实测：
+ * 看左峰 f14=30.4%、看右峰 f25=54.3%），线性映射会让左半区领先一个象限。
+ * 控制点写在 atlas-meta.json 的 frameWarp，由页面展开成属性；解析失败退回恒等。
+ * 返回 进度→进度 的单调分段线性函数。 */
+const parseFrameWarp = (value, frameCount) => {
+  const last = Math.max(1, frameCount - 1);
+  const pts = String(value ?? '')
+    .trim()
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+    .map((pair) => pair.split(':').map(Number))
+    .filter(([p, f]) => Number.isFinite(p) && Number.isFinite(f))
+    .sort((a, b) => a[0] - b[0]);
+  if (pts.length < 2) {
+    if (value !== undefined) console.warn('[motion] data-frame-warp 非法，已忽略：', value);
+    return null;
+  }
+  return (p) => {
+    if (p <= pts[0][0]) return clamp01(pts[0][1] / last);
+    if (p >= pts[pts.length - 1][0]) return clamp01(pts[pts.length - 1][1] / last);
+    for (let i = 1; i < pts.length; i++) {
+      if (p <= pts[i][0]) {
+        const [p0, f0] = pts[i - 1];
+        const [p1, f1] = pts[i];
+        const t = (p - p0) / (p1 - p0 || 1);
+        return clamp01((f0 + t * (f1 - f0)) / last);
+      }
+    }
+    return clamp01(p);
+  };
+};
+
 /* 视口矩形 = 指针能到达的范围。帧随动的可达角度由它封顶，
    所以必须用视口而不是舞台——监听器挂在整个文档上。 */
 const viewportRect = () => ({
@@ -136,6 +169,7 @@ for (const view of views) {
     target,
     animator,
     insets: readInsets(view.dataset.personInset),
+    warp: parseFrameWarp(view.dataset.frameWarp, frameCount),
     personRect: null, // 本舞台自己的死区矩形
     spans: null, // 本舞台自己的象限可达角度
   };
@@ -184,7 +218,13 @@ function applyProgress() {
   for (const m of mounted) {
     const p =
       pointer.active && m.personRect
-        ? progressFromPointer({ x: pointer.x, y: pointer.y, rect: m.personRect, spans: m.spans })
+        ? progressFromPointer({
+            x: pointer.x,
+            y: pointer.y,
+            rect: m.personRect,
+            spans: m.spans,
+            warp: m.warp,
+          })
         : 0;
     m.animator.setProgress(p);
     if (m === anchor) state.progress = p;
