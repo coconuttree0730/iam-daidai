@@ -92,9 +92,12 @@ if (!argv.noemul) {
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
 }
 await send('Page.navigate', { url: NAV_URL });
-for (let i = 0; i < 40; i++) {
-  const ready = await evalWithTimeout(`!!document.querySelector('[data-sprite]')`);
-  if (ready) break;
+/* 就绪判据 = [data-sprite] 存在**且**布局已稳定（盒高 > 100 且连续两次采样不变）。
+   只查元素存在会撞上 CSS 未加载的中间态：量到的卡片坐标错、tap 落空。 */
+for (let i = 0; i < 60; i++) {
+  const h = await evalWithTimeout(`document.querySelector('[data-sprite]')?.getBoundingClientRect().height ?? 0`);
+  const h2 = await evalWithTimeout(`document.querySelector('[data-sprite]')?.getBoundingClientRect().height ?? 0`);
+  if (h > 100 && h === h2) break;
   await sleep(250);
 }
 console.error('[step] page ready');
@@ -149,20 +152,42 @@ const timeline = async (label) => {
 
 const frameCount = geo.cols * geo.rows; // 上限，仅用于带宽换算
 const BAND = { TL: [10, 26], TR: [20, 36] }; // 46 帧：TL=12–22、TR=23–34，放宽容错 warp
-const run = async (cardIdx, band) => {
+
+/* 单点模式：--tap=x,y --band=lo,hi → 触摸视口任意点，断言末帧进入姿态带并保持。
+   用于"触摸哪里看哪里"的语义回归（如右下角触摸不应回到正面）。 */
+if (argv.tap) {
+  const [x, y] = argv.tap.split(',').map(Number);
+  const band = String(argv.band ?? '').split(',').map(Number);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || band.length !== 2) {
+    console.error('用法：--tap=x,y --band=lo,hi'); process.exit(2);
+  }
+  await tap(x, y);
+  const frames = await timeline(`tap (${x},${y}) →`);
+  const tail = frames.slice(-6);
+  const reached = frames.some((f) => f >= band[0] && f <= band[1]);
+  const held = tail.every((f) => f >= band[0] && f <= band[1]);
+  const ok = reached && held;
+  console.log(`  期望带 ${band} 进入=${reached} 保持=${held} → ${ok ? 'PASS' : 'FAIL'}`);
+  process.exit(ok ? 0 : 1);
+}
+
+const run = async (cardIdx) => {
+  /* 2026-09-11 契约升级：点卡 = 定格到卡片 data-look-frame 声明的帧（用户配比）。
+     期望值从 DOM 读，治具不硬编码帧号。 */
+  const want = await evalJson(
+    `Number(document.querySelector('.card:nth-child(${cardIdx + 1})')?.dataset.lookFrame ?? NaN)`
+  );
   const c = geo.cards[cardIdx];
   await tap(c.x, c.y);
   const frames = await timeline(`tap card-0${cardIdx + 1} →`);
   const tail = frames.slice(-6);
-  const held = tail.every((f) => f >= band[0] && f <= band[1]);
-  const reached = frames.some((f) => f >= band[0] && f <= band[1]);
-  const ok = reached && held;
-  console.log(`  象限带 ${band} 进入=${reached} 保持=${held} → ${ok ? 'PASS' : 'FAIL'}`);
-  return ok;
+  const held = tail.every((f) => f === want);
+  console.log(`  定格帧 ${want} 保持=${held} → ${held ? 'PASS' : 'FAIL'}`);
+  return held;
 };
 
-const r1 = await run(0, BAND.TL);
-const r2 = await run(3, BAND.TR);
+const r1 = await run(0);
+const r2 = await run(3);
 
 ws.close(); chrome.kill(); server.close();
 const failed = !(r1 && r2);

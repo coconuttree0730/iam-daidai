@@ -51,7 +51,17 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
    避免每张卡片、每个人物每次移动都写一遍 style。
    帧随动不订阅 state：它要的是**原始指针坐标**，不是舞台归一化后的值，
    所以这里单独存一份，由 applyProgress() 逐舞台现算。 */
-const pointer = { x: 0, y: 0, active: false };
+const pointer = { x: 0, y: 0, active: false, type: '' };
+
+/* 触摸的"看向触点"映射（2026-09-11 用户报告右下触摸"归位"后重定）：
+   360° 圆环映射的接缝在极点正下方（phi≈0°/360°），而素材时间轴两端都是
+   正面（f0 正面站立、f45 回正）——触摸底部区域会被指到 f44/45 或 f0，
+   视觉上即"立即归位"。素材没有"看下方"的姿态，这是素材物理上限，
+   所以触摸不用圆环，改按触点 x 在【看左峰 f14 → 看右峰 f25】姿态带内
+   线性取帧（峰位来自逐帧质心实测，见 atlas-meta.json 的 frameWarp）。
+   鼠标路径完全不变——桌面手感是调好的。 */
+const TOUCH_LOOK_LEFT = 14;
+const TOUCH_LOOK_RIGHT = 25;
 
 const flush = () => {
   queued = false;
@@ -226,13 +236,19 @@ function applyProgress() {
     if (pinnedFrame != null && m.frameCount > 1) {
       p = clamp01(pinnedFrame / (m.frameCount - 1));
     } else if (pointer.active && m.personRect) {
-      p = progressFromPointer({
-        x: pointer.x,
-        y: pointer.y,
-        rect: m.personRect,
-        spans: m.spans,
-        warp: m.warp,
-      });
+      if (pointer.type && pointer.type !== 'mouse' && m.frameCount > 1) {
+        /* 触摸：看向触点水平方向（见顶部 TOUCH_LOOK_* 注释） */
+        const xn = clamp01((pointer.x - m.personRect.left) / m.personRect.width);
+        p = clamp01((TOUCH_LOOK_LEFT + xn * (TOUCH_LOOK_RIGHT - TOUCH_LOOK_LEFT)) / (m.frameCount - 1));
+      } else {
+        p = progressFromPointer({
+          x: pointer.x,
+          y: pointer.y,
+          rect: m.personRect,
+          spans: m.spans,
+          warp: m.warp,
+        });
+      }
     } else {
       p = 0;
     }
@@ -276,6 +292,7 @@ const handlePointer = (event) => {
   }
   pointer.x = event.clientX;
   pointer.y = event.clientY;
+  pointer.type = event.pointerType ?? '';
   pointer.active = true;
   if (!stageRect) measure();
   if (!stageRect) return;
