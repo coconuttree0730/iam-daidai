@@ -769,14 +769,15 @@
       0.32 * var(--stage-h) - 0.4684 * var(--figure-h)
       + 0.782 * var(--solid-size) + 7.72px
     );
-    /* 中文标题锁在红词下方 5px（用户指定"上下间隔 5px"）。
-       推导：红词盒高 = 0.8·S（line-height .8），墨迹在盒内上缩 0.018·S、
-       下缩 0.061·S；中文字号 = 1.06·S、line-height 1，墨迹在盒内上缩 0.069·S。
-       故 墨迹间隔 = B_z − B_p − 0.930·S，令其 = 5 得 B_z = B_p + 0.930·S + 5。
-       写成 bottom 偏移即下式（21.44px 是 `.title` 这个 h1 的 UA 默认
-       margin：0.67em × 2em × 16px，它让 `.title` 高 = 舞台高 − 42.88、
-       整块下移 21.44；改 h1 字号或重置 margin 都必须重解这两个常数）。 */
-    --zh-bottom: calc(0.4684 * var(--figure-h) - 1.712 * var(--solid-size) - 26.44px);
+    /* 中文标题：整体下移 15px（2026-09-11 用户指定）+ 墨迹间距校正到 5px。
+       基础推导：红词盒高 = 0.8·S（line-height .8）；中文字号 = 1.06·S、
+       line-height 1；21.44px 是 `.title` 这个 h1 的 UA 默认 margin
+       （0.67em × 2em × 16px，它让 `.title` 高 = 舞台高 − 42.88、整块下移
+       21.44；改 h1 字号或重置 margin 都必须重解常数）。
+       2026-09-11 canvas actualBoundingBox 实测真实墨迹间距 = 3.61px
+       （字体度量与推导假设有 1.39px 偏差），校正到 5px 需中文相对红词
+       再下移 1.39；随整体下移 −15：−26.44 − 15 − 1.39 = −42.83px。 */
+    --zh-bottom: calc(0.4684 * var(--figure-h) - 1.712 * var(--solid-size) - 42.83px);
     --bar-h: max(38px, 7.5%);
   }
 
@@ -796,10 +797,11 @@
      （不依赖单一引擎行为）。 */
   .title { z-index: auto; }
   .title-en { z-index: auto; }
-  /* 红词单独下移到胸部（--solid-drop 推导见 .stage 变量块）：
+  /* 红词单独下移到胸部（--solid-drop 推导见 .stage 变量块），再整体 +15px
+     （2026-09-11 用户指定：PERSONAL 与「个人档案馆」一起下移 15px）。
      relative + top 只做视觉位移，不动 flex 布局——黑词 ARCHIVE
      留在 68% 基线原位，被人物切开（z 4 在人物之下）。 */
-  .title-en .w-left { position: relative; z-index: 6; top: var(--solid-drop); }
+  .title-en .w-left { position: relative; z-index: 6; top: calc(var(--solid-drop) + 15px); }
   .title-en .w-right { position: relative; z-index: 4; }
   .title-zh { z-index: 6; }
 
