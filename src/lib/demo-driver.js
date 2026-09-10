@@ -267,8 +267,12 @@ window.addEventListener('pointerdown', handlePointer, { passive: true });
 /* 指针离开文档（鼠标移出窗口 / 切到别的 app）才归位：
    帧回到第 0 帧的正面姿态，视差回到中点（卡片无位移）。
    注意是 documentElement 的 pointerleave —— 只在指针离开视口时触发；
-   挂在舞台上的话一移出舞台就触发，正是早前"移到页面角落不跟随"的来源。 */
-document.documentElement.addEventListener('pointerleave', () => {
+   挂在舞台上的话一移出舞台就触发，正是早前"移到页面角落不跟随"的来源。
+   触摸/笔是瞬态指针：抬起后浏览器立即派发 pointerout/pointerleave，
+   若跟着复位，点一下卡片就会"冲向卡片又弹回第 0 帧"（2026-09-11 用户报告）。
+   所以只有鼠标离开才归位；触摸/笔保持最后的姿态，直到下一次触摸改目标。 */
+document.documentElement.addEventListener('pointerleave', (event) => {
+  if (event.pointerType && event.pointerType !== 'mouse') return;
   pointer.active = false;
   emit({ x: 0.5, y: 0.5 });
 });
