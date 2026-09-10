@@ -7,12 +7,23 @@
  * motion/head-turn/build/motion-budget-atlas.json。
  */
 
-/* 帧随动控制器：smoothDamp 缓动，与手写 demo 的曲线一致 */
+/* 帧随动控制器：smoothDamp 缓动，与手写 demo 的曲线一致。
+ *
+ * ── 圆环模型（2026-09-11 修复"右下乱跳"）────────────────────────────────
+ * 帧序不是线性轴，是周长 = frameCount 的**圆环**：帧 N−1 与帧 0 相邻
+ * （素材回正帧 ≈ 正面帧；角度空间里 phi 360° ≡ 0°，接缝两侧本就该无缝衔接）。
+ * 旧实现直接对线性 target 做 smoothDamp，接缝两侧 target 跳变 45↔0 时
+ * 会沿线性轴倒扫整段帧序（实测一次过渡倒带 24 帧），表现即"右下区域乱跳"——
+ * 因为只有接缝和死区的 BR 侧落差最大（45↔0、34↔0），其余边界落差 ≤ 11 帧。
+ * 修复：每帧先把 (target − position) 回绕到圆环最短路径再缓动，渲染时
+ * round(position) 对周长取模（45.9 → 46 → 0），收敛判据同样用回绕差值。
+ */
 export function createFrameAnimator(options) {
   const frameCount = Math.max(1, Math.floor(options.frameCount));
   const smoothTime = options.smoothTime ?? 0.11;
   const maxSpeed = options.maxSpeed ?? frameCount * 2;
   const reducedMotion = options.reducedMotion ?? false;
+  const CIRCLE = frameCount; // 圆环周长（帧单位）：帧 N−1 与帧 0 间距 1
   let position = Math.min(frameCount - 1, Math.max(0, options.initialFrame ?? 0));
   let target = position;
   let velocity = 0;
@@ -22,6 +33,14 @@ export function createFrameAnimator(options) {
   let destroyed = false;
 
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
+  /* 圆环差值：把 d 回绕到 (−C/2, C/2]，即最短路径的有符号行程 */
+  const wrapDelta = (d) => {
+    d = ((d % CIRCLE) + CIRCLE) % CIRCLE;
+    return d > CIRCLE / 2 ? d - CIRCLE : d;
+  };
+  /* 位置回绕进 [0, C)：46 → 0（跨接缝后落回轴的正半圈） */
+  const wrapIndex = (v) => ((v % CIRCLE) + CIRCLE) % CIRCLE;
 
   const loop = (now) => {
     raf = 0;
@@ -37,24 +56,26 @@ export function createFrameAnimator(options) {
       const x = omega * dt;
       const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
       const maxChange = maxSpeed * smoothTime;
-      const change = clamp(position - target, -maxChange, maxChange);
+      /* 虚拟目标 = 当前位置 + 圆环最短路径；smoothDamp 公式原样作用于它 */
+      const virtualTarget = position + wrapDelta(target - position);
+      const change = clamp(position - virtualTarget, -maxChange, maxChange);
       const limitedTarget = position - change;
       const temp = (velocity + omega * change) * dt;
       velocity = (velocity - omega * temp) * decay;
-      position = limitedTarget + (change + temp) * decay;
-      if ((target - position > 0) === (position > target)) {
+      position = wrapIndex(limitedTarget + (change + temp) * decay);
+      if ((virtualTarget - position > 0) === (position > virtualTarget)) {
         position = target;
         velocity = 0;
       }
     }
 
-    const frame = Math.round(clamp(position, 0, frameCount - 1));
+    const frame = wrapIndex(Math.round(position));
     if (frame !== lastFrame) {
       options.render(frame);
       lastFrame = frame;
     }
 
-    if (Math.abs(target - position) > 0.002 || Math.abs(velocity) > 0.002) {
+    if (Math.abs(wrapDelta(target - position)) > 0.002 || Math.abs(velocity) > 0.002) {
       raf = requestAnimationFrame(loop);
     }
   };
@@ -69,7 +90,7 @@ export function createFrameAnimator(options) {
       if (!raf && !destroyed) raf = requestAnimationFrame(loop);
     },
     getCurrentFrame() {
-      return clamp(position, 0, frameCount - 1);
+      return wrapIndex(position);
     },
     destroy() {
       destroyed = true;

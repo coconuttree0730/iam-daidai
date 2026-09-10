@@ -14,7 +14,8 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 |---|---|
 | `zsh qa/check.sh <视口列表>` | 卡片出屏 / 压字 / 互压、面部遮挡、标题实盒、层序、锚点门 |
 | `node qa/probe.mjs W H` | 悬停位移、标题横向 |
-| `npm run qa:follow` | 指针 → 帧序号映射 |
+| `npm run qa:follow` | 指针 → 帧序号映射（静态点测，等收敛后读帧） |
+| `node qa/diag-br-transition.mjs` | 帧随动**过渡路径**（移动中 25ms 采样帧时间线，判据 = 圆环最短路径） |
 
 需要判断"图上的元素在哪"时，量**源素材**（如 `motion/head-turn/candidates/atlas48/frame_000.png`
 逐行 alpha 轮廓）而不是量渲染截图。
