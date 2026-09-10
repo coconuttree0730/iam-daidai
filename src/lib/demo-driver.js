@@ -226,6 +226,35 @@ const measure = () => {
    不经过 warp 重定时——卡片配比就是素材里的真实帧号。 */
 let pinnedFrame = null;
 
+/* ── 触摸点卡：先看姿态，再进卡片（2026-09-11 用户指定，仅触摸路径）──────
+ * 卡片变成真链接后，移动端点击会立刻跳走，pointerdown 里的定格姿态来不及看。
+ * 约定：触摸点卡 → 定格照常 → click 被拦截，延时 NAV_DELAY 再跳转；
+ * 跳转前把帧号写进 sessionStorage，从板块页返回首页时若期间没有触其他位置，
+ * 人物初始就定格回该卡姿态。触其他任何位置 = 取消未决跳转 + 回首帧 + 清存储
+ * （原有语义不变，只是顺带清状态）。鼠标与键盘激活（Enter）完全不走这条路。
+ * 延时 500ms ≈ 人物从 0 帧缓动到 30 帧的时长（animator smoothTime 0.11 /
+ * maxSpeed 92 帧/s 实测 0→45 帧 ~0.49s），姿态基本转到位再进卡片。 */
+const NAV_DELAY = 500;
+const PIN_KEY = 'daidai:pinned-frame';
+let lastPointerType = ''; // click 事件拿不到可靠的 pointerType，用最近一次 pointerdown 的
+let pendingNav = null; // { href, timer }
+
+const cancelPendingNav = () => {
+  if (pendingNav) {
+    clearTimeout(pendingNav.timer);
+    pendingNav = null;
+  }
+};
+
+const clearPinnedState = () => {
+  pinnedFrame = null;
+  try {
+    sessionStorage.removeItem(PIN_KEY);
+  } catch {
+    /* 隐私模式等拿不到 sessionStorage 就算了，跳转后不复原姿态而已 */
+  }
+};
+
 function applyProgress() {
   for (const m of mounted) {
     let p;
@@ -281,8 +310,17 @@ const lookFrameFrom = (event) => {
 
 const handlePointer = (event) => {
   if (event.type === 'pointerdown' && event.pointerType !== 'mouse') {
-    pinnedFrame = lookFrameFrom(event);
+    /* 任何触摸落下都先撤掉未决跳转：点的是同一张卡也没关系，
+       随后的 click 会重新排程（相当于重置 500ms 倒计时）。 */
+    cancelPendingNav();
+    if (lookFrameFrom(event)) {
+      pinnedFrame = lookFrameFrom(event);
+    } else {
+      /* 触其他位置 = 回首帧，同时清掉"返回后复原"的状态 */
+      clearPinnedState();
+    }
   }
+  if (event.type === 'pointerdown') lastPointerType = event.pointerType ?? '';
   pointer.x = event.clientX;
   pointer.y = event.clientY;
   pointer.type = event.pointerType ?? '';
@@ -310,6 +348,52 @@ document.documentElement.addEventListener('pointerleave', (event) => {
   pointer.active = false;
   emit({ x: 0.5, y: 0.5 });
 });
+
+/* 触摸点卡的延时跳转：只拦"最近一次按下是触摸/笔"的卡片点击；
+   鼠标与键盘激活（lastPointerType 为空 = 没有 pointerdown，键盘 Enter）
+   直接 return，走浏览器默认导航，桌面手感与可访问性都不动。
+   只拦站内页路由（href 以 / 开头）：#basic 这类本页锚点延时会显得迟钝，
+   保持默认即时滚动，姿态定格仍由 pointerdown 负责。 */
+window.addEventListener('click', (event) => {
+  if (lastPointerType === 'mouse' || lastPointerType === '') return;
+  if (!(event.target instanceof Element)) return;
+  const card = event.target.closest('[data-look-frame]');
+  if (!card) return;
+  const href = card.getAttribute('href') ?? '';
+  if (!href.startsWith('/')) return;
+  if (event.defaultPrevented) return;
+  event.preventDefault();
+  try {
+    sessionStorage.setItem(PIN_KEY, String(pinnedFrame ?? 0));
+  } catch {
+    /* 同上，写不进就放弃"返回复原"，跳转本身不受影响 */
+  }
+  pendingNav = {
+    href,
+    timer: setTimeout(() => {
+      pendingNav = null;
+      window.location.href = href;
+    }, NAV_DELAY),
+  };
+});
+
+/* 返回首页时的姿态复原（仅触摸设备）：sessionStorage 里存着上一次
+   触摸点卡的帧号，且用户返回后还没触过任何位置（一旦触了，上面
+   pointerdown 分支会清掉存储）→ 人物初始就定格回那张卡片的姿态。
+   只有触摸路径会写这个键，桌面载入天然不受影响；再叠一层
+   pointer:coarse 守卫，防"手机用过之后换桌面继续用同一标签页"的串味。 */
+try {
+  if (
+    pinnedFrame == null &&
+    typeof matchMedia === 'function' &&
+    matchMedia('(pointer: coarse)').matches
+  ) {
+    const stored = Number.parseInt(sessionStorage.getItem(PIN_KEY) ?? '', 10);
+    if (Number.isFinite(stored) && stored >= 0) pinnedFrame = stored;
+  }
+} catch {
+  /* sessionStorage 不可用就当没有这个状态 */
+}
 
 /* 卡片视差：景深由页面的 data-depth 给出，脚本不假设版式几何 */
 const cards = document.querySelectorAll('[data-depth]');
