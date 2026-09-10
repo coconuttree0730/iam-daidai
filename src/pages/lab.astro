@@ -1,0 +1,147 @@
+---
+// 占位页模板（2026-09-11）：实验室板块。
+// 统一档案风格：纸感底色 + 编号头 + 大字标题 + 「档案整理中」红色印章。
+// 板块建成后直接替换本文件内容，页头编号与导航结构可复用。
+import Base from '../layouts/Base.astro';
+---
+<Base title="实验室 · DAIDAI 个人档案馆" description="实验室板块 · 档案整理中">
+  <main class="sheet">
+    <header class="head">
+      <span class="tag">NO.04</span>
+      <span class="tag tag--red">密级 公开</span>
+      <a class="back" href="/">← 返回档案馆</a>
+    </header>
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">LAB</p>
+      <h1>实验室</h1>
+    </section>
+
+    <section class="stamp" aria-label="档案整理中">
+      <strong>实验进行中</strong>
+      <small>IN PROGRESS · 该板块即将开放</small>
+    </section>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  .sheet {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #eeedeb;
+    color: #131211;
+    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
+      "Microsoft YaHei", sans-serif;
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 22px clamp(20px, 4vw, 48px);
+    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+  .tag {
+    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border: 1px solid #131211;
+    border-radius: 4px;
+  }
+  .tag--red {
+    border-color: #cf0a1a;
+    color: #cf0a1a;
+  }
+  .back {
+    margin-left: auto;
+    font-size: 13px;
+    color: #131211;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    padding-bottom: 2px;
+  }
+  .back:hover { color: #cf0a1a; border-color: #cf0a1a; }
+
+  .hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    padding: 48px 20px;
+    text-align: center;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: "Anton", Impact, sans-serif;
+    font-size: clamp(28px, 6vw, 72px);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1.2px #c3c1be;
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(34px, 7vw, 84px);
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+
+  .stamp {
+    align-self: center;
+    margin-bottom: 40px;
+    padding: 14px 26px;
+    border: 2px solid #cf0a1a;
+    border-radius: 6px;
+    color: #cf0a1a;
+    text-align: center;
+    transform: rotate(-2.5deg);
+  }
+  .stamp strong {
+    display: block;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+  }
+  .stamp small {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  .foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 48px) 26px;
+  }
+  .foot .dash {
+    width: 34px;
+    height: 5px;
+    background: #cf0a1a;
+  }
+  .foot .barcode {
+    height: 14px;
+    width: 64px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      #131211 0 1px,
+      transparent 1px 2.4px,
+      #131211 2.4px 4.4px,
+      transparent 4.4px 5.4px,
+      #131211 5.4px 6.4px,
+      transparent 6.4px 8.4px
+    );
+  }
+</style>
