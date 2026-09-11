@@ -18,17 +18,9 @@ Thumbs.db
 
 # ── Agent/流水线产物：不是项目主体，不进版本库（2026-09-11）──
 # 素材流水线（oil-motion）的中间产物与母版，运行时只用 public/motion/ 下的副本
-motion/
-# QA 脚本的输出（截图/报告/JSON）
-qa/out/
-# WorkBuddy 项目记忆与工作数据
-.workbuddy/
-# safe-delete 护栏在本项目里落下的回收站
-.Trash-*/
-
-# ── Agent/流水线产物：不是项目主体，不进版本库（2026-09-11）──
-# 素材流水线（oil-motion）的中间产物与母版，运行时只用 public/motion/ 下的副本
-motion/
+# 注意：必须带前导斜杠！裸写 motion/ 会匹配任意层级、误伤 public/motion/
+# （2026-09-11 Cloudflare 404 事故：public/motion/segments/ 因此没进仓库）
+/motion/
 # QA 脚本的输出（截图/报告/JSON）
 qa/out/
 # WorkBuddy 项目记忆与工作数据
