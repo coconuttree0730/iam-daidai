@@ -165,6 +165,14 @@ export function createSpriteRenderer(options) {
  * clearRect 推迟到确定可画之后；无段可画时保留上一帧画面（不清屏不白闪）；
  * 首段解码落地前强制重画（否则启动时 lastRendered 已置数挡住后续调用，
  * 表现为「0 帧不显示」）。
+ *
+ * ── 两层缓存（2026-09-11，修线上跨段卡顿）────────────────────────────────
+ * 指针移动本身零请求，但跨到未驻留段会触发 fetch。协商缓存（ETag）下每次
+ * 回访仍有一次 RTT 往返（304），本地 ~3ms 无感、Cloudflare 上 50–150ms，
+ * 等待期间旧帧滞留 = 可感卡顿。修法：把「下载」与「解码」分离——
+ *   buffers    段号 → ArrayBuffer（压缩态，全 6 段常驻仅 3.9MB，首帧落地后预热）
+ *   bitmaps    段号 → ImageBitmap（解码态，LRU 只驻留 ± 环形邻段，53–80MB）
+ * 之后跨段只剩 createImageBitmap 解码（几十 ms），运行期零网络依赖。
  */
 export function createSegmentedSpriteRenderer(options) {
   const frameCount = Math.max(1, Math.floor(options.frameCount));
@@ -177,9 +185,11 @@ export function createSegmentedSpriteRenderer(options) {
   const target = options.target;
   const ctx = target.getContext('2d');
   const frameLabel = options.frameLabel;
-  const bitmaps = new Map(); // 段号 → ImageBitmap
+  const bitmaps = new Map(); // 段号 → ImageBitmap（解码态，LRU 驻留）
+  const buffers = new Map(); // 段号 → ArrayBuffer（压缩态，全段常驻）
+  const bufferPromises = new Map(); // 段号 → Promise<ArrayBuffer>（预载去重）
   const inflight = new Set();
-  const stats = { decodes: 0, evictions: 0, fallbacks: 0 };
+  const stats = { decodes: 0, evictions: 0, fallbacks: 0, prefetched: 0 };
   let destroyed = false;
   let drawnOnce = false;
   let lastRendered = -1;
@@ -195,12 +205,41 @@ export function createSegmentedSpriteRenderer(options) {
     return segments.length - 1;
   };
 
+  /** 段压缩数据两层缓存的下层：fetch → ArrayBuffer，幂等（并行调用共享同一 Promise）。
+      预载失败不缓存错误，下次调用自动重试。 */
+  function ensureBuffer(i) {
+    if (buffers.has(i)) return Promise.resolve(buffers.get(i));
+    if (bufferPromises.has(i)) return bufferPromises.get(i);
+    const p = fetch(segments[i].asset)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => {
+        bufferPromises.delete(i);
+        if (destroyed) return buf;
+        buffers.set(i, buf);
+        stats.prefetched++;
+        return buf;
+      })
+      .catch((err) => {
+        bufferPromises.delete(i);
+        throw err;
+      });
+    bufferPromises.set(i, p);
+    return p;
+  }
+
+  /** 首帧落地后预热全部段的压缩数据：运行期跨段不再碰网络。 */
+  function preloadAllBuffers() {
+    for (let i = 0; i < segments.length; i++) {
+      ensureBuffer(i).catch(() => {}); // 预载失败静默，运行时 ensureSeg 兜底重试
+    }
+  }
+
   async function ensureSeg(i) {
     if (destroyed || i < 0 || i >= segments.length || bitmaps.has(i) || inflight.has(i)) return;
     inflight.add(i);
     try {
-      const res = await fetch(segments[i].asset);
-      const bmp = await createImageBitmap(await res.blob());
+      const buf = await ensureBuffer(i);
+      const bmp = await createImageBitmap(new Blob([buf], { type: 'image/webp' }));
       if (destroyed) {
         bmp.close();
         return;
@@ -212,6 +251,7 @@ export function createSegmentedSpriteRenderer(options) {
         // lastRendered 已置数会挡住重画 —— 落地后强制补画最近请求的帧。
         lastRendered = -1;
         render(pendingFrame);
+        if (drawnOnce) preloadAllBuffers(); // 首屏已保住，空闲带宽交给其余段
       }
     } finally {
       inflight.delete(i);
@@ -306,6 +346,8 @@ export function createSegmentedSpriteRenderer(options) {
       destroyed = true;
       for (const bmp of bitmaps.values()) bmp.close();
       bitmaps.clear();
+      buffers.clear(); // ArrayBuffer 无 close，清引用交给 GC
+      bufferPromises.clear();
     },
   };
 }
