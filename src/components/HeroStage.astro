@@ -20,7 +20,7 @@ import atlas from '../data/atlas-meta.json';
 import scrollMeta from '../data/scroll-meta.json';
 import profile from '../data/profile.json';
 
-const { hero, cards, infoBar } = profile;
+const { hero, cards, infoBar, outro } = profile;
 const { contentBox } = atlas;
 const personInset = [contentBox.left, contentBox.top, contentBox.right, contentBox.bottom].join(' ');
 
@@ -107,6 +107,58 @@ const cardsWithDepth = cards.map((card) => ({
     {cardsWithDepth.map((card) => <ArchiveCard {...card} />)}
   </nav>
 
+  <!-- ── 收尾区块（2026-09-12）：飞散终态从下升起的「个人语录」与「联系表单」──
+       时机不是拍脑袋定的，而是按**素材实测的头部朝向**对齐（见 qa/head_yaw.py
+       与 qa/out/head-yaw.json 的逐帧 yaw 序列）：
+
+         左区  人物「看左」窗口 --sc 0.34→0.54（实测看左段 36.5%–57.3%，峰 39%–47%）
+         右区  人物「看右」窗口 --sc 0.62→0.82（实测看右段 67.7%–83.3%，峰 73%–81%）
+
+       即：人物转头看向哪边，哪边的区块刚好升到位——视线与内容是同一拍。
+
+       时机常数在 hero.css 的 --outro-l-* / --outro-r-*，改窗口只动那里。
+       两块都是独立层，**不参与飞散块的 opacity 淡出**（它们各自的透明度由
+       自身的 --outro-* 进度独占，见 hero.css 的「收尾区块」注释）。
+
+       为什么放在 .hero-person 之后、.chrome 之前：
+       本层要压在人物之上（终态是"人物 + 背景 + 黑条 + 两块内容"），
+       但 .chrome 是 pointer-events:none 的纯装饰层，塞进去表单收不到点击。 -->
+  <div class="outro" aria-labelledby="outro-quote">
+    <blockquote class="outro-quote" id="outro-quote">{outro.quote}</blockquote>
+    <p class="outro-intro">{outro.intro}</p>
+  </div>
+
+  <form class="outro-contact" id="contact" aria-labelledby="outro-contact-title">
+    <h2 class="outro-contact-title" id="outro-contact-title">{outro.contact.heading}</h2>
+    <p class="outro-contact-note">{outro.contact.note}</p>
+
+    {
+      outro.contact.fields.map((field) => (
+        <label class="field">
+          <span class="field-label">{field.label}</span>
+          {field.type === 'textarea' ? (
+            <textarea name={field.name} rows="4" placeholder={field.placeholder} required />
+          ) : (
+            <input name={field.name} type={field.type} placeholder={field.placeholder} required />
+          )}
+        </label>
+      ))
+    }
+
+    <div class="outro-contact-actions">
+      <button type="submit" class="outro-submit">
+        {outro.contact.submit}
+        <em>{outro.contact.submitZh}</em>
+      </button>
+      <a class="outro-mail" href={`mailto:${outro.contact.email}`}>{outro.contact.email}</a>
+    </div>
+    <!-- 后端（Cloudflare Worker + send_email binding）尚未接线：
+         提交被应用层拦下并提示，避免纯静态站 POST 到 404 白屏。
+         接线后把 data-endpoint 填上、移除拦截即可（见 HeroStage 底部脚本）。 -->
+    <p class="outro-status" data-contact-status role="status" aria-live="polite"></p>
+    <input type="hidden" name="_subject" value="来自个人档案馆的联系" />
+  </form>
+
   <div class="chrome" aria-hidden="true">
     <div class="mark-tl">
       <span class="blk"></span>
@@ -159,3 +211,113 @@ const cardsWithDepth = cards.map((card) => ({
     }
   </footer>
 </main>
+
+<script>
+  /* ── 收尾区块的「到位」标记 ────────────────────────────────────────
+   *
+   * CSS 需要知道两块内容是否已升到位，才能放开 pointer-events
+   * （升起途中若可命中，会在空中截走本该给 hero 的指针）。但数值型的
+   * 自定义属性在 CSS 里**不能当布尔条件用**（`[style*="1"]` 会误命中
+   * 0.15 这类含 "1" 的值），所以由本脚本读 --sc 并在跨越窗口终点时
+   * 给 :root 打 data-outro 标记。
+   *
+   * 为什么用 MutationObserver 而不是 rAF 轮询：
+   * 轮询要么浪费帧、要么漏掉快速滚动。--sc 是 scroll-scrub.js 每帧写的
+   * :root 内联属性，观察 style 属性变化正好是事件驱动的、
+   * 且触发频率天然与 scrub 同拍（不滚就不触发，零开销）。 */
+  /* 窗口常数必须与 hero.css 的 --outro-l / --outro-r 窗口**逐字一致**：
+   *   ON   = 窗口终点（升到位那一刻）
+   *   OFF  = 窗口起点（完全落回去那一刻）
+   * 二者不等构成滞回：到位后只要不退回起点，标记就保持，避免终点附近
+   * 微小回弹导致 pointer-events 反复闪烁。 */
+  const OUTRO_WINDOWS = [
+    { flag: 'l', on: 0.7646, off: 0.6146 },
+    { flag: 'r', on: 0.9242, off: 0.7642 },
+  ];
+
+  const readSc = () => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--sc');
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0;
+  };
+
+  const syncOutro = () => {
+    const sc = readSc();
+    const root = document.documentElement;
+    const on = new Set((root.dataset.outro ?? '').split(/\s+/).filter(Boolean));
+    let changed = false;
+    for (const { flag, on: hi, off: lo } of OUTRO_WINDOWS) {
+      if (sc >= hi && !on.has(flag)) {
+        on.add(flag);
+        changed = true;
+      } else if (sc <= lo && on.has(flag)) {
+        on.delete(flag);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    const next = [...on].sort().join(' ');
+    if (next) root.dataset.outro = next;
+    else delete root.dataset.outro;
+  };
+
+  syncOutro();
+  new MutationObserver(syncOutro).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['style'],
+  });
+
+  /* ── 联系表单提交拦截（2026-09-12）────────────────────────────────
+   *
+   * 现状：站点是纯静态产物（astro output: 'static'），**没有服务器进程**，
+   * 表单 POST 到自身路径会 404。后端计划走 Cloudflare Worker +
+   * send_email binding（域名已在 Cloudflare，且只需发给自己 → 零第三方、
+   * 无额度上限），但 Worker 尚未部署，所以这里先做**前端拦截 + 明确提示**，
+   * 不让用户点了按钮撞 404 白屏。
+   *
+   * 接线步骤（Worker 部署后）：
+   *   1. 给 <form> 加 data-endpoint="/api/contact"（或 Worker 的完整 URL）；
+   *   2. 本脚本检测到 endpoint 就改为 fetch POST，并渲染成功/失败状态；
+   *   3. 未配 endpoint 时走下面的降级分支（提示 + 指向邮箱）。
+   *
+   * 为什么用原生 JS 而不是 Astro 的 actions：actions 需要 SSR，
+   * 本项目是静态输出，引入 SSR 会连带整套 Node adapter 部署成本。 */
+  const contactForm = document.querySelector('.outro-contact');
+  if (contactForm) {
+    const status = contactForm.querySelector('[data-contact-status]');
+    const mailLink = contactForm.querySelector('.outro-mail');
+
+    contactForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!status) return;
+
+      const endpoint = contactForm.dataset.endpoint;
+
+      if (!endpoint) {
+        /* 降级：无后端可投递。不假装成功——明确告知并给出可用的替代路径。 */
+        const email = mailLink?.textContent?.trim() ?? '';
+        status.dataset.state = 'pending';
+        status.textContent = email
+          ? `表单后端尚未接线，请直接写信到 ${email}`
+          : '表单后端尚未接线，暂时无法发送。';
+        return;
+      }
+
+      const data = new FormData(contactForm);
+      status.dataset.state = 'pending';
+      status.textContent = '正在发送…';
+
+      fetch(endpoint, { method: 'POST', body: data, headers: { Accept: 'application/json' } })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          status.dataset.state = 'ok';
+          status.textContent = '已发送，我会尽快回复。';
+          contactForm.reset();
+        })
+        .catch((err) => {
+          status.dataset.state = 'error';
+          status.textContent = `发送失败（${err.message}），请改用邮件联系。`;
+        });
+    });
+  }
+</script>

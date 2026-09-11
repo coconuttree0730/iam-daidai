@@ -65,17 +65,63 @@ if (view) {
 
   if (sprite && heroSprite && frameCount && cellWidth && cellHeight && segments) {
     /* 手感参数：ENTER_PX = 进入阈值（防误触）；RANGE_PX = 满行程的累计纵向位移。
-       桌面向下滚轮按 deltaY 原样累计（~100px/格，2400px ≈ 24 格走完 193 帧）。
-       触摸行程必须按**一次自然滑动**标定（2026-09-11 用户实测"只能滑到一半"）：
-       手机上的自然滑动幅度约 0.7–0.8×视口高，所以取 0.7×视口高并 clamp 到
-       [460, 900]——这样一次满屏上滑（减去 30px 进入阈值后）恰好走完整个帧序，
-       不必划三屏；短促轻扫也还能推到 60% 以上。 */
+       ★ 2026-09-12 用户实测"鼠标滑动一下就到底了" → 桌面端行程太短，改为
+         **按输入设备自适应**（用户两种设备都用，静态 matchMedia 判不出来）。
+
+       为什么不能静态判断：`matchMedia('(pointer: coarse)')` 只区分**触摸屏**，
+       触摸板在浏览器看来仍是 `pointer: fine` —— 两者都走桌面分支，但
+       deltaY 量级差一个数量级：
+         鼠标滚轮：离散大值，一格 ≈ 100px（且常带 100 的整数倍特征）
+         触摸板：  连续小值，一次 ≈ 1–10px，快划也就几十
+       2400px 在滚轮上是 24 格（偏少），在触摸板上几十次滚动就滑完 → "一下到底"。
+
+       自适应策略：按**最近一次 deltaY 的量级**切换档位，带**迟滞**防抖动。
+         首次输入定档；之后只有连续偏离当前档位足够多次才切换。
+       手机（coarse）仍走原来的"一次自然滑动"标定，不受影响。 */
     const ENTER_PX = 30;
     const coarse =
       typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-    const RANGE_PX = coarse
-      ? Math.max(460, Math.min(900, Math.round(window.innerHeight * 0.7)))
-      : 2400;
+
+    const MOBILE_RANGE = Math.max(460, Math.min(900, Math.round(window.innerHeight * 0.7)));
+    /* 桌面两档：滚轮需要"多滚几下"才走完；触摸板需要"多划几屏"。
+       滚轮 2400px ≈ 24 格（用户反馈太少）→ 提到 5200 ≈ 52 格，接近两屏滚轮。
+       触摸板取视口高的 ~6 倍（一次自然划动 ≈ 0.25 视图高 → 约 24 次划完 193 帧）。 */
+    const WHEEL_RANGE = 5200;
+    const TRACKPAD_RANGE = Math.max(3600, Math.round(window.innerHeight * 6));
+
+    let range = coarse ? MOBILE_RANGE : WHEEL_RANGE;
+    /* 累计纵向输入（px），钳制在 [0, range]。声明必须在 noteDelta 之前：
+       切档时要按比例映射 acc，提前声明避免 TDZ 陷阱。 */
+    let acc = 0;
+    /* 迟滞计数器：连续 N 次落在另一档才切，避免滚轮逐格间隙被误判成触摸板。
+       ⚠️ 计数语义是"连续偏离当前档"，不是"连续命中某档"：
+       中间只要回到 lastKind 一次就清零。两档交替时永远不会切（保守，防抖）。 */
+    const SWITCH_STREAK = 3;
+    let streak = 0;
+    let lastKind = null;
+
+    const noteDelta = (absDelta) => {
+      if (coarse) return;
+      /* 量级判据：滚轮单次几乎必 ≥ 40px；触摸板单次通常 < 20px。
+         40 这条线落在两档之间，且滚轮的 100 整数倍绝不会踩到触摸板侧。 */
+      const kind = absDelta >= 40 ? 'wheel' : 'trackpad';
+      if (kind === lastKind) {
+        streak = 0;
+      } else {
+        streak += 1;
+        if (streak >= SWITCH_STREAK) {
+          lastKind = kind;
+          streak = 0;
+          const next = kind === 'wheel' ? WHEEL_RANGE : TRACKPAD_RANGE;
+          if (next !== range) {
+            /* 切档时按比例保住当前进度：否则同一 acc 在新分母下会跳变。 */
+            const p = range > 0 ? acc / range : 0;
+            range = next;
+            acc = p * range;
+          }
+        }
+      }
+    };
 
     const renderer = createSegmentedSpriteRenderer({
       target: sprite,
@@ -87,7 +133,6 @@ if (view) {
       autoPreload: false, // 单屏页无预热窗口，按需取段
     });
 
-    let acc = 0; // 累计纵向输入（px），钳制在 [0, RANGE_PX]
     let active = false;
 
     const setActive = (on) => {
@@ -111,6 +156,13 @@ if (view) {
     const animator = createFrameAnimator({
       frameCount,
       wrap: false,
+      /* ── maxSpeed：已回退到默认（2026-09-12 用户裁定"要流畅的交互"）────
+       * 曾试过 ×0.8（降速求连续）→ 满行程从 1.35s 拖到 2.19s，缓动尾部变长、
+       * 手感"发黏"，用户否掉。**真正的病根不是 maxSpeed，是 RANGE_PX 太短**
+       * （2400px 在触摸板上几下就滑完 → "滑动一下就到底"）。行程拉长后
+       * 每格滚动对应的帧数变少，maxSpeed 默认值（frameCount×2）不再撞上限，
+       * 跳帧自然缓解。故此处显式写回默认，保留注释说明来龙去脉。 */
+      maxSpeed: frameCount * 2,
       render: (frame) => {
         renderer.render(frame);
         /* 版式飞散跟**缓动后的帧进度**而不是原始行程：这样人物动作与版式
@@ -131,7 +183,7 @@ if (view) {
         setActive(true);
         acc -= ENTER_PX; // 越过阈值的部分立刻生效
       } else {
-        acc = Math.max(0, Math.min(RANGE_PX, acc + delta));
+        acc = Math.max(0, Math.min(range, acc + delta));
         /* 边界：上提回到起点、且动画已归位到 f0 → 交还 hero。
            为什么不能只靠 animator 的 render 回调：回调只在**帧号变化**时触发，
            若激活后帧号一直是 0（越过阈值即归零的情形），回调永远不会来，
@@ -141,7 +193,7 @@ if (view) {
           return;
         }
       }
-      animator.setProgress(acc / RANGE_PX);
+      animator.setProgress(acc / range);
     }
 
     /* 初始归零：--sc 是挂在 :root 上的内联自定义属性，跨路由导航（首页 →
@@ -155,6 +207,7 @@ if (view) {
       (event) => {
         const delta = event.deltaMode === 1 ? event.deltaY * 40 : event.deltaY;
         if (!delta) return;
+        noteDelta(Math.abs(delta)); // 先按量级自适应档位，再累计
         if (active || acc > 0) event.preventDefault();
         input(delta);
       },

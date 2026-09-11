@@ -850,7 +850,426 @@
   }
 }
 
-/* ── 无障碍 ────────────────────────────────────────────────────── */
+/* ── 收尾区块：飞散终态从下升起（2026-09-12）────────────────────────
+ *
+ * 画面终态（--sc→1）是「人物 + 背景 + 底部黑条」的静默留白。本块在这片
+ * 留白里从下升起两块内容：
+ *   左 → 个人语录 + 简短介绍（.outro）
+ *   右 → 联系表单骨架（.outro-contact）
+ *
+ * ── 时机：按素材实测的头部朝向对齐，不是拍脑袋定的 ────────────────────
+ * 193 帧滚动素材逐帧测过头部「偏航信号」（方法见 qa/head_yaw.py，
+ * 数据见 qa/out/head-yaw.json）。躯干几乎不动，只有头在转，所以对每帧取
+ * **头部带**（整帧墨迹顶部往下 22% 高，该带内没有手）的 alpha 墨迹水平重心，
+ * 减去全序列中位数得 yaw（+ 偏右 / − 偏左）。实测五段：
+ *
+ *   f0–65    0–34%   正中   yaw ≈ 0
+ *   f70–115  36–60%  看左   yaw ≈ −0.037（峰 f75–90）
+ *   f120–160 62–83%  看右   yaw +0.05 → +0.074（峰 f141–155）
+ *   f170–193 88–100% 看左   yaw = −0.074（最强）
+ *
+ * ⚠️ 第一版测量用「皮肤色像素质心」，被**双手进出画面**污染：掩码面积在
+ * f0–60 只有 ~2 万像素、f65–110 飙到 ~9 万，质心整体左移被误读成"看左"。
+ * **面积变化被当成了朝向变化。** 换成「头部带 + alpha 墨迹重心」后才干净
+ * （该带内墨迹像素平稳在 18500→44000→38000）。**换素材后必须重测，
+ * 不要沿用本窗口常数。**
+ *
+ * ── 窗口（2026-09-12 用户多轮裁定）────────────────────────────────
+ * 第一版取 0.34 / 0.62 起，**早于人物真正转到位的那一帧**：
+ *   实测左转 f65(33.9%) yaw +0.060 → f66(34.4%) 首次转负 −0.049
+ *        → f68(35.4%) −0.207 → f70(36.5%) −0.465 **到位**
+ *   实测右转 f125(65.1%) +0.071 → f128(66.7%) +0.371
+ *        → f130(67.7%) +0.697 → f134(69.8%) +0.974 **到位**
+ * 旧窗口 0.34 起 = 人还没转；0.62 起 = 仍在正中（yaw +0.023）。
+ * 用户肉眼识破："人物都没有看过来就出现了"。
+ *
+ * 第七轮（**最终裁定，前几轮理解有误**）：用户澄清诉求 ——
+ *   「语录（从模糊到完全显示），我要**人物正脸抱胸是语录才从模糊态出现**」
+ * 即 **窗口起点**（`--outro-l` 从 0 开始上升那一帧）必须 = 人物正脸抱胸那一刻。
+ * 正脸抱胸平台期 = **f118–f127**（f128 起右转），故 **起点钉在 f118**。
+ * span 取 0.15（升起 29 帧），终点落在 f147 —— **升起延续到人物转头之后是
+ * 自然的**，不必强求在平台期内完成（起点对齐才是诉求）。
+ *
+ * ⚠️ 前几轮的错误：一直在调"什么时候升到位"（终点），而用户要的是
+ * **"什么时候开始出现"（起点）**。「从模糊态出现」= 起点那一刻。
+ *
+ * 当前窗口：
+ *   左区 0.6146 → 0.7646   起于 **f118（正脸抱胸）**，收于 f147
+ *   右区 0.7642 → 0.9242   起于 f147，收于 f177（用户 2026-09-12：已"刚刚好"，勿动）
+ * ⚠️ **改本窗口只调 `--outro-l-*`，绝不改 scroll-scrub.js 的进度映射**。
+ * ⚠️ 改窗口必须同步 HeroStage.astro 的 OUTRO_WINDOWS（逐字一致，含 span）。
+ * ⚠️ 语录入场**只是 opacity 渐显 + 上移，没有 blur**——用户 2026-09-12 确认
+ *   "当前就是渐显，只是时机不对"，**不要自作主张加 filter:blur**。
+ *
+ * ── 为什么本块不参与飞散块的 opacity 淡出 ────────────────────────────
+ * 飞散块给 .card/.ghost/.title 等挂了 `opacity: var(--sc-fade)`，
+ * 而 --sc-fade 在 0.6→1 区间从 1 降到 0.15。收尾区块正好活在尾段，
+ * 若共用那条曲线就会「一边升起一边淡出」。所以两块**独立成层**，
+ * 透明度只由各自的 --outro-* 进度独占，与飞散块零交集。
+ *
+ * ── 层次 ──────────────────────────────────────────────────────────
+ * z-index 6：与 .chrome 同层、DOM 在后 → 压住装饰角标；高于人物 z5，
+ * 终态时内容可读。两者都 `pointer-events: auto`（表单要能输入）。
+ * 与 hero 的层序契约不冲突：那条契约管的是 1 ghost / 2 title /
+ * 4 fan+infobar / 5 人物 / 6 chrome 的既有元素，本块是新增的第 7 类。 */
+.stage {
+  /* 升起进度：把 --sc 用 smoothstep 重映射到各自的窗口。
+   * smoothstep（3t²−2t³）代替线性：起止两端导数为 0，元素"缓缓启程、
+   * 缓缓停靠"，不会有线性映射那种"突然开始移动"的顿挫。
+   *
+   * ⚠️ **必须先钳制 t 到 [0,1]，再套 smoothstep——顺序不能反。**
+   * 踩过的坑：写成 `clamp(0, t²(3−2t), 1)`（外层钳制结果）时，t 为负会得到
+   * **大的正数**（t² 为正、(3−2t) > 3），被 clamp 成 1 → **起始态就满透明**、
+   * 终态反而归 0，中间大段非单调。根因是 `t²` 抹掉了符号，
+   * 我原以为它保证符号——错的。所以内层用
+   * `clamp(0, (var(--sc-v) − start) / span, 1)` 先把 t 夹到 [0,1]，
+   * 外层再算 t²(3−2t)（此时结果天然落在 [0,1]，无需再夹）。 */
+  --outro-l-t: clamp(0, calc((var(--sc-v) - 0.6146) / 0.15), 1);
+  --outro-r-t: clamp(0, calc((var(--sc-v) - 0.7642) / 0.16), 1);
+  --outro-l: calc(var(--outro-l-t) * var(--outro-l-t) * (3 - 2 * var(--outro-l-t)));
+  --outro-r: calc(var(--outro-r-t) * var(--outro-r-t) * (3 - 2 * var(--outro-r-t)));
+  /* 升起高度：从下方 N vh 处上移到终点。
+   * 用 vh 而非 px——矮视口上 px 起手位可能还在屏内（没"从下方来"的观感），
+   * 高视口上又移得太远、过渡显得拖沓。 */
+  --outro-rise: 14vh;
+}
+
+/* ── 左侧：个人语录 + 简短介绍 ────────────────────────────────────── */
+.outro {
+  position: absolute;
+  /* 锚在左半区上半，飞散终态的静默留白内。
+     宽度用 min(38vw, 460px)：窄屏按比例收，宽屏封顶避免行宽过长难读。 */
+  left: clamp(24px, 5.6vw, 96px);
+  /* ── 锚点口径：stage 百分比，不用 vh ────────────────────────────
+   * 本块定位相对 .stage，而 .stage 高 = max(100svh, 620px)。用 vh 时
+   * 矮视口下 stage 被 min-height 顶到 620px，1vh 却按视口算 → 锚距被
+   * 压缩，同一条规则在不同视口上落点不一致（实测 532px 视口下
+   * `16vh` = 85px，只相当于 stage 的 13.7%）。改成 xxx% 后百分比
+   * 直接相对 .stage 盒高，落点与视口高解耦——与 .mark-br 的
+   * `bottom: calc(var(--bar-h) + 2.4%)` 同一口径。 */
+  bottom: calc(var(--bar-h) + 51.9676%);
+  z-index: 6;
+  width: min(38vw, 460px);
+  /* 起手态写在 translate 的静态段 + opacity：两者都消费 --outro-l。
+     为什么不用 transform：本块不参与飞散，但保持与全站一致的手法——
+     translate 属性与 transform 独立合成，日后若要叠位移不必拆复合变换。 */
+  translate: 0 calc(var(--outro-rise) * (1 - var(--outro-l)));
+  opacity: var(--outro-l);
+  /* 升起期间不可点击：屏外/半透明状态若可命中的话，会在画面空白处
+     截走本该给 hero 的指针。到位后由根元素的 data-outro 标记放开，
+     见文件末尾的 `:root[data-outro="…"]` 规则组。
+     ── 为什么不用「--outro-l == 1」判定 ──────────────────────────
+     CSS 无法把数值自定义属性当布尔条件用（`[style*="1"]` 之类会误命中
+     0.15/0.1 等含 "1" 的值）。可靠做法是脚本在进度到位时给 :root 打标记，
+     这里只消费标记。 */
+  pointer-events: none;
+  will-change: translate, opacity;
+  font-family: var(--font-cjk);
+  color: var(--ink);
+}
+
+.outro-quote {
+  margin: 0;
+  position: relative;
+  padding-left: clamp(14px, 1.6vw, 26px);
+  font-size: clamp(19px, 2.5vw, 40px);
+  font-weight: 900;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  /* 引号由装饰性 ::before 承担（用中文引号，不与撇号混淆） */
+}
+
+/* 语录左侧的红色竖线：档案风的"引文标记"，与卡片编号同色 */
+.outro-quote::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  bottom: 0.15em;
+  width: clamp(3px, 0.34vw, 5px);
+  background: var(--red);
+}
+
+.outro-intro {
+  margin: clamp(14px, 1.8vw, 26px) 0 0;
+  padding-left: clamp(14px, 1.6vw, 26px);
+  max-width: 34ch;
+  font-size: clamp(12px, 1.06vw, 16px);
+  font-weight: 400;
+  line-height: 1.85;
+  letter-spacing: 0.015em;
+  color: #55524e;
+}
+
+/* 「语录 · QUOTE」装饰小字已按用户要求（2026-09-12）移除。
+   原来这里是 .outro::before 伪元素（绝对定位在语录上方）。
+   整块删掉，不保留死代码；若日后要恢复，从日志里取回原规则即可。 */
+
+/* ── 右侧：联系表单骨架 ────────────────────────────────────────────
+ * 视觉沿用截图给的暗色输入框语汇，但**改为本页的浅色纸面体系**：
+ * 底色透明、仅描边（档案风是"线稿"语言，实心深色块会压掉纸感）。
+ * 全部尺寸用 em，挂在 --ui（装饰角标的统一尺度单位）与 clamp 上，
+ * 保证与全站同步缩放。 */
+.outro-contact {
+  position: absolute;
+  right: clamp(24px, 5.6vw, 96px);
+  /* 与 .outro 同口径（stage 百分比），见左侧注释。表单高 ≈326px 大于
+     语录的 ≈133px，故锚距更大，两块顶边错开约一间。 */
+  bottom: calc(var(--bar-h) + 34.194%);
+  z-index: 6;
+  width: min(34vw, 400px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.05vw, 16px);
+  translate: 0 calc(var(--outro-rise) * (1 - var(--outro-r)));
+  opacity: var(--outro-r);
+  pointer-events: none;
+  will-change: translate, opacity;
+  font-family: var(--font-cjk);
+  color: var(--ink);
+}
+
+.outro-contact-title {
+  margin: 0;
+  font-size: clamp(15px, 1.5vw, 24px);
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.outro-contact-note {
+  margin: 0 0 clamp(2px, 0.4vw, 6px);
+  font-size: clamp(11px, 0.95vw, 14px);
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.015em;
+  color: #7d7a76;
+}
+
+/* 字段：标签视觉隐藏（表单一律用 placeholder 提示，与截图一致），
+   但保留在无障碍树里——屏幕阅读器仍能读出每个输入框的名称。 */
+.field {
+  display: block;
+  position: relative;
+}
+
+.field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.field input,
+.field textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: clamp(9px, 0.86vw, 13px) clamp(11px, 1vw, 15px);
+  font-family: var(--font-cjk);
+  font-size: clamp(11.5px, 0.98vw, 14px);
+  line-height: 1.5;
+  color: var(--ink);
+  /* 透明底 + 描边：让纸色透上来，与 hero 的线稿语汇一致 */
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--hair);
+  border-radius: clamp(4px, 0.42vw, 7px);
+  /* transition 只列颜色类属性：不与 translate/opacity 打架（那两个逐帧即时生效） */
+  transition:
+    border-color 0.24s ease,
+    background-color 0.24s ease;
+}
+.field textarea {
+  resize: vertical;
+  min-height: clamp(72px, 7vw, 104px);
+}
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #a9a6a1;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.86);
+  border-color: var(--ink);
+}
+
+.outro-contact-actions {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1vw, 16px);
+  margin-top: clamp(2px, 0.4vw, 6px);
+}
+
+/* 提交按钮：反相实心块（黑底白字），是"可点"的唯一强信号；
+   hero 其余元素都是线稿，这里用实心形成明确的操作点。 */
+.outro-submit {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  padding: clamp(9px, 0.86vw, 13px) clamp(18px, 1.8vw, 28px);
+  font-family: var(--font-cjk);
+  font-size: clamp(11.5px, 0.98vw, 14px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: clamp(4px, 0.42vw, 7px);
+  cursor: pointer;
+  transition: background-color 0.24s ease, border-color 0.24s ease;
+}
+.outro-submit em {
+  font-style: normal;
+  font-size: 0.86em;
+  font-weight: 400;
+  opacity: 0.68;
+}
+.outro-submit:hover {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+/* 邮箱直链：表单之外的备用路径，等宽字与角标小字同款 */
+.outro-mail {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(10px, 0.84vw, 12px);
+  letter-spacing: 0.06em;
+  color: #8d8a86;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid transparent;
+  transition: color 0.24s ease, border-color 0.24s ease;
+}
+.outro-mail:hover {
+  color: var(--ink);
+  border-bottom-color: var(--hair);
+}
+
+/* 状态行：三种状态用颜色区分（pending 灰 / ok 绿 / error 红） */
+.outro-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: clamp(10px, 0.86vw, 12.5px);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: #8d8a86;
+}
+.outro-status:empty {
+  display: none;
+}
+.outro-status[data-state="ok"] {
+  color: #3b6d11;
+}
+.outro-status[data-state="error"] {
+  color: var(--red);
+}
+
+/* 到位后开放交互：根标记由脚本按 --sc 写入（见 HeroStage 底部脚本）。
+   为什么必须两段式：`--outro-l` 到 1 只表示"动画跑完"，但用户可能已经
+   滚回去（--outro-l 回落）；标记法能保证"当前确实在位"才可点，
+   否则会在半透明浮起态被点到不可见按钮。 */
+:root[data-outro~="l"] .outro,
+:root[data-outro~="r"] .outro-contact {
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 低动效：不做升起位移，但内容必须可见可操作
+     （这两块承载的是联系方式，隐藏等于丢功能）。 */
+  .outro,
+  .outro-contact {
+    translate: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* ── 收尾区块在窄屏的行为 ──────────────────────────────────────────
+ * ≤900：右侧表单与左侧语录会横向挤压（各占 34vw + 38vw = 72vw，
+ * 加上左右边距 11vw 已到 83vw，中间几乎无余量）。改为**上下堆叠**：
+ * 语录在上、表单在下，垂直分布；窗口错峰保留（仍是左先右后，
+ * 此时表现为"上先下后"，阅读顺序不变）。 */
+@media (max-width: 900px) {
+  .outro,
+  .outro-contact {
+    left: clamp(20px, 5.4vw, 48px);
+    right: clamp(20px, 5.4vw, 48px);
+    width: auto;
+  }
+  .outro {
+    top: 26%;
+    bottom: auto;
+  }
+  .outro-quote {
+    font-size: clamp(17px, 4.4vw, 26px);
+  }
+  .outro-contact {
+    top: 52%;
+    bottom: auto;
+    width: min(100%, 420px);
+    gap: clamp(8px, 1.8vw, 12px);
+  }
+  .outro-contact-note {
+    display: none;
+  }
+  .outro-contact-title {
+    font-size: clamp(14px, 3.6vw, 18px);
+  }
+}
+
+/* ≤640：手机上竖排空间更紧，进一步压缩垂直占用。
+   黑条已占 38px+，语录与表单必须挤进剩余高度且不压黑条。 */
+@media (max-width: 640px) {
+  .outro {
+    top: 20%;
+  }
+  .outro-quote {
+    font-size: clamp(16px, 5.2vw, 22px);
+    line-height: 1.4;
+  }
+  .outro-intro {
+    margin-top: clamp(10px, 3vw, 16px);
+    font-size: clamp(11px, 3.2vw, 13px);
+    line-height: 1.7;
+    /* 手机上介绍文案限制 3 行，避免把表单挤出屏 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .outro-contact {
+    top: 55%;
+    gap: 8px;
+  }
+  .field input,
+  .field textarea {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .field textarea {
+    min-height: 62px;
+  }
+  .outro-submit {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+  .outro-mail {
+    font-size: 10px;
+  }
+}
+
+/* 无障碍 ────────────────────────────────────────────────────── */
 .sr-only {
   position: absolute;
   width: 1px;
