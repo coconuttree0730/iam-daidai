@@ -1,0 +1,27 @@
+// 联系表单投递 Worker（iam-daidai-contact）。部署步骤见 worker/README.md。
+{
+  "name": "iam-daidai-contact",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-15",
+  // 与 Pages 自定义域共存：Route 优先于 Pages，daidai.click/api/* 落到
+  // 本 Worker 而不是落进 Pages 的 404。npx wrangler deploy 时自动创建。
+  "routes": [{ "pattern": "daidai.click/api/*", "zone_name": "daidai.click" }],
+  "send_email": [
+    {
+      "name": "EMAIL",
+      // 绑定层硬限制（纵深防御）：无论代码怎么被滥用，这封信也只能发到
+      // 站长邮箱。改收件邮箱时这里和 vars.TO_EMAIL 要一起改。
+      "allowed_destination_addresses": ["hello@daidai.click"]
+    }
+  ],
+  "vars": {
+    "TO_EMAIL": "hello@daidai.click",
+    // 发件方：域名 onboard Cloudflare Email Service 后自动配好
+    // SPF / DKIM / DMARC，这是邮件不进垃圾箱的保障。
+    "FROM_EMAIL": "no-reply@daidai.click",
+    "SUBJECT": "来自个人档案馆的联系",
+    // Origin 粗筛白名单（逗号分隔）。localhost 两项仅供本机
+    // npm run dev + wrangler dev 联测，生产无暴露面。
+    "ALLOWED_ORIGINS": "https://daidai.click,http://localhost:4321,http://localhost:8888"
+  }
+}

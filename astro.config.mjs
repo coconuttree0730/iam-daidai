@@ -11,7 +11,7 @@ import { defineConfig } from 'astro/config';
 const LOCAL_TMP = '/home/vii/.tmp';
 
 export default defineConfig({
-  site: 'https://example.com',
+  site: 'https://daidai.click',
   output: 'static',
   server: {
     host: true,

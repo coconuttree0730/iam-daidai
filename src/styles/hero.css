@@ -1156,6 +1156,18 @@
   border-bottom-color: var(--hair);
 }
 
+/* honeypot：视觉上移出视口的陷阱字段。不用 display:none——部分 bot 会
+   检测它，绝对定位扔出屏外更稳。tabindex=-1 不可聚焦，aria-hidden 对
+   读屏隐藏，填充即判定为脚本（Worker 端假成功不投递）。 */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* 状态行：三种状态用颜色区分（pending 灰 / ok 绿 / error 红） */
 .outro-status {
   margin: 0;

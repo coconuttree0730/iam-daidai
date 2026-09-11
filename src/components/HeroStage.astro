@@ -128,7 +128,7 @@ const cardsWithDepth = cards.map((card) => ({
     <p class="outro-intro">{outro.intro}</p>
   </div>
 
-  <form class="outro-contact" id="contact" aria-labelledby="outro-contact-title">
+  <form class="outro-contact" id="contact" data-endpoint="/api/contact" aria-labelledby="outro-contact-title">
     <h2 class="outro-contact-title" id="outro-contact-title">{outro.contact.heading}</h2>
     <p class="outro-contact-note">{outro.contact.note}</p>
 
@@ -152,11 +152,25 @@ const cardsWithDepth = cards.map((card) => ({
       </button>
       <a class="outro-mail" href={`mailto:${outro.contact.email}`}>{outro.contact.email}</a>
     </div>
-    <!-- 后端（Cloudflare Worker + send_email binding）尚未接线：
-         提交被应用层拦下并提示，避免纯静态站 POST 到 404 白屏。
-         接线后把 data-endpoint 填上、移除拦截即可（见 HeroStage 底部脚本）。 -->
+    <!-- 后端已接线（2026-09-12）：worker/ 目录的 Cloudflare Worker +
+         send_email binding 直发收件邮箱（真实邮箱只在 wrangler.jsonc，
+         不上网页）；Route daidai.click/api/* 同源接入，data-endpoint
+         用相对路径即可，无 CORS。Worker 未部署 / 网络失败时走状态行的
+         mailto 兜底提示——mailto 指向域名地址 hello@daidai.click，
+         经 Cloudflare Email Routing 转发到真实邮箱。 -->
     <p class="outro-status" data-contact-status role="status" aria-live="polite"></p>
-    <input type="hidden" name="_subject" value="来自个人档案馆的联系" />
+    <!-- 反垃圾三件套之一：honeypot 陷阱字段（.hp-field 把它扔出视口）。
+         人类不可见不可填，脚本提交时字段非空 → Worker 假成功不投递。
+         （原 _subject hidden 是 Formspree 服务的字段惯例，方案已定为
+         自建 Worker，subject 移入 wrangler.jsonc 的 vars，故移除。） -->
+    <input
+      class="hp-field"
+      type="text"
+      name="_gotcha"
+      tabindex="-1"
+      autocomplete="off"
+      aria-hidden="true"
+    />
   </form>
 
   <div class="chrome" aria-hidden="true">
@@ -267,18 +281,21 @@ const cardsWithDepth = cards.map((card) => ({
     attributeFilter: ['style'],
   });
 
-  /* ── 联系表单提交拦截（2026-09-12）────────────────────────────────
+  /* ── 联系表单提交（2026-09-12 接线）────────────────────────────────
    *
-   * 现状：站点是纯静态产物（astro output: 'static'），**没有服务器进程**，
-   * 表单 POST 到自身路径会 404。后端计划走 Cloudflare Worker +
-   * send_email binding（域名已在 Cloudflare，且只需发给自己 → 零第三方、
-   * 无额度上限），但 Worker 尚未部署，所以这里先做**前端拦截 + 明确提示**，
-   * 不让用户点了按钮撞 404 白屏。
+   * 投递链路：fetch POST /api/contact（相对路径，同源）→ Workers Route
+   * daidai.click/api/* → worker/ 下的 Cloudflare Worker → send_email
+   * binding 直发收件邮箱（真实地址只在 wrangler.jsonc，不上网页）。
    *
-   * 接线步骤（Worker 部署后）：
-   *   1. 给 <form> 加 data-endpoint="/api/contact"（或 Worker 的完整 URL）；
-   *   2. 本脚本检测到 endpoint 就改为 fetch POST，并渲染成功/失败状态；
-   *   3. 未配 endpoint 时走下面的降级分支（提示 + 指向邮箱）。
+   * 分工：Worker 端做校验（Origin 白名单 + honeypot + 最短停留），
+   * 这里只负责采集、防连点、渲染三态状态行。
+   *
+   * _elapsed 从本脚本初始化（页面加载）计到提交：真实人类从打开页面到
+   * 滚到收尾区提交必然 >3s，秒提交视为脚本行为，Worker 假成功不投递。
+   *
+   * 降级：fetch 失败（Worker 未部署 / 网络断 / 超时）时状态行给出
+   * mailto 兜底；mailto 直链（域名地址，Email Routing 转发）始终保留
+   * 为零 JS 的替代路径。
    *
    * 为什么用原生 JS 而不是 Astro 的 actions：actions 需要 SSR，
    * 本项目是静态输出，引入 SSR 会连带整套 Node adapter 部署成本。 */
@@ -286,38 +303,66 @@ const cardsWithDepth = cards.map((card) => ({
   if (contactForm) {
     const status = contactForm.querySelector('[data-contact-status]');
     const mailLink = contactForm.querySelector('.outro-mail');
+    const submitBtn = contactForm.querySelector('.outro-submit');
+    const openedAt = performance.now();
+
+    /* 提交中禁用按钮防连点：换文案 SENDING…（与 SEND MESSAGE 同风格大写），
+       结束后按 data-label 还原双层结构（<em> 中文副文案在内）。 */
+    const setBusy = (busy) => {
+      if (!submitBtn) return;
+      submitBtn.disabled = busy;
+      if (busy) {
+        submitBtn.dataset.label = submitBtn.innerHTML;
+        submitBtn.textContent = 'SENDING…';
+      } else if (submitBtn.dataset.label) {
+        submitBtn.innerHTML = submitBtn.dataset.label;
+        delete submitBtn.dataset.label;
+      }
+    };
 
     contactForm.addEventListener('submit', (event) => {
       event.preventDefault();
       if (!status) return;
 
       const endpoint = contactForm.dataset.endpoint;
-
-      if (!endpoint) {
-        /* 降级：无后端可投递。不假装成功——明确告知并给出可用的替代路径。 */
-        const email = mailLink?.textContent?.trim() ?? '';
-        status.dataset.state = 'pending';
-        status.textContent = email
-          ? `表单后端尚未接线，请直接写信到 ${email}`
-          : '表单后端尚未接线，暂时无法发送。';
-        return;
-      }
+      if (!endpoint) return; /* data-endpoint 已写死，此分支仅为防御 */
 
       const data = new FormData(contactForm);
+      const payload = {
+        name: data.get('name'),
+        email: data.get('email'),
+        message: data.get('message'),
+        _gotcha: data.get('_gotcha') ?? '',
+        _elapsed: Math.round(performance.now() - openedAt),
+        _page: location.href,
+      };
+
+      const fallbackEmail = mailLink?.textContent?.trim() ?? '';
       status.dataset.state = 'pending';
       status.textContent = '正在发送…';
+      setBusy(true);
 
-      fetch(endpoint, { method: 'POST', body: data, headers: { Accept: 'application/json' } })
-        .then((res) => {
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      })
+        .then(async (res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const result = await res.json().catch(() => ({ ok: true }));
+          if (!result.ok) throw new Error('rejected');
           status.dataset.state = 'ok';
           status.textContent = '已发送，我会尽快回复。';
           contactForm.reset();
         })
         .catch((err) => {
           status.dataset.state = 'error';
-          status.textContent = `发送失败（${err.message}），请改用邮件联系。`;
-        });
+          status.textContent = fallbackEmail
+            ? `发送失败（${err?.message ?? '网络异常'}），请直接写信到 ${fallbackEmail}`
+            : `发送失败（${err?.message ?? '网络异常'}），请改用邮件联系。`;
+        })
+        .finally(() => setBusy(false));
     });
   }
 </script>
