@@ -1,0 +1,162 @@
+{
+  "frameCount": 193,
+  "cellWidth": 966,
+  "cellHeight": 720,
+  "fps": 24,
+  "source": "temp/上下滑动素材视频.mp4",
+  "matting": "RobustVideoMatting rvm_resnet50 (despill on)",
+  "window": {
+    "left": 81,
+    "top": 0,
+    "width": 966,
+    "height": 720
+  },
+  "contentBox": {
+    "left": 0.0083,
+    "top": 0,
+    "right": 0.0083,
+    "bottom": 0
+  },
+  "segments": [
+    {
+      "asset": "/motion/scroll/segments/seg00.webp",
+      "first": 0,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg01.webp",
+      "first": 10,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg02.webp",
+      "first": 20,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg03.webp",
+      "first": 30,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg04.webp",
+      "first": 40,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg05.webp",
+      "first": 50,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg06.webp",
+      "first": 60,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg07.webp",
+      "first": 70,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg08.webp",
+      "first": 80,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg09.webp",
+      "first": 90,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg10.webp",
+      "first": 100,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg11.webp",
+      "first": 110,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg12.webp",
+      "first": 120,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg13.webp",
+      "first": 130,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg14.webp",
+      "first": 140,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg15.webp",
+      "first": 150,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg16.webp",
+      "first": 160,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg17.webp",
+      "first": 170,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg18.webp",
+      "first": 180,
+      "count": 10,
+      "cols": 2,
+      "rows": 5
+    },
+    {
+      "asset": "/motion/scroll/segments/seg19.webp",
+      "first": 190,
+      "count": 3,
+      "cols": 2,
+      "rows": 5
+    }
+  ]
+}

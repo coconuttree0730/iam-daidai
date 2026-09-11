@@ -24,6 +24,12 @@ export function createFrameAnimator(options) {
   const smoothTime = options.smoothTime ?? 0.11;
   const maxSpeed = options.maxSpeed ?? frameCount * 2;
   const reducedMotion = options.reducedMotion ?? false;
+  /* 时间轴拓扑开关（2026-09-11，滚动 scrub 页新增）：
+   *   wrap: true（默认）= 圆环——帧 N−1 与帧 0 相邻，指针环绕跟随语义，hero 用；
+   *   wrap: false       = 线性钳制——首尾不相接，拉到尽头停帧。
+   * 线性时间轴若沿用环形 wrapDelta，"f0 再往下滚"会回绕到 f(N−1) 沿整条轴
+   * 倒扫——圆环教训的反向应用：序列消费逻辑必须与时间轴拓扑同构。 */
+  const wrap = options.wrap ?? true;
   const CIRCLE = frameCount; // 圆环周长（帧单位）：帧 N−1 与帧 0 间距 1
   let position = Math.min(frameCount - 1, Math.max(0, options.initialFrame ?? 0));
   let target = position;
@@ -57,26 +63,31 @@ export function createFrameAnimator(options) {
       const x = omega * dt;
       const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
       const maxChange = maxSpeed * smoothTime;
-      /* 虚拟目标 = 当前位置 + 圆环最短路径；smoothDamp 公式原样作用于它 */
-      const virtualTarget = position + wrapDelta(target - position);
+      /* 虚拟目标 = 当前位置 + 最短行程：圆环取回绕最短路径，线性直接取差值 */
+      const delta = wrap ? wrapDelta(target - position) : target - position;
+      const virtualTarget = position + delta;
       const change = clamp(position - virtualTarget, -maxChange, maxChange);
       const limitedTarget = position - change;
       const temp = (velocity + omega * change) * dt;
       velocity = (velocity - omega * temp) * decay;
-      position = wrapIndex(limitedTarget + (change + temp) * decay);
+      const next = limitedTarget + (change + temp) * decay;
+      position = wrap ? wrapIndex(next) : clamp(next, 0, frameCount - 1);
       if ((virtualTarget - position > 0) === (position > virtualTarget)) {
         position = target;
         velocity = 0;
       }
     }
 
-    const frame = wrapIndex(Math.round(position));
+    const frame = wrap
+      ? wrapIndex(Math.round(position))
+      : Math.round(clamp(position, 0, frameCount - 1));
     if (frame !== lastFrame) {
       options.render(frame);
       lastFrame = frame;
     }
 
-    if (Math.abs(wrapDelta(target - position)) > 0.002 || Math.abs(velocity) > 0.002) {
+    const remaining = wrap ? wrapDelta(target - position) : target - position;
+    if (Math.abs(remaining) > 0.002 || Math.abs(velocity) > 0.002) {
       raf = requestAnimationFrame(loop);
     }
   };
@@ -91,7 +102,7 @@ export function createFrameAnimator(options) {
       if (!raf && !destroyed) raf = requestAnimationFrame(loop);
     },
     getCurrentFrame() {
-      return wrapIndex(position);
+      return wrap ? wrapIndex(position) : clamp(position, 0, frameCount - 1);
     },
     destroy() {
       destroyed = true;
@@ -185,6 +196,11 @@ export function createSegmentedSpriteRenderer(options) {
   const target = options.target;
   const ctx = target.getContext('2d');
   const frameLabel = options.frameLabel;
+  /* 时间轴拓扑开关：wrap: true（默认）= 圆环形调度（hero 环绕语义）；
+     false = 线性调度——预取 s±1 用边界 clamp、驱逐用线性距离。
+     线性时间轴沿用环形调度会让 seg0 与末段被误判为相邻段：
+     滚动页钳制在两端时末段/首段被无谓驻留，浪费的是 LRU 内存预算。 */
+  const wrap = options.wrap ?? true;
   const bitmaps = new Map(); // 段号 → ImageBitmap（解码态，LRU 驻留）
   const buffers = new Map(); // 段号 → ArrayBuffer（压缩态，全段常驻）
   const bufferPromises = new Map(); // 段号 → Promise<ArrayBuffer>（预载去重）
@@ -196,6 +212,10 @@ export function createSegmentedSpriteRenderer(options) {
   let pendingFrame = 0; // 最近一次请求的帧（含段未就绪的），供解码落地后补画
 
   const wrapIndex = (v) => ((v % frameCount) + frameCount) % frameCount;
+  /* 帧号归一：圆环取模回绕；线性钳制进 [0, frameCount−1] */
+  const normFrame = wrap
+    ? wrapIndex
+    : (v) => Math.max(0, Math.min(frameCount - 1, Math.round(v)));
 
   const segOfFrame = (f) => {
     for (let i = 0; i < segments.length; i++) {
@@ -260,21 +280,27 @@ export function createSegmentedSpriteRenderer(options) {
 
   function render(frame) {
     if (destroyed) return;
-    const f = wrapIndex(Math.round(frame));
+    const f = normFrame(frame);
     pendingFrame = f;
     if (drawnOnce && f === lastRendered) return;
     lastRendered = f;
 
     const s = segOfFrame(f);
     const nSeg = segments.length;
-    // 当前段 + 环形邻段预取（接缝两侧互为邻段）
+    // 当前段 + 邻段预取：圆环两侧互为邻段；线性按边界 clamp
     ensureSeg(s);
-    ensureSeg((s - 1 + nSeg) % nSeg);
-    ensureSeg((s + 1) % nSeg);
-    // 环形距离驱逐远段，close() 真释放解码位图
+    if (wrap) {
+      ensureSeg((s - 1 + nSeg) % nSeg);
+      ensureSeg((s + 1) % nSeg);
+    } else {
+      if (s > 0) ensureSeg(s - 1);
+      if (s < nSeg - 1) ensureSeg(s + 1);
+    }
+    // 远段驱逐，close() 真释放解码位图：圆环按环形距离，线性按直线距离
     for (const [i, bmp] of [...bitmaps]) {
       const d = Math.abs(i - s);
-      if (Math.min(d, nSeg - d) > 1) {
+      const far = wrap ? Math.min(d, nSeg - d) > 1 : d > 1;
+      if (far) {
         bmp.close();
         bitmaps.delete(i);
         stats.evictions++;

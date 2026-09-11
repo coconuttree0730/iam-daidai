@@ -1,0 +1,148 @@
+---
+// 实验室 · 滚动帧随动（/lab/scroll/）
+//
+// 素材：temp/上下滑动素材视频.mp4（1280×720 / 24fps / 193 帧）
+//   RVM 神经网络抠图（RobustVideoMatting，despill 开启，水印被 matte 自动排除）
+//   → 统一窗口 966×720 零缩放裁切 → 20 段雪碧图（每段 10 格，2×5）
+//
+// 交互：页面滚动进度 → 帧序号，线性时间轴、钳制停帧。
+//   滚轮与触摸都由浏览器翻译成 scroll 事件，原生惯性即"步进"手感；
+//   首尾不相接（叙事素材：站立→凑近→比耶→抱臂）， animator/renderer 均为
+//   wrap:false（见 src/lib/scroll-driver.js 与 motion.js 的拓扑开关）。
+//
+// 契约：与首页 hero 同构——参数构建时静态 import（scroll-meta.json），
+//   运行时零参数 fetch；WebP 段文件本身按需加载 + 两层缓存（buffer/bitmap）。
+import Base from '../../layouts/Base.astro';
+import meta from '../../data/scroll-meta.json';
+
+const segments = JSON.stringify(meta.segments);
+---
+
+<Base title="实验室 · 滚动帧随动">
+  <header class="page-head">
+    <h1>SCROLL / 滚动帧随动</h1>
+    <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING</span>
+  </header>
+
+  <main
+    class="scroll-stage"
+    data-scroll-sprite
+    data-segments={segments}
+    data-frame-count={meta.frameCount}
+    data-cell-width={meta.cellWidth}
+    data-cell-height={meta.cellHeight}
+  >
+    <div class="sticky-viewport">
+      <canvas
+        class="scroll-figure"
+        data-sprite
+        width={meta.cellWidth}
+        height={meta.cellHeight}
+        role="img"
+        aria-label={`滚动驱动的动态立绘，共 ${meta.frameCount} 帧`}
+      ></canvas>
+
+      <div class="hud" aria-hidden="true">
+        <span class="hud-hint">↓ 滚动 / 上滑驱动 · 到底停帧 ↑</span>
+        <span class="hud-frame">F<b data-frame>000</b>/192</span>
+      </div>
+    </div>
+  </main>
+
+  <section class="outro">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>实现要点</h2>
+        <span class="badge badge--win">BUILD PASS</span>
+      </div>
+      <div class="readout">
+        <span>时间轴拓扑 <b>线性钳制（wrap:false）</b></span>
+        <span>统一窗口 <b>966×720 · 零缩放</b></span>
+        <span>分段 <b>20 段 × 10 格（2×5）</b></span>
+        <span>抠图 <b>RVM resnet50 + despill</b></span>
+        <span>体积 <b>20 × WebP ≈ 11MB 按需加载</b></span>
+      </div>
+    </div>
+    <p class="backline"><a href="/">← 返回首页</a></p>
+  </section>
+
+  <script>
+    import '../../lib/scroll-driver.js';
+  </script>
+</Base>
+
+<style>
+  /* 420vh 滚动行程：~3.2 屏的滚动距离扫完 193 帧（≈17 帧/百 px），
+     手感实测可在 dev 里由用户裁定，改这里一处即可。 */
+  .scroll-stage {
+    position: relative;
+    height: 420vh;
+  }
+
+  .sticky-viewport {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    display: grid;
+    place-items: end center;
+    overflow: hidden;
+  }
+
+  /* 显示高度封顶 720px = 源单格高度（DPR 1 像素对齐约定，与 hero 同策略）；
+     宽度上限防矮宽视口下横向溢出。 */
+  .scroll-figure {
+    display: block;
+    height: min(82vh, 82dvh, 720px);
+    max-width: 94vw;
+    width: auto;
+    aspect-ratio: 966 / 720;
+  }
+
+  .hud {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0 24px;
+    pointer-events: none;
+  }
+
+  .hud-hint {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+
+  .hud-frame {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+  }
+
+  .hud-frame b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .outro {
+    padding: 40px 32px 48px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  .backline {
+    margin: 18px 4px 0;
+    font-size: 13px;
+  }
+
+  .backline a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+  }
+</style>
