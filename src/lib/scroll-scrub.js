@@ -46,10 +46,17 @@ if (view) {
   }
 
   if (sprite && heroSprite && frameCount && cellWidth && cellHeight && segments) {
-    /* 手感参数：进入阈值防误触；满行程的累计滚动量（px）决定 scrub 速率。
-       2400px ≈ 触摸板三记轻扫 / 滚轮约 24 格走完 193 帧，可按手感单点调整。 */
+    /* 手感参数：ENTER_PX = 进入阈值（防误触）；RANGE_PX = 满行程的累计纵向位移。
+       桌面向下滚轮按 deltaY 原样累计（~100px/格，2400px ≈ 24 格走完 193 帧）。
+       触摸（pointer: coarse）本地行程只有一屏多，沿用 2400px 要划三屏多，
+       所以按 1.6×视口高折算并 clamp 到 [900, 1600]——一次全屏滑动约走 60% 帧序，
+       二次滑动到底，符合"下拉/上提"的手势直觉。 */
     const ENTER_PX = 30;
-    const RANGE_PX = 2400;
+    const coarse =
+      typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    const RANGE_PX = coarse
+      ? Math.max(900, Math.min(1600, Math.round(window.innerHeight * 1.6)))
+      : 2400;
 
     const renderer = createSegmentedSpriteRenderer({
       target: sprite,
@@ -63,7 +70,6 @@ if (view) {
 
     let acc = 0; // 累计纵向输入（px），钳制在 [0, RANGE_PX]
     let active = false;
-    let lastTouchY = null;
 
     const setActive = (on) => {
       active = on;
@@ -99,6 +105,14 @@ if (view) {
         acc -= ENTER_PX; // 越过阈值的部分立刻生效
       } else {
         acc = Math.max(0, Math.min(RANGE_PX, acc + delta));
+        /* 边界：上提回到起点、且动画已归位到 f0 → 交还 hero。
+           为什么不能只靠 animator 的 render 回调：回调只在**帧号变化**时触发，
+           若激活后帧号一直是 0（越过阈值即归零的情形），回调永远不会来，
+           状态机会卡在 scroll 模式，hero 画布再也回不来。 */
+        if (delta < 0 && acc <= 0 && Math.round(animator.getCurrentFrame()) === 0) {
+          setActive(false);
+          return;
+        }
       }
       animator.setProgress(acc / RANGE_PX);
     }
@@ -116,13 +130,34 @@ if (view) {
       { passive: false }
     );
 
-    /* 触摸：单指纵向拖动。手指下移（y 增大）= 向下拉 = 前进，与滚轮向下同义。
-       不拦 pointer 事件——点卡定格、触他归位等既有触摸语义全部保留：
-       tap（无位移）不会产生有效累计，照样走 hero 的触摸契约。 */
+    /* ── 触摸：单指纵向拖动（2026-09-11 移动端适配）────────────────────
+       手指下移（y 增大）= 向下拉 = 前进，与滚轮向下同义；上提 = 倒退。
+       手势归属的三条规则：
+       1. 轴向判定——首次位移超过 6px 时定轴：|dy| ≥ |dx| 判纵向（归 scrub），
+          否则判横向并整段放行（把返回手势等留给浏览器，不抢）。
+       2. 纵向一旦成立就 preventDefault，页面不滚、不回弹；
+          除此之外的防线是 CSS 的 .stage{touch-action:none}（硬保证）。
+       3. 不拦 pointer 事件——点卡定格、触他归位等既有触摸语义全部保留：
+          tap（无位移）不产生有效累计，照样走 hero 的触摸契约。 */
+    const AXIS_LOCK_PX = 6;
+    let touchStart = null; // { x, y }
+    let touchAxis = null; // 'v' | 'h' | null（未定轴）
+    let lastTouchY = null;
+
+    const resetTouch = () => {
+      touchStart = null;
+      touchAxis = null;
+      lastTouchY = null;
+    };
+
     window.addEventListener(
       'touchstart',
       (event) => {
-        lastTouchY = event.touches.length === 1 ? event.touches[0].clientY : null;
+        if (event.touches.length !== 1) return resetTouch();
+        const t = event.touches[0];
+        touchStart = { x: t.clientX, y: t.clientY };
+        touchAxis = null;
+        lastTouchY = t.clientY;
       },
       { passive: true }
     );
@@ -130,21 +165,27 @@ if (view) {
       'touchmove',
       (event) => {
         if (lastTouchY == null || event.touches.length !== 1) return;
-        const y = event.touches[0].clientY;
+        const t = event.touches[0];
+        const y = t.clientY;
+        if (!touchAxis && touchStart) {
+          const dx = Math.abs(t.clientX - touchStart.x);
+          const dy = Math.abs(y - touchStart.y);
+          if (dx > AXIS_LOCK_PX || dy > AXIS_LOCK_PX) touchAxis = dy >= dx ? 'v' : 'h';
+        }
+        if (touchAxis === 'h') {
+          lastTouchY = y; // 横向手势：只跟位置，不消费位移
+          return;
+        }
+        if (touchAxis === 'v') event.preventDefault();
         const delta = y - lastTouchY;
         lastTouchY = y;
         if (!delta) return;
-        if (active || acc > 0) event.preventDefault();
         input(delta);
       },
       { passive: false }
     );
-    window.addEventListener('touchend', () => {
-      lastTouchY = null;
-    });
-    window.addEventListener('touchcancel', () => {
-      lastTouchY = null;
-    });
+    window.addEventListener('touchend', resetTouch);
+    window.addEventListener('touchcancel', resetTouch);
   } else {
     console.warn('[scrub] data-scrub-view 属性不完整，滚动 scrub 未启用：', view);
   }

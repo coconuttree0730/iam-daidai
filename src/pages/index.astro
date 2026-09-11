@@ -61,4 +61,20 @@ import profile from '../data/profile.json';
   :global(.hero-person [hidden]) {
     display: none !important;
   }
+
+  /* ── 移动端手势所有权（2026-09-11）────────────────────────────────────
+   * touch-action: none 挂在 .stage 上：按规范命中元素及其到滚动容器之间的
+   * 祖先取交集，所以整屏（含卡片、画布）的纵向手势都归本项目所有，
+   * 浏览器不会抢占去滚动页面。**这是移动端 scrub 能跑通的硬前提**——
+   * 一旦浏览器接管纵向 pan，touchmove 变为不可取消，preventDefault 失效。
+   * 只作用于触摸（键盘/鼠标不受影响），点卡导航也不受影响。 */
+  :global(.stage) {
+    touch-action: none;
+  }
+
+  /* 关掉下拉刷新/触底回弹的橡皮筋：chrome 的 pull-to-refresh 会把
+   * 向下拖动整段吞掉。本文件样式只进 / 的产物包，其他路由不受影响。 */
+  :global(html) {
+    overscroll-behavior-y: none;
+  }
 </style>
