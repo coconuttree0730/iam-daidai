@@ -145,13 +145,17 @@ const cardsWithDepth = cards.map((card) => ({
       ))
     }
 
-    <!-- 个人信息告知 + 同意勾选（2026-09-12 用户裁定）：默认不勾选，
-         required 由浏览器拦截未勾选提交；文案三要素 = 目的限定 /
-         留存位置 / 删除权行使方式。Worker 端同步校验 consent === true，
-         无同意的数据不进入投递链。 -->
+    <!-- 个人信息告知 + 同意勾选（2026-09-12 用户裁定）：默认不勾选。
+         校验分层——name/email/message 仍走原生 required 气泡；consent
+         不用 required（原生气泡是浏览器内部 UI，CSS 无法定制），改由
+         脚本拦截 + 站点风格行内红字提示（is-error 态 + 一次性抖动），
+         勾选即清除。Worker 端保留 consent === true 校验拦 API 直刷。 -->
     <label class="outro-consent">
-      <input type="checkbox" name="consent" value="yes" required />
-      <span>{outro.contact.consent}</span>
+      <input type="checkbox" name="consent" value="yes" />
+      <span>
+        {outro.contact.consent}
+        <em class="outro-consent-hint" hidden>请先勾选同意，才能发送。</em>
+      </span>
     </label>
 
     <div class="outro-contact-actions">
@@ -310,6 +314,9 @@ const cardsWithDepth = cards.map((card) => ({
   if (contactForm) {
     const status = contactForm.querySelector('[data-contact-status]');
     const submitBtn = contactForm.querySelector('.outro-submit');
+    const consentBox = contactForm.querySelector('input[name="consent"]');
+    const consentRow = contactForm.querySelector('.outro-consent');
+    const consentHint = contactForm.querySelector('.outro-consent-hint');
     const openedAt = performance.now();
 
     /* 提交中禁用按钮防连点：换文案 SENDING…（与 SEND MESSAGE 同风格大写），
@@ -326,9 +333,26 @@ const cardsWithDepth = cards.map((card) => ({
       }
     };
 
+    /* 未勾选同意：行内错误态 + 一次性抖动（重触发靠移除后强制 reflow）；
+       勾选即清除。替代无法用 CSS 定制的原生气泡。 */
+    const flagConsentError = () => {
+      if (!consentRow || consentBox?.checked) return consentBox?.checked ?? false;
+      consentRow.classList.remove('is-error');
+      void consentRow.offsetWidth;
+      consentRow.classList.add('is-error');
+      if (consentHint) consentHint.hidden = false;
+      return false;
+    };
+    consentBox?.addEventListener('change', () => {
+      if (!consentBox.checked) return;
+      consentRow?.classList.remove('is-error');
+      if (consentHint) consentHint.hidden = true;
+    });
+
     contactForm.addEventListener('submit', (event) => {
       event.preventDefault();
       if (!status) return;
+      if (!flagConsentError()) return;
 
       const endpoint = contactForm.dataset.endpoint;
       if (!endpoint) return; /* data-endpoint 已写死，此分支仅为防御 */

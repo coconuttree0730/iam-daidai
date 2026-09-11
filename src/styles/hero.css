@@ -1161,6 +1161,39 @@
   flex: 1;
 }
 
+/* 出错态（未勾选就提交）：文字与勾选框转红、左侧红线呼应信息条分隔线，
+   整行一次性横向抖动吸引视线；hint 红字在文案末尾换行浮现。 */
+@keyframes outro-consent-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  55% { transform: translateX(3px); }
+  80% { transform: translateX(-2px); }
+}
+.outro-consent.is-error {
+  color: var(--red);
+  animation: outro-consent-shake 0.32s ease-out;
+}
+.outro-consent.is-error input {
+  accent-color: var(--red);
+  outline: 1px solid var(--red);
+  outline-offset: 2px;
+}
+.outro-consent.is-error span {
+  border-left: 2px solid var(--red);
+  padding-left: 8px;
+}
+.outro-consent-hint {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-weight: 500;
+}
+@media (prefers-reduced-motion: reduce) {
+  .outro-consent.is-error {
+    animation: none;
+  }
+}
+
 /* honeypot：视觉上移出视口的陷阱字段。不用 display:none——部分 bot 会
    检测它，绝对定位扔出屏外更稳。tabindex=-1 不可聚焦，aria-hidden 对
    读屏隐藏，填充即判定为脚本（Worker 端假成功不投递）。 */
