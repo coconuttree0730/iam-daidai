@@ -20,14 +20,13 @@
     { "label": "状态", "value": "OPEN TO WORK" },
     { "label": "署名", "value": "DAIDAI" }
   ],
-  "_outroComment": "飞散终态（--sc→1，人物+背景+黑条留白）时从下升起的收尾区块。左=个人语录+简介，右=邮箱联系表单骨架。窗口按素材实测的头部朝向错峰：左侧在人物「看左」窗口（--sc 0.34→0.54，实测看左峰 36.5–57.3%）升起，右侧在「看右」窗口（--sc 0.62→0.82，实测看右峰 67.7–83.3%）升起——人物转头看向哪边，哪边的区块刚好到位。窗口常数写在 hero.css 的 --outro-l-* / --outro-r-*，改这里不动版式。contact.email 是**对外展示的域名地址**（hello@daidai.click，经 Cloudflare Email Routing 转发到真实邮箱，2026-09-12 用户裁定：网页不出现明文真实邮箱），真实收件邮箱只存在于 worker/wrangler.jsonc——不要把真实邮箱填回这里。",
+  "_outroComment": "飞散终态（--sc→1，人物+背景+黑条留白）时从下升起的收尾区块。左=个人语录+简介，右=邮箱联系表单骨架。窗口按素材实测的头部朝向错峰：左侧在人物「看左」窗口（--sc 0.34→0.54，实测看左峰 36.5–57.3%）升起，右侧在「看右」窗口（--sc 0.62→0.82，实测看右峰 67.7–83.3%）升起——人物转头看向哪边，哪边的区块刚好到位。窗口常数写在 hero.css 的 --outro-l-* / --outro-r-*，改这里不动版式。contact 不含任何邮箱字段（2026-09-12 用户裁定：表单旁不展示 hello@，页面零邮箱明文，写信一律走表单；真实收件邮箱只存在于 Worker secret）——不要把任何邮箱地址加回这里。",
   "outro": {
     "quote": "把喜欢的事做成日常。",
     "intro": "DD和PP有个约定，不把喜欢寄给未来，不把热爱留在计划里。想见就见面，想出发就出发，把每一件让眼睛发亮的小事，都安放进日复一日的生活里。因为他们相信，把喜欢的事做成日常。",
     "contact": {
       "heading": "联系我",
       "note": "有合作或想法，直接写信给我。",
-      "email": "hello@daidai.click",
       "fields": [
         { "name": "name", "label": "Full Name", "type": "text", "placeholder": "Full Name" },
         { "name": "email", "label": "Email Address", "type": "email", "placeholder": "Email Address" },

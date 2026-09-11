@@ -1136,26 +1136,6 @@
   border-color: var(--red);
 }
 
-/* 邮箱直链：表单之外的备用路径，等宽字与角标小字同款 */
-.outro-mail {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: clamp(10px, 0.84vw, 12px);
-  letter-spacing: 0.06em;
-  color: #8d8a86;
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-bottom: 1px solid transparent;
-  transition: color 0.24s ease, border-color 0.24s ease;
-}
-.outro-mail:hover {
-  color: var(--ink);
-  border-bottom-color: var(--hair);
-}
-
 /* honeypot：视觉上移出视口的陷阱字段。不用 display:none——部分 bot 会
    检测它，绝对定位扔出屏外更稳。tabindex=-1 不可聚焦，aria-hidden 对
    读屏隐藏，填充即判定为脚本（Worker 端假成功不投递）。 */
@@ -1322,9 +1302,6 @@
   .outro-submit {
     padding: 8px 16px;
     font-size: 12px;
-  }
-  .outro-mail {
-    font-size: 10px;
   }
 }
 
