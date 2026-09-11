@@ -1208,16 +1208,36 @@
     width: auto;
   }
   .outro {
-    top: 26%;
+    /* 2026-09-12 弹性化：26% 硬百分比随屏高膨胀（800 高 = 208px、
+       1024 高 = 266px），语录越漂越靠中。改 svh 锚顶、贴上偏上，
+       与 ≤640 档同口径（档间参数放大）。 */
+    top: clamp(72px, 14svh, 168px);
     bottom: auto;
   }
   .outro-quote {
     font-size: clamp(17px, 4.4vw, 26px);
   }
+  /* ── 表单水平居中（2026-09-12 修正「整体偏右」）─────────────────────
+   * 上面共享规则给了 left/right 双侧内缩，此处的 width 一旦定值，
+   * left+right+width 三者全非 auto → 过约束，CSS2.1 §10.3.7 规定 LTR
+   * 下忽略 right：盒子钉死在 left 内缩处。360px 屏实测 left=20px、
+   * width=min(100%,420px)=360px → 盒子铺到 380px，右缘出屏 20px，
+   * 输入框贴边被裁；平板档则表现为表单死贴左侧。这就是用户反馈的
+   * 「表单偏右」的根因。
+   * 修法：left/right 归零 + margin-inline:auto，居中的活交给 auto 外边距
+   * （规范条款：两侧 margin auto 时解方程取等值 → 真居中）。宽度扣掉
+   * 两侧同款内缩（2 × clamp(20px,5.4vw,48px)），与语录共享同一水平节奏。
+   * 不用 translate 做居中——它被收尾升起动画独占（见基础规则
+   * translate: 0 calc(var(--outro-rise) * …)），这里写 translate 会把
+   * 竖直动画顶掉。 */
   .outro-contact {
-    top: 52%;
-    bottom: auto;
-    width: min(100%, 420px);
+    /* 纵向下锚（2026-09-12 用户指定）：表单底边距黑条顶恒 30px。 */
+    top: auto;
+    bottom: calc(var(--bar-h) + 30px);
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: min(calc(100% - clamp(40px, 10.8vw, 96px)), 420px);
     gap: clamp(8px, 1.8vw, 12px);
   }
   .outro-contact-note {
@@ -1228,11 +1248,38 @@
   }
 }
 
-/* ≤640：手机上竖排空间更紧，进一步压缩垂直占用。
-   黑条已占 38px+，语录与表单必须挤进剩余高度且不压黑条。 */
+/* ≤640：手机上竖排空间更紧，语录在上、表单在下，各锚自己的边。
+ *
+ * ── 为什么放弃「两个硬百分比」（2026-09-12 修正）─────────────────────
+ * 旧写法 `.outro{top:20%}` + `.outro-contact{top:55%}` 看似"语录偏上、
+ * 表单偏下"，实则两块**互不知情**：两者都相对 .stage 高定位，块与块之间
+ * 的净间隙恒等于 0.35 × stage_h，与内容高度无关。实测跨机型：
+ *
+ *   360×640   语录顶 128  表单顶 352   → 间隙 128px，且表单底 599 越过
+ *                                      黑条顶 592（**溢出 7px，压住黑条**）
+ *   390×844   语录顶 169  表单顶 464   → 间隙 192px
+ *   430×932   语录顶 186  表单顶 513   → 间隙 216px，两屏之间出现大片空洞
+ *
+ * 即：屏幕越高，中间那条"没人管的空白"越宽——这正是用户反馈的
+ * 「间隔不合理」。而矮屏（360×640）上表单反而被挤出黑条。
+ *
+ * ── 新口径：上锚 top、下锚 bottom，中间空白由两端夹出来 ─────────────
+ *   .outro          top:    clamp(56px, 11svh, 128px)   ← 距屏幕顶，偏上
+ *   .outro-contact  bottom: calc(var(--bar-h) + clamp(28px, 7svh, 84px))
+ *                                                        ← 距黑条顶，偏下
+ * 这样两块各自"贴"住自己的边，中间的间隙是剩余量，随屏高自然伸缩，
+ * 不会出现固定比例的膨胀。用 svh 而非 %：% 相对 .stage 盒高（含
+ * min-height:620px 兜底），矮视口下会被压扁，落点在不同屏上不一致
+ * （与 .outro 桌面档注释同一条理由）。
+ *
+ * ── 为什么语录的 11svh 偏上：为人物留出对话空间 ──────────────────────
+ * 终态里人物占满中下部，语录放太低会与头部抢读区。11svh 在 360×640
+ * 得 70px、430×932 得 103px，都落在"状态栏之下、头部以上"的干净带里。
+ * 上限 128px 防止大屏上语录被甩得太靠下。 */
 @media (max-width: 640px) {
   .outro {
-    top: 20%;
+    top: clamp(56px, 11svh, 128px);
+    bottom: auto;
   }
   .outro-quote {
     font-size: clamp(16px, 5.2vw, 22px);
@@ -1248,8 +1295,8 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  /* 表单：距黑条 40px 已在 ≤900 档定义（用户指定 40px），此处只收紧行距 */
   .outro-contact {
-    top: 55%;
     gap: 8px;
   }
   .field input,
@@ -1357,6 +1404,21 @@
  * 取 7.9vw 留余量。旧值 clamp(24px, 6.4vh, 44px) 在 360×680 下是 43.5px，
  * 总宽 479px > 视口 360 → 实测 .w-right 右边界 510px，被 overflow:hidden
  * 裁掉，屏幕上只剩"ARCH"，这是移动端"标题缺字"的真因（不是人物遮挡）。
+ *
+ * ── 2026-09-12 弹性化改造：锚定坐标系统一 ──────────────────────────
+ * 用户在高个儿手机（≈360×806）上报告「有些地方随手机尺寸不同程度偏移」。
+ * 定量根因：与人物有构图关系的元素各自锚在不同坐标系上——
+ *   描边字带锚 stage 顶（14%+60px）、头部锚 stage 底 → 叠合量随屏高漂移
+ *     （680 高 +20px → 806 高 −70px → 932 高 −153px，字带悬空）；
+ *   ARCHIVE 锚 stage 顶 68%、PERSONAL 锚胸线 → 两词错位随屏高膨胀
+ *     （65px → 97px → 141px，高屏上 ARCHIVE 被推到颈部、首字母没入肩线）。
+ * 改法（只动锚点表达式，不动已校准的量）：
+ *   --ghost-top  = 头顶y − 0.836 × 字号（字带下沿恒扎进头顶 15% 带高）
+ *   .w-right top = 0.32H − 0.4684F − 1.487S + 22.72px（两词错位恒 ≈2.27S）
+ *   --figure-h   62vh → 62svh（与 --stage-h 同基准，消浏览器 chrome 高度漂移）
+ * 360×680 上三处新式与旧值逐 px 吻合（偏差 ≤0.6px），观感零变化；
+ * zh 标题 / PERSONAL（--solid-drop）/ About Me / 黑条本就是底部（人物）锚，
+ * 无需改动。卡片行 62px 保留（顶部锚对状态栏不敏感，见上注）。
  */
 @media (max-width: 640px) {
   .stage {
@@ -1368,25 +1430,49 @@
     --edge: 19px;
     --card-w: calc((100vw - 3 * var(--slot-gap) - 2 * var(--edge)) / 4);
     --slot: calc(var(--card-w) + var(--slot-gap));
-    /* 卡片行的顶部锚点。22px（紧贴状态栏下沿）→ 42px（2026-09-10 第一轮）
-       → 62px（同日第二轮，用户再要下移 20px）。
-       钉死成 px 而不是用 svh：顶部锚对状态栏高度不敏感，
-       换成 svh 会让"下移 20px"在不同浏览器 chrome 高度下缩水。 */
-    --card-top: 62px;
-    /* 行高 + 顶部留出锚点位的合计高度——供 ghost / solid / figure 等
-       向下偏移时共用。card-h 由 --card-w 反解。 */
-    --card-row-h: calc(var(--card-top) + var(--card-h));
-
     --card-h: calc(var(--card-w) / var(--card-ratio));
-    /* 人物从底部锚定，高度与桌面保持物理尺寸；这里只影响 z-index 安排。 */
-    --figure-h: min(62vh, 440px);
+    /* 卡片行的顶部锚点（2026-09-12 第三轮，按用户裁定回摆）：
+       「靠 top 但不要太靠 top」。历史三版：62px 顶锚（360×680 校准值，
+       高屏上贴顶且卡下裂出 186px 空洞）→ 随字带锚（卡片被带到屏高 24%，
+       用户裁定「偏下位置真的不好看」）→ 本版 = 独立 svh 锚：
+       clamp(62px, 10svh, 120px)。360×680 得 68px（校准值 62 + 6px，不可感知），
+       836 屏得 84px（占屏 10%，靠上但留出呼吸），932 屏 93px。
+       卡下空间不再靠卡片下沉填补，改由字带放大承接（见 --ghost-size）。 */
+    --card-top: clamp(62px, 10svh, 120px);
+    /* 行高 + 顶部锚点位的合计高度——供需要"卡片行占多少"的公式共用。 */
+    --card-row-h: calc(var(--card-top) + var(--card-h));
+    /* 人物从底部锚定。62svh 而非 62vh（2026-09-12 弹性化）：手机浏览器
+       地址栏收起/展开时 vh 恒按大视口算，人物会比舞台（--stage-h 是
+       100svh 基准）相对偏大，头顶落点随 chrome 高度漂移；svh 与
+       --stage-h 同基准，下面所有"头顶锚定"公式才成立。 */
+    --figure-h: min(62svh, 440px);
     --figure-pad: calc(var(--figure-h) * 0.0272);
 
-    /* 2026-09-10 用户要求"移动端镂空字母下移 40px"（+40px），同日再过一轮 +20px。
-       与桌面同理写成 calc(% + px) —— 14% 是稿面基准，px 项是恒定位移量。
-       累计 +60px 后描边字下沿进入头部，镂空字衬在头部之后（桌面同款语感）。 */
-    --ghost-top: calc(14% + 60px);
-    --ghost-size: 38vw;
+    /* 描边大字锚「人物头顶」而不是「stage 顶部」（2026-09-12 弹性化改造）。
+       旧 calc(14% + 60px) 锚顶部：+40/+20px 的用户位移是在 360×680 校准的，
+       但字带（锚顶）与头部（锚底、随屏高下坠）分属两套坐标系，叠合量随
+       屏高线性漂移——实测 680 高 +20px（approved），806 高 −70px（悬空），
+       932 高 −153px，上半屏出现"字带↔头部"之间的空洞，即用户报的
+       「不同程度偏移」。
+       新锚：字带顶 = 头顶y − 0.836 × 字号。头顶 = H − 0.973F（0.973 与
+       --figure-pad 的 0.0272 同源）；0.836 = 0.85（字带在头顶以上的比例）
+       × 0.984（带高系数 = lh 0.82 × scaleY 1.2，transform-origin: top），
+       即字带下沿恒扎进头顶 15% 带高——360×680 上与旧值逐 px 吻合
+       （155.4 vs 155.2），已校准的观感零变化，高屏的漂移全部收回。 */
+    --ghost-top: calc(var(--stage-h) - 0.973 * var(--figure-h) - 0.836 * var(--ghost-size));
+    /* 字号随「卡片行底 → 头顶」的跨度生长（2026-09-12 第三轮）：
+       卡片回摆到 10svh 后，高屏上卡下会重新出现空洞（836 屏 156px），
+       靠字带放大承接——跨度大时字号长到 0.6×跨度（836 屏 ≈ 46vw），
+       字带下沿仍由 --ghost-top 钉在头顶。矮屏上 0.6×跨度 < 38vw，
+       clamp 下限接管 = 校准值 38vw 不变（680 屏：93.5px < 136.8px）。
+       ★ 依赖必须是-chain 而非环：card-top（独立 svh）→ ghost-size
+       （读 card-top）→ ghost-top（读 ghost-size）。若让 card-top 反过来
+       锚 ghost-top，这里再读 card-row-h，就成循环依赖，三者全部失效。 */
+    --ghost-size: clamp(
+      38vw,
+      0.7 * (var(--stage-h) - 0.973 * var(--figure-h) - var(--card-top) - var(--card-h)),
+      52vw
+    );
     --ghost-stretch: 1.2;
     /* 按"两词 11.01em 必须放进 0.90×100vw"反解，见文件头横向预算。 */
     --solid-size: clamp(18px, 7.9vw, 44px);
@@ -1449,7 +1535,21 @@
      relative + top 只做视觉位移，不动 flex 布局——黑词 ARCHIVE
      留在 68% 基线原位，被人物切开（z 4 在人物之下）。 */
   .title-en .w-left { position: relative; z-index: 6; top: calc(var(--solid-drop) + 15px); }
-  .title-en .w-right { position: relative; z-index: 4; }
+  /* ARCHIVE 错位量弹性化（2026-09-12）：旧版 ARCHIVE 锚「stage 顶 68%」、
+     PERSONAL 锚「胸线」（人物相关），两词错位随屏高线性膨胀——
+     实测 680 高 65px → 806 高 97px → 932 高 141px，高个儿手机上 ARCHIVE
+     被推到颈部、首字母整个没入肩线，构图散架。改为错位恒定（680 校准值
+     ≈ 2.27S）：目标盒顶 = PERSONAL 盒顶 − 2.27S，反解相对位移。
+     推导（与 --solid-drop 同一套常数）：flex 行未位移时两词盒顶同为
+     0.68H − 7.718 − 0.8S（7.718 = .title 的 h1 UA margin 偏移）；
+     PERSONAL 盒顶 = 胸线 − 0.018S + 15px。要求 ARCHIVE 盒顶 = PERSONAL 盒顶
+     − 2.27S → top = 0.32H − 0.4684F − 1.487S + 22.72px（22.72 = 15 + 7.718）。
+     360×680 上该式 ≈ +0.6px，已校准观感零变化；错位量在任何屏高恒定。 */
+  .title-en .w-right {
+    position: relative;
+    z-index: 4;
+    top: calc(0.32 * var(--stage-h) - 0.4684 * var(--figure-h) - 1.487 * var(--solid-size) + 22.72px);
+  }
   .title-zh { z-index: 6; }
 
   /* 卡片层提到人物之上（z 7）。信息条保持 z 4、在人物之下——手机档与桌面

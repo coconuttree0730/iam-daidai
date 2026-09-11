@@ -27,7 +27,7 @@
     "contact": {
       "heading": "联系我",
       "note": "有合作或想法，直接写信给我。",
-      "email": "hello@example.com",
+      "email": "hello@daidai.click",
       "fields": [
         { "name": "name", "label": "Full Name", "type": "text", "placeholder": "Full Name" },
         { "name": "email", "label": "Email Address", "type": "email", "placeholder": "Email Address" },
