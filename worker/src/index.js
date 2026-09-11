@@ -70,6 +70,11 @@ export default {
     if (!message || message.length > 5000) {
       return respond({ ok: false, error: 'invalid_message' }, 400);
     }
+    /* 同意勾选：前端 required 已拦人机交互，这里拦 API 直刷——
+       无同意的数据不进入投递链（个人信息处理的合法性边界在服务端）。 */
+    if (body.consent !== true) {
+      return respond({ ok: false, error: 'consent_required' }, 400);
+    }
 
     const submittedAt = new Date().toLocaleString('zh-CN', {
       timeZone: 'Asia/Shanghai',

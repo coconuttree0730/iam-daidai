@@ -145,6 +145,15 @@ const cardsWithDepth = cards.map((card) => ({
       ))
     }
 
+    <!-- 个人信息告知 + 同意勾选（2026-09-12 用户裁定）：默认不勾选，
+         required 由浏览器拦截未勾选提交；文案三要素 = 目的限定 /
+         留存位置 / 删除权行使方式。Worker 端同步校验 consent === true，
+         无同意的数据不进入投递链。 -->
+    <label class="outro-consent">
+      <input type="checkbox" name="consent" value="yes" required />
+      <span>{outro.contact.consent}</span>
+    </label>
+
     <div class="outro-contact-actions">
       <button type="submit" class="outro-submit">
         {outro.contact.submit}
@@ -329,6 +338,7 @@ const cardsWithDepth = cards.map((card) => ({
         name: data.get('name'),
         email: data.get('email'),
         message: data.get('message'),
+        consent: data.get('consent') === 'yes',
         _gotcha: data.get('_gotcha') ?? '',
         _elapsed: Math.round(performance.now() - openedAt),
         _page: location.href,

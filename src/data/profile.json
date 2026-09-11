@@ -27,6 +27,7 @@
     "contact": {
       "heading": "联系我",
       "note": "有合作或想法，直接写信给我。",
+      "consent": "已知晓并同意：所填信息仅用于回复本次留言；本站不留存副本，来信仅存于站长邮箱。回复该邮件即可要求删除。",
       "fields": [
         { "name": "name", "label": "Full Name", "type": "text", "placeholder": "Full Name" },
         { "name": "email", "label": "Email Address", "type": "email", "placeholder": "Email Address" },

@@ -1136,6 +1136,31 @@
   border-color: var(--red);
 }
 
+/* 同意勾选：告知文案与勾选一体，整行可点。默认不勾选（合规要求），
+   未勾选提交由原生 required 拦截；配色沿用角标小字灰，勾选态反相黑。 */
+.outro-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: clamp(10px, 1vw, 14px);
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8d8a86;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.outro-consent input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  accent-color: var(--ink);
+  width: 12px;
+  height: 12px;
+}
+.outro-consent span {
+  flex: 1;
+}
+
 /* honeypot：视觉上移出视口的陷阱字段。不用 display:none——部分 bot 会
    检测它，绝对定位扔出屏外更稳。tabindex=-1 不可聚焦，aria-hidden 对
    读屏隐藏，填充即判定为脚本（Worker 端假成功不投递）。 */
@@ -1302,6 +1327,9 @@
   .outro-submit {
     padding: 8px 16px;
     font-size: 12px;
+  }
+  .outro-consent {
+    font-size: 10px;
   }
 }
 
