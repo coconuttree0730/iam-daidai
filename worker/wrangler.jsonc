@@ -3,9 +3,13 @@
   "name": "iam-daidai-contact",
   "main": "src/index.js",
   "compatibility_date": "2026-08-15",
-  // 与 Pages 自定义域共存：Route 优先于 Pages，daidai.click/api/* 落到
-  // 本 Worker 而不是落进 Pages 的 404。npx wrangler deploy 时自动创建。
-  "routes": [{ "pattern": "daidai.click/api/*", "zone_name": "daidai.click" }],
+  // 与 Pages 自定义域共存：Route 优先于 Pages，匹配 /api/* 的请求落到
+  // 本 Worker 而不是落进 Pages 的 404。站点实际跑在 iam.daidai.click
+  //（2026-09-12 实测 404 后修正），apex 一并保留以备将来启用。
+  "routes": [
+    { "pattern": "iam.daidai.click/api/*", "zone_name": "daidai.click" },
+    { "pattern": "daidai.click/api/*", "zone_name": "daidai.click" }
+  ],
   "send_email": [
     // 收件人定点由代码保证：send() 只用 env.TO_EMAIL，而它是 Worker secret
     //（wrangler secret put TO_EMAIL 创建），不进代码库——本文件在公开仓库，
@@ -19,6 +23,6 @@
     "SUBJECT": "来自个人档案馆的联系",
     // Origin 粗筛白名单（逗号分隔）。localhost 两项仅供本机
     // npm run dev + wrangler dev 联测，生产无暴露面。
-    "ALLOWED_ORIGINS": "https://daidai.click,http://localhost:4321,http://localhost:8888"
+    "ALLOWED_ORIGINS": "https://daidai.click,https://iam.daidai.click,http://localhost:4321,http://localhost:8888"
   }
 }

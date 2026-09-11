@@ -1,7 +1,8 @@
 # 联系表单投递 Worker
 
 > 链路一句话：网页表单（`data-endpoint="/api/contact"`，同源）→ Workers Route
-> `daidai.click/api/*` → 本 Worker → `send_email` binding **直发**站长邮箱
+> `iam.daidai.click/api/*`（含 apex `daidai.click/api/*` 备用）→ 本 Worker →
+> `send_email` binding **直发**站长邮箱
 > （收件地址存于 Worker secret `TO_EMAIL`，不进代码库；访客邮箱在
 > Reply-To，点回复即回访客）。全程 Cloudflare 原生能力，零第三方邮件
 > 服务、零 API 密钥。
@@ -25,7 +26,8 @@
    `daidai.click`。等 DNS 记录生效（通常几分钟内）。
 
 3. **部署 Worker**（`wrangler.jsonc` 里已写好 routes，deploy 时自动挂
-   `daidai.click/api/*`，无需 Dashboard 手动配 Route）：
+   `iam.daidai.click/api/*` 与 `daidai.click/api/*`，无需 Dashboard 手动
+   配 Route）：
 
    ```bash
    cd worker && npx wrangler deploy
