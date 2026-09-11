@@ -292,6 +292,10 @@ const clearPinnedState = () => {
 };
 
 function applyProgress() {
+  /* 滚动 scrub 接管期间（scroll-scrub.js 置 documentElement.dataset.scrub="on"）
+     冻结 hero 姿态：两套素材不是连续动作，指针映射此刻无意义；
+     退出 scrub 的时机由 scrub 模块在倒回 f0 时决定。 */
+  if (document.documentElement.dataset.scrub === 'on') return;
   for (const m of mounted) {
     let p;
     if (pinnedFrame != null && m.frameCount > 1) {

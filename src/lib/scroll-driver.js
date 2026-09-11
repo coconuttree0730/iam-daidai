@@ -58,6 +58,8 @@ for (const view of views) {
     cellWidth,
     cellHeight,
     wrap: false, // 线性时间轴：段调度按边界 clamp，不环形回绕
+    autoPreload: false, // 预热交给 IntersectionObserver 门控（见下）——
+    // 与 hero 同页共存时不能在页面打开就全量预热 20 段（11MB）
   });
 
   const animator = createFrameAnimator({
@@ -66,7 +68,29 @@ for (const view of views) {
     render: (frame) => renderer.render(frame),
   });
 
-  mounted.push({ view, animator, docTop: 0, trackLen: 1 });
+  mounted.push({ view, animator, renderer, docTop: 0, trackLen: 1, preloaded: false });
+}
+
+/* 预热门控：滚动区进入视口 ±80% 范围才开始预热全部段压缩数据。
+   用户从 hero 开始往下滚的那一段行程正好是预热窗口——
+   等滚动区真正覆盖视口时，段基本已在本地产出，scrub 路径只剩解码。 */
+if (typeof IntersectionObserver === 'function') {
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const m = mounted.find((x) => x.view === entry.target);
+        if (m && !m.preloaded) {
+          m.preloaded = true;
+          m.renderer.preloadAll();
+        }
+      }
+    },
+    { rootMargin: '80% 0px 80% 0px' }
+  );
+  for (const m of mounted) io.observe(m.view);
+} else {
+  for (const m of mounted) m.renderer.preloadAll();
 }
 
 /* 几何：文档坐标缓存，resize 时重测 */

@@ -16,8 +16,7 @@ const { title, description = '同一素材 · 同一交互 · 两种交付格式
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    {/* 空 data URI：抑制浏览器自动请求 /favicon.ico 产生的 404（本页暂无图标需求） */}
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
     <slot />

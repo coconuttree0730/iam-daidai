@@ -1,0 +1,21 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded square: black with red diagonal accent -->
+  <rect x="2" y="2" width="96" height="96" rx="22" ry="22" fill="#0D0D0D"/>
+  <!-- Red diagonal stripe bottom-left -->
+  <path d="M 2 78 L 2 98 L 42 98 Z" fill="#C41E1E"/>
+  <!-- DP fused line: white -->
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 28 76 
+             L 28 26 
+             C 28 23, 31 21, 35 22
+             C 52 23, 68 31, 70 48
+             C 71 59, 61 70, 47 70
+             C 42 70, 38 68, 37 64
+             L 37 50
+             C 37 47, 40 45, 44 45
+             C 53 45, 59 49, 59 54
+             C 59 59, 53 62, 46 62"
+          stroke-width="7"/>
+  </g>
+  <circle cx="70" cy="48" r="3" fill="#C41E1E"/>
+</svg>

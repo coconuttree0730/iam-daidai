@@ -17,6 +17,7 @@
 // 都是构建时静态 import——运行时零 fetch。
 import ArchiveCard from './ArchiveCard.astro';
 import atlas from '../data/atlas-meta.json';
+import scrollMeta from '../data/scroll-meta.json';
 import profile from '../data/profile.json';
 
 const { hero, cards, infoBar } = profile;
@@ -41,6 +42,8 @@ const cardsWithDepth = cards.map((card) => ({
 }));
 ---
 
+<!-- 滚动 scrub（scroll-scrub.js）：滚动素材参数挂在 hero 舞台上，单屏原地融合——
+     页面不滚动，纵向滚轮/触摸输入驱动 193 帧序列在人物位原地播放 -->
 <main
   class="stage"
   data-sprite-view
@@ -53,6 +56,11 @@ const cardsWithDepth = cards.map((card) => ({
   data-rows={atlas.rows}
   data-person-inset={personInset}
   data-frame-warp={frameWarp}
+  data-scrub-view
+  data-scrub-segments={JSON.stringify(scrollMeta.segments)}
+  data-scrub-count={scrollMeta.frameCount}
+  data-scrub-cell-width={scrollMeta.cellWidth}
+  data-scrub-cell-height={scrollMeta.cellHeight}
 >
   <div class="ghost" aria-hidden="true">{hero.ghostEn}</div>
 
@@ -73,6 +81,17 @@ const cardsWithDepth = cards.map((card) => ({
       height={atlas.cellHeight}
       role="img"
       aria-label={`鼠标跟随人物立绘，共 ${atlas.frameCount} 帧`}
+    ></canvas>
+    <!-- 滚动 scrub 素材画布：与 hero 画布同位叠放，滚动时原地换血（f0 已按
+         墨迹尺度对齐，见 index.astro 的 .scroll-figure 与 ScrollStage 注释）；
+         默认 hidden，由 scroll-scrub.js 在进入/退出 scrub 时切换 -->
+    <canvas
+      class="scroll-figure"
+      data-scrub-sprite
+      hidden
+      width={scrollMeta.cellWidth}
+      height={scrollMeta.cellHeight}
+      aria-hidden="true"
     ></canvas>
   </div>
 

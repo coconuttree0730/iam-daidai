@@ -1,11 +1,14 @@
 ---
-// 首页 = 个人档案馆 hero
+// 首页 = 个人档案馆 hero（单屏，双交互原地融合，2026-09-11 用户裁定）
 //
-// 四张档案卡片（基本信息 / 教育背景 / 专业技能 / 项目经历）绕底边中点呈扇形展开，
-// 中间是鼠标跟随的人物立绘——指针横向位置驱动 121 帧原片里内容感知挑出的 46 帧。
+// 页面本身不滚动：黑色信息条恒定在底部页脚，人物腰线贴底压在其上层。
+// 两种交互共用一个人物位，滚动时"素材原地换血"：
+//   鼠标移动 → hero 121 帧指针跟随（demo-driver，方向角圆环）；
+//   滚轮/触摸纵向拖动 → 193 帧滚动素材原地 scrub（scroll-scrub.js，
+//   f0 与 hero rest 按墨迹尺度对齐，切入/切出无跳变）。
 //
-// 文案与卡片数据在 src/data/profile.json；
-// 版式尺寸与角度在 src/styles/hero.css 顶部的变量块里，改版式只动那一处。
+// 版式尺寸与角度在 src/styles/hero.css 顶部的变量块里，改版式只动那一处；
+// 本文件只放融合特有的两条：scroll 画布的对齐定位 + 脚本装载。
 import Base from '../layouts/Base.astro';
 import HeroStage from '../components/HeroStage.astro';
 import '../styles/hero.css';
@@ -13,12 +16,49 @@ import profile from '../data/profile.json';
 ---
 
 <Base
-  title={`${profile.hero.titleZh} · Personal Archive`}
-  description="个人档案馆：基本信息、教育背景、专业技能、项目经历。移动鼠标可与人物立绘互动。"
+  title="Daidai档案馆"
+  description="个人档案馆：鼠标移动驱动人物转身，向下滚动驱动人物动作时间轴。"
 >
   <HeroStage />
 
   <script>
     import '../lib/demo-driver.js';
+    import '../lib/scroll-scrub.js';
   </script>
 </Base>
+
+<style>
+  /* ── 滚动 scrub 画布的对齐定位（唯一融合样式，hero.css 不动）──────────
+   * 与 hero 画布同位叠放在 .hero-person 内（z 5 层，压住黑条页脚——用户指定）。
+   *
+   * 对齐系数（2026-09-11 深夜实测重解，旧 1.5905/-49.224% 推导时漏扣裁切
+   * 窗口偏移，是"两人物错位 ~60px"的根因之一）。实测两格墨迹 bbox：
+   *   hero  f0（486×596 格）：墨迹高 588、宽 412、中心 x=243.5（近格心 243），
+   *         底边贴格底（距 0px）；
+   *   scroll f0（966×720 格）：墨迹高 591、宽 414、中心 x=551.5（偏右格心
+   *         483 达 +7.091% 格宽），底边贴格底（距 0px）。
+   * 推导（H = --figure-h）：
+   *   等墨迹高 → W/H = (966/596)×(588/591) = 1.61258；墨迹宽随之匹配
+   *   （0.6913H vs 0.6911H，差 0.03%）——"最大可能匹配高度宽度"成立；
+   *   两边墨迹底均贴格底且画布都 bottom:0 → 纵向零偏移，天然无缝；
+   *   水平 → translateX = -50% − (7.091% − 0.084%×H/W 换算) ≈ -57.04%。
+   * 无 88vw 兜底帽：一切随 H 等比缩放，墨迹宽恒 = 0.691H，hero 放得下
+   * scroll 就放得下；加帽反而破坏对齐。 */
+  :global(.scroll-figure) {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: calc(var(--figure-h) * 1.6126);
+    height: auto;
+    aspect-ratio: 966 / 720;
+    transform: translateX(-57.04%);
+    pointer-events: none;
+  }
+
+  /* 可见性互斥（scroll-scrub.js 切换 hidden 属性）：.hero-figure 的
+   * display:block 是作者样式，优先级压过 UA 的 [hidden]{display:none}，
+   * 不补这条强规则"鼠标跟随的人物去掉"就不生效——两人物同屏的根因。 */
+  :global(.hero-person [hidden]) {
+    display: none !important;
+  }
+</style>

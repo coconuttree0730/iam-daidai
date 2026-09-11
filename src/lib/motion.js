@@ -201,6 +201,11 @@ export function createSegmentedSpriteRenderer(options) {
      线性时间轴沿用环形调度会让 seg0 与末段被误判为相邻段：
      滚动页钳制在两端时末段/首段被无谓驻留，浪费的是 LRU 内存预算。 */
   const wrap = options.wrap ?? true;
+  /* 压缩数据预热策略：true（默认）= 首帧落地后预热全部段（hero：全段仅 3.9MB）；
+     false = 只按需取段，由调用方在合适的时机调 preloadAll()（滚动页与 hero
+     同页共存时，20 段 11MB 不能在页面打开时就全量预载——由 scroll-driver
+     用 IntersectionObserver 门控，滚动区临近视口才开始预热）。 */
+  const autoPreload = options.autoPreload ?? true;
   const bitmaps = new Map(); // 段号 → ImageBitmap（解码态，LRU 驻留）
   const buffers = new Map(); // 段号 → ArrayBuffer（压缩态，全段常驻）
   const bufferPromises = new Map(); // 段号 → Promise<ArrayBuffer>（预载去重）
@@ -271,7 +276,7 @@ export function createSegmentedSpriteRenderer(options) {
         // lastRendered 已置数会挡住重画 —— 落地后强制补画最近请求的帧。
         lastRendered = -1;
         render(pendingFrame);
-        if (drawnOnce) preloadAllBuffers(); // 首屏已保住，空闲带宽交给其余段
+        if (drawnOnce && autoPreload) preloadAllBuffers(); // 首屏已保住，空闲带宽交给其余段
       }
     } finally {
       inflight.delete(i);
@@ -357,6 +362,8 @@ export function createSegmentedSpriteRenderer(options) {
 
   return {
     render,
+    /** 主动预热全部段压缩数据（幂等）；autoPreload:false 时由调用方择机触发 */
+    preloadAll: preloadAllBuffers,
     getCapacity() {
       return frameCount;
     },

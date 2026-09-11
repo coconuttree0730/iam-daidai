@@ -1,0 +1,119 @@
+---
+// 滚动帧随动舞台（/ 与 /lab/scroll/ 共用）
+//
+// 素材：temp/上下滑动素材视频.mp4（1280×720 / 24fps / 193 帧，RVM 抠图）
+// 交互：页面滚动进度 → 帧序号，线性时间轴、钳制停帧（scroll-driver.js 驱动）。
+//
+// ── 与 hero 的接缝对齐（2026-09-11 融合进首页时实测校准）─────────────────
+// hero 人物：bottom:0 贴底，墨迹占单格 97.3%（cell 486×596）；
+// 本素材 f0：墨迹高 591/720 = 82.08%，同样贴格底（contentBox bottom=0）。
+// 要让"覆盖完成瞬间"两人物墨迹同尺度同位：
+//   显示高 S = 0.973·D ÷ 0.8208 = 1.1854·D（D = hero 的 --figure-h）
+//   桌面 D = min(70vh, 790px, (50vw−32px)/0.9004)；≤640 D = min(62vh, 440px)
+//   —— 与 hero.css 两个档位逐字对应，hero 改档位这里必须同步。
+// 代价：S 最大 1.1854×790 ≈ 936px，对 720 源高是 1.30× 放大——
+// 与 hero 现状（790/596 ≈ 1.33×）同量级，属既定取舍。
+// 水平：f0 墨迹中心 x 632.5（画布中心 640），偏左 0.776% 格宽，
+// translateX(0.776%) 校正回中。
+import meta from '../data/scroll-meta.json';
+
+interface Props {
+  hint?: string;
+}
+const { hint = '↓ 滚动 / 上滑驱动 · 到底停帧 ↑' } = Astro.props;
+const segments = JSON.stringify(meta.segments);
+---
+
+<section
+  class="scroll-stage"
+  data-scroll-sprite
+  data-segments={segments}
+  data-frame-count={meta.frameCount}
+  data-cell-width={meta.cellWidth}
+  data-cell-height={meta.cellHeight}
+>
+  <div class="sticky-viewport">
+    <canvas
+      class="scroll-figure"
+      data-sprite
+      width={meta.cellWidth}
+      height={meta.cellHeight}
+      role="img"
+      aria-label={`滚动驱动的动态立绘，共 ${meta.frameCount} 帧`}
+    ></canvas>
+    <div class="hud" aria-hidden="true">
+      <span class="hud-hint">{hint}</span>
+      <span class="hud-frame">F<b data-frame>000</b>/192</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* 420vh 滚动行程：约 3.2 屏滚动距离扫完 193 帧（≈15 帧/百 px） */
+  .scroll-stage {
+    position: relative;
+    height: 420vh;
+    /* 不透明纸面：与 hero .stage 的 --paper 同色——融合模式下本区
+       从下方滑过覆盖钉住的 hero，同色底让"人物没动、页面在动"成立 */
+    background: #eeedeb;
+  }
+
+  .sticky-viewport {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100svh;
+    display: grid;
+    place-items: end center;
+    overflow: hidden;
+  }
+
+  /* 显示高 = 1.1854 × hero --figure-h（对齐校准，见文件头注释）。
+     两档媒体条件与 hero.css 的 --design-h / --figure-h 逐字对应。 */
+  .scroll-figure {
+    display: block;
+    height: calc(min(70vh, 790px, (50vw - 32px) / 0.9004) * 1.1854);
+    max-width: 94vw;
+    width: auto;
+    aspect-ratio: 966 / 720;
+    /* f0 墨迹中心较格中心偏左 0.776%，右移同量校回中 */
+    transform: translateX(0.776%);
+  }
+
+  @media (max-width: 640px) {
+    .scroll-figure {
+      height: calc(min(62vh, 440px) * 1.1854);
+      max-width: 96vw;
+    }
+  }
+
+  .hud {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0 24px;
+    pointer-events: none;
+  }
+
+  .hud-hint {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--muted, #6f6f6f);
+  }
+
+  .hud-frame {
+    font-size: 12px;
+    color: var(--muted, #6f6f6f);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+  }
+
+  .hud-frame b {
+    color: var(--ink, #131211);
+    font-weight: 500;
+  }
+</style>
