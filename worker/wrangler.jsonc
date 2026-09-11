@@ -7,15 +7,12 @@
   // 本 Worker 而不是落进 Pages 的 404。npx wrangler deploy 时自动创建。
   "routes": [{ "pattern": "daidai.click/api/*", "zone_name": "daidai.click" }],
   "send_email": [
-    {
-      "name": "EMAIL",
-      // 绑定层硬限制（纵深防御）：无论代码怎么被滥用，这封信也只能发到
-      // 站长邮箱。改收件邮箱时这里和 vars.TO_EMAIL 要一起改。
-      "allowed_destination_addresses": ["hello@daidai.click"]
-    }
+    // 收件人定点由代码保证：send() 只用 env.TO_EMAIL，而它是 Worker secret
+    //（wrangler secret put TO_EMAIL 创建），不进代码库——本文件在公开仓库，
+    // 任何明文邮箱都不应出现，故不用 allowed_destination_addresses。
+    { "name": "EMAIL" }
   ],
   "vars": {
-    "TO_EMAIL": "hello@daidai.click",
     // 发件方：域名 onboard Cloudflare Email Service 后自动配好
     // SPF / DKIM / DMARC，这是邮件不进垃圾箱的保障。
     "FROM_EMAIL": "no-reply@daidai.click",

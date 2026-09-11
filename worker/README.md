@@ -2,12 +2,14 @@
 
 > 链路一句话：网页表单（`data-endpoint="/api/contact"`，同源）→ Workers Route
 > `daidai.click/api/*` → 本 Worker → `send_email` binding **直发**站长邮箱
-> `hello@daidai.click`（访客邮箱在 Reply-To，点回复即回访客）。
-> 全程 Cloudflare 原生能力，零第三方邮件服务、零 API 密钥。
+> （收件地址存于 Worker secret `TO_EMAIL`，不进代码库；访客邮箱在
+> Reply-To，点回复即回访客）。全程 Cloudflare 原生能力，零第三方邮件
+> 服务、零 API 密钥。
 >
-> 关键裁定（2026-09-12）：**网页上不出现明文真实邮箱**——对外展示与 mailto
-> 一律用域名地址 `hello@daidai.click`（Email Routing 转发）；真实收件邮箱
-> 只存在于本目录 `wrangler.jsonc`。
+> 关键裁定（2026-09-12）：**网页与仓库里都不出现明文真实邮箱**——对外
+> 展示与 mailto 一律用域名地址 `hello@daidai.click`（Email Routing 转发）；
+> 真实收件邮箱只存在于 Cloudflare 的 secret 存储（`wrangler secret put
+> TO_EMAIL` 创建，Dashboard → Worker → Settings → Variables 可查看）。
 
 ## 首次部署（4 步，动作在 Cloudflare 侧，一次配好基本不再动）
 
@@ -31,8 +33,8 @@
 
 4. **开 Email Routing**（入站转发，让 `hello@daidai.click` 可收信）：
    Dashboard → `daidai.click` → Email → Email Routing → 启用，添加地址规则
-   `hello@daidai.click` → `hello@daidai.click`，foxmail 会收到
-   Cloudflare 验证邮件，点确认即生效。
+   `hello@daidai.click` → 你的真实收件邮箱，该邮箱会收到 Cloudflare
+   验证邮件，点确认即生效。
 
 ## 验证
 
@@ -56,7 +58,7 @@ npm run dev -- --port 8888           # 另开一个终端
 
 | 要改什么 | 改哪里 | 生效方式 |
 |---|---|---|
-| 收件邮箱 | `wrangler.jsonc` 的 `vars.TO_EMAIL` **和** `send_email[].allowed_destination_addresses`（两处必须同步） | `npx wrangler deploy` |
+| 收件邮箱 | Worker secret：`echo "新邮箱" \| npx wrangler secret put TO_EMAIL`（即时生效，无需 deploy） | secret 上传即生效 |
 | 邮件主题 / 发件地址 | `wrangler.jsonc` 的 `vars` | `npx wrangler deploy` |
 | 表单文案（标题/占位符/按钮） | `src/data/profile.json` | `git push`（Pages 自动部署） |
 | Worker 逻辑 | `worker/src/index.js` | `npx wrangler deploy` |
