@@ -258,11 +258,9 @@
 .hero-figure {
   display: block;
   height: var(--figure-h);
-  aspect-ratio: 482 / 602;
-  background-repeat: no-repeat;
-  background-position: 0 0;
-  background-size: 800% 600%;
-  will-change: background-position;
+  /* 单格 486×596（121 帧分段版，窗口 (388,124) 零缩放裁切）；canvas 由
+     demo-driver 的分段渲染器 drawImage 切格，不再用 background-position */
+  aspect-ratio: 486 / 596;
 }
 
 /* ── L3 卡片：共半径扇形（桌面层序在人物之下，见 L4 注释；

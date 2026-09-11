@@ -9,10 +9,10 @@
     "indexLabel": "SIDE INDEX"
   },
   "cards": [
-    { "no": "01", "title": "基本信息", "theta": -46, "href": "#basic", "lookFrame": 4 },
-    { "no": "02", "title": "作品集", "theta": -22, "href": "/works/", "lookFrame": 14 },
-    { "no": "03", "title": "博客", "theta": 22, "href": "/blog/", "lookFrame": 19 },
-    { "no": "04", "title": "实验室", "theta": 46, "href": "/lab/", "lookFrame": 30 }
+    { "no": "01", "title": "基本信息", "theta": -46, "href": "#basic", "lookFrame": 20 },
+    { "no": "02", "title": "作品集", "theta": -22, "href": "/works/", "lookFrame": 48 },
+    { "no": "03", "title": "博客", "theta": 22, "href": "/blog/", "lookFrame": 58 },
+    { "no": "04", "title": "实验室", "theta": 46, "href": "/lab/", "lookFrame": 80 }
   ],
   "infoBar": [
     { "label": "编号", "value": "NO.001" },

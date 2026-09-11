@@ -1,28 +1,36 @@
 {
-  "_comment": "构建时静态 import 的图集元数据（唯一数据源）。asset 必须带前导斜杠指向 public/，否则子路径部署会 404。改 columns/rows/cellWidth/cellHeight 后必须同步重跑预算门：motion/head-turn/build/motion-budget-atlas.json。",
-  "frameCount": 46,
+  "_comment": "构建时静态 import 的图集元数据（唯一数据源）。2026-09-11 升级为 121 帧分段雪碧图：像素来自原始视频全量抽帧+色键+alpha 重映射（窗口 (388,124) 486×596 零缩放），6 段 WebP 按需解码（LRU 驻留当前段±1）。asset/columns/rows/atlasWidth/atlasHeight 保留为 46 帧旧单图回退路径（public/motion/atlas.webp 仍在）。改分段布局后必须同步重跑预算门：motion/head-turn/build/motion-budget-atlas.json。",
+  "frameCount": 121,
+  "cellWidth": 486,
+  "cellHeight": 596,
+  "segments": [
+    { "asset": "/motion/segments/atlas-seg0.webp", "first": 0, "count": 24, "cols": 4, "rows": 6, "width": 1944, "height": 3576 },
+    { "asset": "/motion/segments/atlas-seg1.webp", "first": 24, "count": 24, "cols": 4, "rows": 6, "width": 1944, "height": 3576 },
+    { "asset": "/motion/segments/atlas-seg2.webp", "first": 48, "count": 24, "cols": 4, "rows": 6, "width": 1944, "height": 3576 },
+    { "asset": "/motion/segments/atlas-seg3.webp", "first": 72, "count": 24, "cols": 4, "rows": 6, "width": 1944, "height": 3576 },
+    { "asset": "/motion/segments/atlas-seg4.webp", "first": 96, "count": 24, "cols": 4, "rows": 6, "width": 1944, "height": 3576 },
+    { "asset": "/motion/segments/atlas-seg5.webp", "first": 120, "count": 1, "cols": 4, "rows": 1, "width": 1944, "height": 596 }
+  ],
+  "asset": "/motion/atlas.webp",
   "columns": 8,
   "rows": 6,
-  "cellWidth": 482,
-  "cellHeight": 602,
   "atlasWidth": 3856,
   "atlasHeight": 3612,
-  "asset": "/motion/atlas.webp",
   "contentBox": {
-    "_comment": "人物墨迹在单格内的**并集**包围盒（跨全部 46 帧），归一化成四边内缩分数（左 上 右 下）。打包按墨迹并集裁切，四边各留 8px 透明垫 → 8/482、8/602。帧随动的『人物图片区域矩形』= 立绘元素盒按此内缩，使『区域内 = 第 0 帧』指的是人物图片的实际区域而不是透明垫。改图集后重测：ffmpeg -i atlas.webp -vf alphaextract,format=gray -f rawvideo -pix_fmt gray -，再逐格求 alpha>16 的像素包围盒并取并集。",
-    "left": 0.0166,
-    "top": 0.0133,
-    "right": 0.0166,
-    "bottom": 0.0133
+    "_comment": "人物墨迹在单格内的**并集**包围盒（跨全部 121 帧），归一化成四边内缩分数（左 上 右 下）。分段版单格 486×596：四边垫 8px（8/486、8/596），底边垫 0（人物贴视频底边，素材原样）。帧随动的『人物图片区域矩形』= 立绘元素盒按此内缩。换素材后重测。",
+    "left": 0.0165,
+    "top": 0.0134,
+    "right": 0.0165,
+    "bottom": 0
   },
   "display": {
     "_comment": "主体在页面上的 CSS 显示尺寸 = 单格像素 ÷ DPR。预算门以此为准，若与实际显示尺寸不符会判 atlas-budget-exceeded。",
-    "width": 241,
-    "height": 301,
+    "width": 243,
+    "height": 298,
     "dpr": 2
   },
   "frameWarp": {
-    "_comment": "姿态重定时（2026-09-11）：素材是手势时间轴而非朝向库，逐帧头部墨迹质心实测两个姿态峰在 f14（30.4%，看左上）与 f25（54.3%，看右上），直接线性映射会让左半区'领先一个象限'（鼠标在左下眼神已看左上、到左上已看右上）。控制点为「进度:帧」对，把峰对回象限中心：BL 段(0–0.25)铺 f0–5（素材无向下姿态，正面为主是物理上限）；TL 中心(0.375)锁看左峰 f14；正上方(0.5)视线居中 f17.5；0.556 起与线性映射恒等 → TR/BR 逐帧零改动。改素材后必须重测姿态峰（逐帧质心）并同步更新 qa/verify-sprite-follow.mjs 的契约断言。",
-    "points": [[0, 0], [0.25, 5], [0.375, 14], [0.5, 17.5], [0.556, 25], [1, 45]]
+    "_comment": "姿态重定时（2026-09-11，121 帧空间重测版）：素材是手势时间轴而非朝向库。逐帧头部墨迹质心实测：看左上峰 f49（0.5897）、看右上谷 f69（0.4182），与 46 帧旧契约经 selection 反查的 f48/f70 偏差 ≤1 帧。控制点为「进度:帧」对：BL 段(0–0.25)铺 f0–22（素材无向下姿态，正面为主是物理上限）；TL 中心(0.375)锁看左峰 f48；正上方(0.5)视线居中 f55；70/120 精确落在线性恒等线上 → 0.5833 起与线性映射恒等。改素材后必须重测姿态峰（逐帧质心）并同步更新 qa/verify-sprite-follow.mjs 的契约断言。",
+    "points": [[0, 0], [0.25, 22], [0.375, 48], [0.5, 55], [0.5833333333333334, 70], [1, 120]]
   }
 }

@@ -37,7 +37,11 @@
  * 人物矩形底边贴视口底边时，"正下方"整条方向被死区占满，不归一化会让左下段首、
  * 右下段尾的帧永远取不到。
  */
-import { createSpriteRenderer, createFrameAnimator } from '../lib/motion.js';
+import {
+  createSpriteRenderer,
+  createSegmentedSpriteRenderer,
+  createFrameAnimator,
+} from '../lib/motion.js';
 import { createCardParallax } from '../lib/parallax.js';
 import { progressFromPointer, reachableSpans } from '../lib/pointer-frame.js';
 
@@ -146,24 +150,47 @@ let anchor = null; // 视差的归一化基准；默认第一个可驱动舞台
 
 for (const view of views) {
   const target = view.querySelector('[data-sprite]');
-  const asset = view.dataset.asset;
   const frameCount = readNumber(view.dataset.frameCount);
   const columns = readNumber(view.dataset.columns);
   const rows = readNumber(view.dataset.rows);
 
-  if (!target || !asset || !frameCount || !columns || !rows) {
+  /* 分段路径（121 帧）：data-segments 为构建时静态注入的段清单 JSON。
+     资源本身（WebP 文件）运行时按需加载——与 <img> 加载图片同性质，
+     「零 fetch」契约针对的是参数数据（atlas-meta），不受影响。 */
+  let segments = null;
+  if (view.dataset.segments) {
+    try {
+      segments = JSON.parse(view.dataset.segments);
+    } catch {
+      console.warn('[motion] data-segments JSON 非法，回退单图路径：', view.id || view);
+    }
+  }
+
+  const cellWidth = readNumber(view.dataset.cellWidth);
+  const cellHeight = readNumber(view.dataset.cellHeight);
+
+  if (!target || !frameCount || (segments && (!cellWidth || !cellHeight)) || (!segments && (!view.dataset.asset || !columns || !rows))) {
     console.warn('[motion] 舞台缺少必需属性，已跳过：', view.id || view);
     continue;
   }
 
-  const renderer = createSpriteRenderer({
-    target,
-    frameLabel: findFrameLabel(view),
-    asset,
-    frameCount,
-    columns,
-    rows,
-  });
+  const renderer = segments
+    ? createSegmentedSpriteRenderer({
+        target,
+        frameLabel: findFrameLabel(view),
+        segments,
+        frameCount,
+        cellWidth,
+        cellHeight,
+      })
+    : createSpriteRenderer({
+        target,
+        frameLabel: findFrameLabel(view),
+        asset: view.dataset.asset,
+        frameCount,
+        columns,
+        rows,
+      });
 
   const animator = createFrameAnimator({
     frameCount,

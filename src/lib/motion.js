@@ -1,6 +1,7 @@
-/* 帧随动运行时 —— 只有两个导出：
+/* 帧随动运行时 —— 三个导出：
  *   createFrameAnimator()  把指针归一化位置映射为帧序号，smoothDamp 缓动
- *   createSpriteRenderer() 把帧序号写成 CSS background-position（纯 CSS 切图）
+ *   createSpriteRenderer() 把帧序号写成 CSS background-position（纯 CSS 切图，46 帧单图）
+ *   createSegmentedSpriteRenderer() 分段图集按需解码 + LRU 驻留（121 帧，canvas 切格）
  *
  * 交付格式为 alpha-atlas：抠色在离线阶段完成并烤进 WebP 的 alpha 通道，
  * 运行时不需要 WebGL，也不需要视频解码器。纹理预算门结论见
@@ -143,6 +144,168 @@ export function createSpriteRenderer(options) {
     },
     getCapacity() {
       return capacity;
+    },
+  };
+}
+
+/* ── 分段雪碧图渲染器（2026-09-11，121 帧方案）────────────────────────────
+ * 按需解码 + LRU 驻留 + canvas 切格。为什么分段：
+ *   解码位图内存 = 宽×高×4B（与文件压缩率无关），单张 121 帧图集需
+ *   11×11 网格 ≈ 5302×6622（140MB）且远超移动 GPU 4096 纹理上限（超限降采样必糊）。
+ *   6 段 WebP（4×6=24 格/段，1944×3576 ≤4096）按需 createImageBitmap，
+ *   只驻留当前段 ± 环形邻段，离开的段 close() 真释放 → 峰值位图 2–3 段。
+ *
+ * ── 圆环同构（接缝白闪修复，2026-09-11）──────────────────────────────────
+ * 帧随动把帧序当周长 N 的圆环（末帧↔首帧相邻），段调度必须同构：
+ *   预取 (s±1+nSeg)%nSeg；驱逐按环形距离 min(|i−s|, nSeg−|i−s|) > 1。
+ * 线性调度会让接缝两侧（seg0/seg5 段距 5）互判远段互相驱逐、互不预取，
+ * 跨缝瞬间驻留清空。回归探针：demo-framewarp/.tmp/diag-seam/probe.mjs。
+ *
+ * ── 空窗防御 ──
+ * clearRect 推迟到确定可画之后；无段可画时保留上一帧画面（不清屏不白闪）；
+ * 首段解码落地前强制重画（否则启动时 lastRendered 已置数挡住后续调用，
+ * 表现为「0 帧不显示」）。
+ */
+export function createSegmentedSpriteRenderer(options) {
+  const frameCount = Math.max(1, Math.floor(options.frameCount));
+  const cellWidth = Math.max(1, Math.floor(options.cellWidth));
+  const cellHeight = Math.max(1, Math.floor(options.cellHeight));
+  const segments = options.segments;
+  if (!Array.isArray(segments) || segments.length === 0) {
+    throw new Error('分段渲染器需要非空的 segments 清单');
+  }
+  const target = options.target;
+  const ctx = target.getContext('2d');
+  const frameLabel = options.frameLabel;
+  const bitmaps = new Map(); // 段号 → ImageBitmap
+  const inflight = new Set();
+  const stats = { decodes: 0, evictions: 0, fallbacks: 0 };
+  let destroyed = false;
+  let drawnOnce = false;
+  let lastRendered = -1;
+  let pendingFrame = 0; // 最近一次请求的帧（含段未就绪的），供解码落地后补画
+
+  const wrapIndex = (v) => ((v % frameCount) + frameCount) % frameCount;
+
+  const segOfFrame = (f) => {
+    for (let i = 0; i < segments.length; i++) {
+      const g = segments[i];
+      if (f >= g.first && f < g.first + g.count) return i;
+    }
+    return segments.length - 1;
+  };
+
+  async function ensureSeg(i) {
+    if (destroyed || i < 0 || i >= segments.length || bitmaps.has(i) || inflight.has(i)) return;
+    inflight.add(i);
+    try {
+      const res = await fetch(segments[i].asset);
+      const bmp = await createImageBitmap(await res.blob());
+      if (destroyed) {
+        bmp.close();
+        return;
+      }
+      bitmaps.set(i, bmp);
+      stats.decodes++;
+      if (!drawnOnce) {
+        // 启动时序修复：首段就绪前 render 只能空转（无段可画直接返回），
+        // lastRendered 已置数会挡住重画 —— 落地后强制补画最近请求的帧。
+        lastRendered = -1;
+        render(pendingFrame);
+      }
+    } finally {
+      inflight.delete(i);
+    }
+  }
+
+  function render(frame) {
+    if (destroyed) return;
+    const f = wrapIndex(Math.round(frame));
+    pendingFrame = f;
+    if (drawnOnce && f === lastRendered) return;
+    lastRendered = f;
+
+    const s = segOfFrame(f);
+    const nSeg = segments.length;
+    // 当前段 + 环形邻段预取（接缝两侧互为邻段）
+    ensureSeg(s);
+    ensureSeg((s - 1 + nSeg) % nSeg);
+    ensureSeg((s + 1) % nSeg);
+    // 环形距离驱逐远段，close() 真释放解码位图
+    for (const [i, bmp] of [...bitmaps]) {
+      const d = Math.abs(i - s);
+      if (Math.min(d, nSeg - d) > 1) {
+        bmp.close();
+        bitmaps.delete(i);
+        stats.evictions++;
+      }
+    }
+
+    let seg = s;
+    let drawFrame = f;
+    if (!bitmaps.has(s)) {
+      // 目标段未就绪：已驻留段内最近帧兜底（缓动路径上邻段通常已就绪）
+      let best = -1;
+      let bd = Infinity;
+      for (const [i, bmp] of bitmaps) {
+        void bmp;
+        const g = segments[i];
+        const nf = Math.max(g.first, Math.min(f, g.first + g.count - 1));
+        const dist = Math.abs(nf - f);
+        if (dist < bd) {
+          bd = dist;
+          best = i;
+        }
+      }
+      if (best >= 0) {
+        const g = segments[best];
+        drawFrame = Math.max(g.first, Math.min(f, g.first + g.count - 1));
+        seg = best;
+        stats.fallbacks++;
+      } else {
+        // 无段可画（首段解码中）：保留上一帧画面（不清屏），等解码落地回调补画
+        return;
+      }
+    }
+
+    const g = segments[seg];
+    const k = drawFrame - g.first;
+    ctx.clearRect(0, 0, cellWidth, cellHeight);
+    ctx.drawImage(
+      bitmaps.get(seg),
+      (k % g.cols) * cellWidth,
+      Math.floor(k / g.cols) * cellHeight,
+      cellWidth,
+      cellHeight,
+      0,
+      0,
+      cellWidth,
+      cellHeight
+    );
+    drawnOnce = true;
+    /* 调试读帧通道：qa/verify-sprite-follow.mjs 从这里读当前帧
+       （单图路径走 background-position 反解，canvas 路径没有 bg 可反解）。 */
+    target.dataset.currentFrame = String(f);
+    if (frameLabel) frameLabel.textContent = String(f);
+  }
+
+  return {
+    render,
+    getCapacity() {
+      return frameCount;
+    },
+    getResidentBytes() {
+      let bytes = 0;
+      for (const bmp of bitmaps.values()) bytes += bmp.width * bmp.height * 4;
+      return bytes;
+    },
+    getStats() {
+      return { ...stats, resident: bitmaps.size };
+    },
+    destroy() {
+      destroyed = true;
+      for (const bmp of bitmaps.values()) bmp.close();
+      bitmaps.clear();
     },
   };
 }

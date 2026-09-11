@@ -182,23 +182,27 @@ phi   = (theta - 90°) mod 360°
 progress = phi / 360               → createFrameAnimator 再乘 (frameCount - 1)
 ```
 
-| 象限 | phi 区间 | 覆盖帧段（46 帧时） |
+| 象限 | phi 区间 | 覆盖帧段（121 帧时，线性基准） |
 |---|---|---|
-| 左下 | (0°, 90°) | 0 – 11 |
-| 左上 | (90°, 180°) | 12 – 22 |
-| 右上 | (180°, 270°) | 23 – 34 |
-| 右下 | (270°, 360°) | 35 – 45 |
+| 左下 | (0°, 90°) | 0 – 29 |
+| 左上 | (90°, 180°) | 30 – 59 |
+| 右上 | (180°, 270°) | 60 – 89 |
+| 右下 | (270°, 360°) | 90 – 120 |
+
+（`frameIndex = progress × (frameCount − 1) = progress × 120`；hero 舞台启用 frameWarp 后，
+左半区帧段被姿态重定时表改写，见下——此表是线性基准。）
 
 起点是极点正下方（左下/右下的分界），**phi 增大即顺时针**——y 轴向下时 `atan2` 的角度
 增大方向就是屏幕上的顺时针。把指针绕人物顺时针划一圈，等于按顺序完整播放一遍动作序列。
 
-**姿态重定时（2026-09-11 起，hero 舞台启用）**：素材是手势时间轴而非朝向库——逐帧头部墨迹
-质心实测，看左上峰在 f14（30.4%）、看右上峰在 f25（54.3%），线性映射会把左半区"领先一个
+**姿态重定时（2026-09-11 起，hero 舞台启用，121 帧素材）**：素材是手势时间轴而非朝向库——逐帧头部墨迹
+质心实测，看左上峰在 f48（39.7%）、正上方视线谷在 f69（57.0%），线性映射会把左半区"领先一个
 象限"（鼠标在左下眼神已看左上）。atlas-meta.json 的 `frameWarp` 控制点把峰对回段中心：
-BL 段铺 f0–5（素材无向下姿态，正面为主是物理上限）、TL 中心锁定 f14、正上方视线居中、
-**0.556 起与线性恒等（TR/BR 逐帧零改动）**。经 `data-frame-warp` 属性传入，
-`progressFromPointer` 的可选 `warp` 参数消费；验收脚本按同一契约独立断言（象限带检查在
-有重定时表时自动关闭）。**换素材后必须重测姿态峰并更新控制点与验收断言。**
+`[[0,0],[0.25,22],[0.375,48],[0.5,55],[0.5833,70],[1,120]]`——BL 段铺 f0–22（素材无向下姿态，
+正面为主是物理上限）、TL 中心锁定 f48、**0.5833（f70）起与线性恒等（TR/BR 逐帧零改动）**。
+经 `data-frame-warp` 属性传入，`progressFromPointer` 的可选 `warp` 参数消费；验收脚本按同一
+契约独立断言（象限带检查在有重定时表时自动关闭）。**换素材后必须重测姿态峰并更新控制点
+与验收断言。**
 
 ### 圆环缓动（2026-09-11 修复"右下乱跳"）
 
@@ -239,7 +243,14 @@ target 差值回绕到最短路径再 smoothDamp，渲染对周长取模。否�
 
 ### 雪碧图定位公式
 
-纯 CSS `background-position` 切图，**不依赖 WebGL**：
+**当前主路径（2026-09-11 起）：121 帧分段图集 + canvas 切格**（`createSegmentedSpriteRenderer`）。
+6 段 WebP（每段 4×6=24 格，1944×3576 ≤4096）在 `public/motion/segments/`，
+运行时 `createImageBitmap` 按需解码、LRU 只驻留当前段 ± **环形**邻段（帧序是圆环，
+段调度必须同构——线性调度会让接缝 seg0/seg5 互删预取，跨缝空窗白闪）、
+`close()` 真释放，`drawImage` 按格切图。读帧通道：渲染器把当前帧写在
+`[data-sprite]` 的 `data-current-frame`（qa 适配点）。
+
+**回退路径：46 帧单图 background-position 切图**（`createSpriteRenderer`，不依赖 WebGL）：
 
 ```js
 backgroundSize   = `${columns * 100}% ${rows * 100}%`
@@ -340,9 +351,9 @@ rows     = floor(4096 / cell_height)
 capacity = columns × rows
 ```
 
-单格 482×602 → 8 × 6 = **48 帧**上限。这是选帧数量的天花板。**禁止为了塞进一张图而降分辨率。**
+单格 482×602 → 8 × 6 = **48 帧**上限（单图天花板）。这是**单张图**的选帧数量上限；要超越它就走分段（当前 121 帧主路径），不要为了塞进一张图而降分辨率或删帧。
 
-当前实际使用 46 帧（内容感知选帧，阈值 0.004 过滤掉 75 帧冗余），留 2 格空位不影响定位，因为帧序号上限由 `frameCount` 约束。
+46 帧单图（内容感知选帧，阈值 0.004 过滤掉 75 帧冗余）保留为回退路径，留 2 格空位不影响定位，因为帧序号上限由 `frameCount` 约束。
 
 **打包器有硬门**：`motion_pipeline.py atlas` 默认 `--max-texture 4096`，图集越界会直接报错拒收。**不要用 `--max-texture` 绕过它**——那会产出浏览器加载不了的图集。
 
@@ -355,9 +366,9 @@ capacity = columns × rows
 | `motion/head-turn/source/concept-contract.yaml` | 用户明确要求（身份、风格、驱动方式） |
 | `motion/head-turn/source/motion-brief.yaml` | 派生计划（抽帧策略、单格尺寸、fps） |
 | `motion/head-turn/build/timeline.json` | 编译结果 |
-| `motion/head-turn/build/motion-budget-atlas.json` | **当前生效的**预算门结果（46 帧 → alpha-atlas） |
+| `motion/head-turn/build/motion-budget-atlas.json` | **当前生效的**预算门结果（121 帧 → alpha-atlas-segmented，6 段 × 24 格） |
 
-`build/motion-budget.json` 记录的是早期 121 帧全帧方案的结论（`chroma-video`），已被上方文件取代，仅留作推导过程。
+`build/motion-budget.json` 记录的是早期"121 帧全帧 chroma-video"方案的结论，已被上方 alpha-atlas-segmented（同为 121 帧、但走分段图集）取代，仅留作推导过程。
 
 ---
 
@@ -367,12 +378,12 @@ capacity = columns × rows
 
 **为什么走 alpha-atlas 而非视频**：
 
-| | alpha-atlas（当前） | 视频 + 运行时抠色（已否决） |
+| | alpha-atlas（当时胜出，现已演进为分段版） | 视频 + 运行时抠色（已否决） |
 |---|---|---|
-| 体积 | 1.16 MB | 4.4 MB |
+| 体积 | 1.16 MB（46 帧）；分段版 3.9 MB（121 帧 6 段） | 4.4 MB |
 | 依赖 | **无需 WebGL** | 需 WebGL + 视频解码器 |
 | 画质 | 内容误差 0.7%，**alpha 误差 0.0** | 原始 |
-| 帧数 | 46（内容感知） | 121 |
+| 帧数 | 46（内容感知）；分段版 121 全帧 | 121 |
 
 选 alpha-atlas 的关键理由：
 
@@ -381,7 +392,7 @@ capacity = columns × rows
 3. **运行时零依赖** —— 不需要 WebGL 上下文、不需要视频 seek 时序协调，只写一个 CSS 属性。
 4. 体积只有视频的 26%，且单张纹理比视频解码器省内存。
 
-唯一已知劣势：46 帧在快速甩动时可能有跳步感，待视觉确认。
+当时唯一已知劣势——46 帧快速甩动的跳步感——已随 121 帧分段方案（2026-09-11）消除：跳步的根源是内容感知抽帧删掉了 62.5% 的中间姿态，分段版全帧保留，且运行时开销仍受控（LRU 驻留 2–3 段）。
 
 ---
 
@@ -407,8 +418,8 @@ capacity = columns × rows
   `index.<hash>.css`，验收会基于旧版式。**导航 URL 必须带 cache-busting 查询串**
   （`qa:follow` 用 `?v=<时间戳>`；`qa/check.sh` 也踩过同一个坑）。
 - **验收平滑缓动系统时，等待时间要按最大帧距算**：`createFrameAnimator` 的
-  `maxSpeed = frameCount × 2`（46 帧 → 92 帧/秒），第 0 帧跳到第 45 帧要约 0.49s 再加指数尾巴。
-  固定 `sleep(500)` 会读到 42 这种中间值，把"没等够"误报成"映射错"。
+  `maxSpeed = frameCount × 2`（121 帧 → 242 帧/秒），第 0 帧跳到第 120 帧要约 0.5s 再加指数尾巴。
+  固定 `sleep(500)` 会读到中间值，把"没等够"误报成"映射错"。
   **`qa:follow` 改成轮询到帧序号连续 3 次不变**。
 - **safe-delete 护栏会拦截批量删除**：Python 脚本里循环删 50+ 个文件、Astro 清理 `dist/.prerender` 都会触发。**对策是改成同名覆盖而非删除**，或先手动清空目标任务目录。
 - **ffmpeg 已移除 `-vsync`**：`motion_pipeline.py` 已改用 `-fps_mode passthrough`（ffmpeg ≥ 7 的等价选项）。

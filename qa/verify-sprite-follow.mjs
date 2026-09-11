@@ -366,6 +366,19 @@ const movePointer = (send, x, y) =>
 const readBgPos = (send) =>
   evaluate(send, `getComputedStyle(document.querySelector('[data-sprite]')).backgroundPosition`);
 
+/* 读当前帧：canvas 分段路径（121 帧）没有 background-position 可反解，
+   渲染器把当前帧写在 [data-sprite] 的 data-current-frame 上（2026-09-11）；
+   读不到数字（旧单图路径）时回退 bg-position 百分比反解。 */
+const readCurrentFrame = async (send, columns, rows) => {
+  const raw = await evaluate(
+    send,
+    `document.querySelector('[data-sprite]')?.dataset?.currentFrame ?? ''`
+  );
+  const n = Number.parseInt(String(raw ?? ''), 10);
+  if (Number.isFinite(n) && n >= 0) return n;
+  return indexFromBgPos(await readBgPos(send), columns, rows);
+};
+
 /** 派发指针后轮询到帧序号连续 STABLE_HITS 次不变，返回该帧与耗时 */
 const settle = async (send, columns, rows) => {
   const t0 = Date.now();
@@ -373,7 +386,7 @@ const settle = async (send, columns, rows) => {
   let hits = 0;
   let frame = null;
   while (Date.now() - t0 < SETTLE_TIMEOUT_MS) {
-    frame = indexFromBgPos(await readBgPos(send), columns, rows);
+    frame = await readCurrentFrame(send, columns, rows);
     if (frame !== null && frame === prev) hits++;
     else hits = 0;
     prev = frame;

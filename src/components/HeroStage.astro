@@ -23,6 +23,10 @@ const { hero, cards, infoBar } = profile;
 const { contentBox } = atlas;
 const personInset = [contentBox.left, contentBox.top, contentBox.right, contentBox.bottom].join(' ');
 
+// 分段雪碧图（121 帧方案）：段清单构建时静态注入（JSON），运行时零参数 fetch；
+// WebP 段文件本身按需加载——与 <img> 加载图片同性质。
+const segments = atlas.segments ? JSON.stringify(atlas.segments) : undefined;
+
 // 姿态重定时（可选契约）：素材是手势时间轴，姿态峰不在象限段中心，
 // 线性映射会让左半区"领先一个象限"。控制点与依据见 atlas-meta.json 的 frameWarp。
 const frameWarp = atlas.frameWarp
@@ -40,6 +44,9 @@ const cardsWithDepth = cards.map((card) => ({
 <main
   class="stage"
   data-sprite-view
+  data-segments={segments}
+  data-cell-width={atlas.cellWidth}
+  data-cell-height={atlas.cellHeight}
   data-asset={atlas.asset}
   data-frame-count={atlas.frameCount}
   data-columns={atlas.columns}
@@ -59,12 +66,14 @@ const cardsWithDepth = cards.map((card) => ({
   </h1>
 
   <div class="hero-person">
-    <div
+    <canvas
       class="hero-figure"
       data-sprite
+      width={atlas.cellWidth}
+      height={atlas.cellHeight}
       role="img"
       aria-label={`鼠标跟随人物立绘，共 ${atlas.frameCount} 帧`}
-    ></div>
+    ></canvas>
   </div>
 
   <nav class="fan" aria-label="档案目录">
