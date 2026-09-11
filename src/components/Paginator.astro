@@ -1,0 +1,82 @@
+---
+// 分页导航（2026-09-12）：列表页底部「← 上一页 / 第 X / Y 页 / 下一页 →」。
+// 仅在多页时渲染（单页列表不出现）。prev/next 由 Astro paginate() 提供：
+// page.url.prev 在第 2 页时是 /blog（无尾斜杠），统一补齐为 /blog/ 风格。
+interface Props {
+  page: {
+    url: { prev?: string | undefined; next?: string | undefined };
+    currentPage: number;
+    lastPage: number;
+  };
+}
+
+const { page } = Astro.props;
+const normalize = (u?: string) => (u && !u.endsWith('/') ? `${u}/` : u);
+const prevHref = normalize(page.url.prev);
+const nextHref = normalize(page.url.next);
+const multi = page.lastPage > 1;
+---
+
+{
+  multi && (
+    <nav class="pager" aria-label="分页导航">
+      {prevHref ? (
+        <a class="nav" href={prevHref} rel="prev">
+          ← 上一页
+        </a>
+      ) : (
+        <span class="nav nav--off" aria-disabled="true">
+          ← 上一页
+        </span>
+      )}
+      <span class="ind">
+        第 {page.currentPage} / {page.lastPage} 页
+      </span>
+      {nextHref ? (
+        <a class="nav" href={nextHref} rel="next">
+          下一页 →
+        </a>
+      ) : (
+        <span class="nav nav--off" aria-disabled="true">
+          下一页 →
+        </span>
+      )}
+    </nav>
+  )
+}
+
+<style>
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 2px 30px;
+    border-top: 1px solid rgba(19, 18, 17, 0.16);
+  }
+  .nav {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #131211;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    padding-bottom: 2px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .nav:hover {
+    color: #cf0a1a;
+    border-color: #cf0a1a;
+  }
+  .nav--off {
+    color: rgba(19, 18, 17, 0.28);
+    border-bottom-color: transparent;
+    pointer-events: none;
+  }
+  .ind {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: #6f6f6f;
+    font-variant-numeric: tabular-nums;
+  }
+</style>

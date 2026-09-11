@@ -1,0 +1,175 @@
+---
+// 单标签文章列表页（2026-09-12）：/tags/<tag>/ —— 复用 PostCard 行式条目。
+// 文章按发布时间倒序，编号 01 起每页独立；空标签不生成页面（无文章即无路由）。
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getSortedPosts } from '../../data/posts';
+
+export async function getStaticPaths() {
+  const posts = await getSortedPosts();
+
+  const byTag = new Map<string, typeof posts>();
+  for (const p of posts) {
+    for (const t of p.data.tags) {
+      if (!byTag.has(t)) byTag.set(t, []);
+      byTag.get(t).push(p);
+    }
+  }
+
+  return [...byTag.entries()].map(([tag, tagPosts]) => ({
+    params: { tag },
+    props: { tag, posts: tagPosts },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+---
+
+<Base title={`#${tag} · Daidai档案馆`} description={`标签「${tag}」下的全部文章`}>
+  <main class="sheet">
+    <header class="head">
+      <span class="tag">NO.03</span>
+      <span class="tag tag--red">{posts.length} 篇</span>
+      <a class="tag tag--link" href="/tags/">全部标签</a>
+      <a class="tag tag--link" href="/blog/">博客</a>
+      <a class="back" href="/tags/">← 返回标签索引</a>
+    </header>
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">TAG</p>
+      <h1>#{tag}</h1>
+    </section>
+
+    <section class="list-section" aria-label={`标签 ${tag} 的文章列表`}>
+      <ul class="list" role="list">
+        {posts.map((p, i) => (
+          <li>
+            <PostCard post={p} no={String(i + 1).padStart(2, '0')} />
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  .sheet {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #eeedeb;
+    color: #131211;
+    font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
+      'Microsoft YaHei', sans-serif;
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 22px clamp(20px, 4vw, 48px);
+    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+  .tag {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border: 1px solid #131211;
+    border-radius: 4px;
+  }
+  .tag--red {
+    border-color: #cf0a1a;
+    color: #cf0a1a;
+  }
+  .tag--link {
+    color: #6f6f6f;
+    border-color: rgba(19, 18, 17, 0.3);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tag--link:hover {
+    color: #cf0a1a;
+    border-color: #cf0a1a;
+  }
+  .back {
+    margin-left: auto;
+    font-size: 13px;
+    color: #131211;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    padding-bottom: 2px;
+  }
+  .back:hover {
+    color: #cf0a1a;
+    border-color: #cf0a1a;
+  }
+
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 42px 20px 12px;
+    text-align: center;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: clamp(28px, 6vw, 72px);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1.2px #c3c1be;
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(30px, 6vw, 68px);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+  }
+
+  .list-section {
+    flex: 1;
+    padding: 26px clamp(20px, 4vw, 48px) 6px;
+  }
+  .list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+
+  .foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 48px) 26px;
+  }
+  .foot .dash {
+    width: 34px;
+    height: 5px;
+    background: #cf0a1a;
+  }
+  .foot .barcode {
+    height: 14px;
+    width: 64px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      #131211 0 1px,
+      transparent 1px 2.4px,
+      #131211 2.4px 4.4px,
+      transparent 4.4px 5.4px,
+      #131211 5.4px 6.4px,
+      transparent 6.4px 8.4px
+    );
+  }
+</style>

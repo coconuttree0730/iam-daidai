@@ -6,18 +6,24 @@
 // 若日后调整档案骨架，两个文件要同步改。
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import { getAllPosts, getFormattedDate } from '../../data/posts';
+import { getSortedPosts, getFormattedDate } from '../../data/posts';
 
 export async function getStaticPaths() {
-  const posts = await getAllPosts();
-  return posts.map((post) => ({
+  // 相邻文章：newer = 更新一篇（列表更靠前），older = 更旧一篇。
+  const posts = await getSortedPosts();
+  return posts.map((post, i) => ({
     params: { id: post.id },
-    props: { post },
+    props: {
+      post,
+      newer: posts[i - 1] ?? null,
+      older: posts[i + 1] ?? null,
+    },
   }));
 }
 
-const { post } = Astro.props;
-const { Content } = await render(post);
+const { post, newer, older } = Astro.props;
+const { Content, remarkPluginFrontmatter } = await render(post);
+const minutes = remarkPluginFrontmatter?.minutes;
 const iso = post.data.publishDate.toISOString();
 ---
 <Base title={`${post.data.title} · Daidai档案馆`} description={post.data.description}>
@@ -34,7 +40,11 @@ const iso = post.data.publishDate.toISOString();
         <h1>{post.data.title}</h1>
         <div class="meta">
           <time datetime={iso}>{getFormattedDate(post.data.publishDate)}</time>
-          {post.data.tags.map((t) => <span class="chip">#{t}</span>)}
+          {minutes && <span class="sep" aria-hidden="true">·</span>}
+          {minutes && <span class="read">约 {minutes} 分钟</span>}
+          {post.data.tags.map((t) => (
+            <a class="chip" href={`/tags/${t}/`}>#{t}</a>
+          ))}
         </div>
       </header>
 
@@ -42,6 +52,29 @@ const iso = post.data.publishDate.toISOString();
         <Content />
       </div>
     </article>
+
+    {
+      (newer || older) && (
+        <nav class="postnav" aria-label="相邻文章">
+          {newer ? (
+            <a class="navcard" href={`/blog/${newer.id}/`}>
+              <small>← 上一篇（更新）</small>
+              <strong>{newer.data.title}</strong>
+            </a>
+          ) : (
+            <span class="navcard navcard--ghost" aria-hidden="true" />
+          )}
+          {older ? (
+            <a class="navcard navcard--right" href={`/blog/${older.id}/`}>
+              <small>下一篇（更旧） →</small>
+              <strong>{older.data.title}</strong>
+            </a>
+          ) : (
+            <span class="navcard navcard--ghost" aria-hidden="true" />
+          )}
+        </nav>
+      )
+    }
 
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
@@ -138,6 +171,69 @@ const iso = post.data.publishDate.toISOString();
     font-size: 10.5px;
     letter-spacing: 0.06em;
     color: #cf0a1a;
+  }
+  a.chip {
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  a.chip:hover {
+    border-color: #cf0a1a;
+    background: rgba(207, 10, 26, 0.08);
+  }
+  .sep {
+    color: rgba(19, 18, 17, 0.35);
+  }
+  .read {
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: #6f6f6f;
+  }
+
+  /* ── 相邻文章导航（上一篇/下一篇）── */
+  .postnav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    max-width: 820px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 20px 46px;
+  }
+  .navcard {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid rgba(19, 18, 17, 0.25);
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+    min-height: 64px;
+    transition: border-color 0.15s ease;
+  }
+  .navcard small {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #6f6f6f;
+  }
+  .navcard strong {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+  .navcard:hover {
+    border-color: #cf0a1a;
+  }
+  .navcard:hover small {
+    color: #cf0a1a;
+  }
+  .navcard--right {
+    text-align: right;
+    align-items: flex-end;
+  }
+  /* 占位空卡：单侧缺相邻文章时保持左右对齐 */
+  .navcard--ghost {
+    visibility: hidden;
   }
 
   /* ── 正文 prose（手写，纸感配色）── */

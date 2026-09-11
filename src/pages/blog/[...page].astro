@@ -1,29 +1,36 @@
 ---
-// 博客列表页（2026-09-12 建）：档案风骨架沿用占位版（NO.03 编号头 + NOTES 描边大字 + 页脚条码）。
-// 内容管线参照 Astro-theme-Cactus-zh_CN 的 PostPreview 模式（行式条目、构建期渲染、零客户端 JS）。
-// 2026-09-12 定稿样式 A（档案风 + 两处微调：描述 <q> 斜体引号、日期用 Cactus 字型），
-// 已按预约定移除样式 B 区块与对比标注。
-import Base from '../layouts/Base.astro';
-import PostCard from '../components/PostCard.astro';
-import { getAllPosts, collectionDateSort } from '../data/posts';
+// 博客列表页（分页版，2026-09-12 升级）：/blog/ 第 1 页，/blog/2、/blog/3… 后续页。
+// 由原 blog.astro 重命名迁移而来（路由升级为 paginate，12 篇/页，与 Cactus 一致）。
+// 档案风骨架沿用：NO.03 编号头 + NOTES 描边大字 + 页脚条码；head 增加标签/RSS 入口。
+import Base from '../../layouts/Base.astro';
+import Paginator from '../../components/Paginator.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getSortedPosts } from '../../data/posts';
 
-const posts = (await getAllPosts()).sort(collectionDateSort);
+export async function getStaticPaths({ paginate }) {
+	const posts = await getSortedPosts();
+	return paginate(posts, { params: {}, pageSize: 12 });
+}
+
+const { page } = Astro.props;
 ---
 <Base title="Daidai档案馆" description="博客板块 · 文章归档">
   <main class="sheet">
     <header class="head">
       <span class="tag">NO.03</span>
       <span class="tag tag--red">密级 公开</span>
+      <a class="tag tag--link" href="/tags/">标签</a>
+      <a class="tag tag--link" href="/rss.xml">RSS</a>
       <a class="back" href="/">← 返回档案馆</a>
     </header>
 
-    <section class:list={['hero', { 'hero--compact': posts.length > 0 }]}>
+    <section class:list={['hero', { 'hero--compact': page.data.length > 0 }]}>
       <p class="en" aria-hidden="true">NOTES</p>
       <h1>博客</h1>
     </section>
 
     {
-      posts.length === 0 ? (
+      page.data.length === 0 ? (
         <section class="stamp" aria-label="档案整理中">
           <strong>档案整理中</strong>
           <small>ARCHIVING · 该板块即将开放</small>
@@ -31,12 +38,13 @@ const posts = (await getAllPosts()).sort(collectionDateSort);
       ) : (
         <section class="list-section" aria-label="文章列表">
           <ul class="list list--archive" role="list">
-            {posts.map((p, i) => (
+            {page.data.map((p, i) => (
               <li>
-                <PostCard post={p} no={String(i + 1).padStart(2, '0')} />
+                <PostCard post={p} no={String(page.start + i).padStart(2, '0')} />
               </li>
             ))}
           </ul>
+          <Paginator page={page} />
         </section>
       )
     }
@@ -77,6 +85,16 @@ const posts = (await getAllPosts()).sort(collectionDateSort);
   .tag--red {
     border-color: #cf0a1a;
     color: #cf0a1a;
+  }
+  .tag--link {
+    color: #6f6f6f;
+    border-color: rgba(19, 18, 17, 0.3);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tag--link:hover {
+    color: #cf0a1a;
+    border-color: #cf0a1a;
   }
   .back {
     margin-left: auto;
