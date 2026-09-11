@@ -1,0 +1,128 @@
+---
+// 博客卡片（行式条目），参照 Astro-theme-Cactus-zh_CN 的 PostPreview.astro：
+// 构建期渲染、零客户端 JS。
+// 2026-09-12 定稿：档案风骨架（NO.编号 + 标题 + 箭头 hover 红章色），
+// 微调两项——①描述用 <q>（弯引号 + 斜体，同 Cactus 原味渲染）；
+// ②日期列改用 Cactus 的字型（无衬线 600 字重 14px 灰调，弃等宽字体）。
+import { getFormattedDate, type Post } from '../data/posts';
+
+interface Props {
+  post: Post;
+  no?: string;
+}
+
+const { post, no } = Astro.props;
+const href = `/blog/${post.id}/`;
+const iso = post.data.publishDate.toISOString();
+---
+
+<a class="row" href={href}>
+  <span class="lead">
+    {no && <span class="no" aria-hidden="true">NO.{no}</span>}
+    <time class="date" datetime={iso}>
+      {getFormattedDate(post.data.publishDate)}
+    </time>
+  </span>
+  <span class="body">
+    <span class="title">
+      {post.data.draft && <span class="draft">(草稿) </span>}
+      {post.data.title}
+    </span>
+    <q class="desc">{post.data.description}</q>
+    {post.data.tags.length > 0 && (
+      <span class="tags">
+        {post.data.tags.map((t) => (
+          <span class="chip">#{t}</span>
+        ))}
+      </span>
+    )}
+  </span>
+  <span class="arrow" aria-hidden="true">
+    →
+  </span>
+</a>
+
+<style>
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+    padding: 18px 2px;
+    border-top: 1px solid rgba(19, 18, 17, 0.16);
+    color: inherit;
+    text-decoration: none;
+  }
+  .lead {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 120px;
+  }
+  .no {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #cf0a1a;
+  }
+  /* 日期列：Cactus 原味字型（无衬线 600 / 14px / 灰），2026-09-12 定稿 */
+  .date {
+    font-weight: 600;
+    font-size: 14px;
+    color: #6b6b6b;
+    font-variant-numeric: tabular-nums;
+  }
+  .title {
+    display: block;
+    font-weight: 900;
+    font-size: 17px;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+  }
+  /* 描述：<q> 自带弯引号（UA content:open-quote/close-quote）+ 斜体，两行截断 */
+  .desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 4px;
+    font-style: italic;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #6f6f6f;
+  }
+  .tags {
+    display: block;
+  }
+  .chip {
+    display: inline-block;
+    margin: 7px 6px 0 0;
+    padding: 1px 8px;
+    border: 1px solid rgba(19, 18, 17, 0.3);
+    border-radius: 4px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: #6f6f6f;
+  }
+  .arrow {
+    font-size: 16px;
+    color: #131211;
+    transition: transform 0.18s ease, color 0.18s ease;
+  }
+  .row:hover .title {
+    text-decoration: underline;
+    text-decoration-color: #cf0a1a;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .row:hover .arrow {
+    color: #cf0a1a;
+    transform: translateX(4px);
+  }
+  .draft {
+    color: #cf0a1a;
+    font-weight: 700;
+    font-size: 0.85em;
+  }
+</style>
