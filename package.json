@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "qa:follow": "node qa/verify-sprite-follow.mjs"
+    "qa:follow": "node qa/verify-sprite-follow.mjs",
+    "qa:touch": "node qa/touch-scrub.mjs"
   },
   "dependencies": {
     "astro": "^7.3.2"

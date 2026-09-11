@@ -3,7 +3,6 @@
   --muted: #6f6f6f;
   --line: rgba(0, 0, 0, 0.12);
   --panel: rgba(255, 255, 255, 0.72);
-  --bg-image: url("/motion/bg.jpg");
 
   /* 主体显示宽度（CSS px）。这是唯一的尺寸旋钮：
      482 × 602 px 单格 ÷ DPR 2 = 241 × 301，即 DPR 2 下的 1:1 像素对齐尺寸。
@@ -26,24 +25,9 @@ body {
   background: #f2f0ee;
 }
 
-.stage-bg {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-image) center / cover no-repeat;
-  z-index: -2;
-}
-
-.stage-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.32),
-    rgba(255, 255, 255, 0.06) 40%,
-    rgba(255, 255, 255, 0.4)
-  );
-}
+/* 背景由 CSS 生成（首页用 hero.css 的 --paper 纯色 + 径向提亮）。
+   这里曾有 .stage-bg / .stage-bg::after 两个类引用 public/motion/bg.jpg，
+   但全项目无任何模板渲染它们（旧 demo 遗留），bg.jpg 已随之删除（2026-09-12）。 */
 
 header.page-head {
   padding: 26px 32px 0;

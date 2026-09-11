@@ -4,10 +4,12 @@
  * scrub 进度，人物 canvas 在两套素材间"原地换血"：
  *
  *   pointer 模式（默认）→ hero 121 帧指针跟随（demo-driver）；
- *     向下滚动累计 ≥ ENTER_PX → 切入 scroll 模式（193 帧线性钳制素材）。
+ *     触屏手指上滑 / 滚轮向下累计 ≥ ENTER_PX → 切入 scroll 模式
+ *     （193 帧线性钳制素材）。
  *     切入瞬间两素材都是"正面静止"姿态且墨迹同尺度同位（f0 对齐校准，
  *     见 index.astro 的 .scroll-figure）→ 观感是素材原地换血，人物没动。
- *   scroll 模式 → 滚轮/触摸增量直接映射进度（下=前进，上=倒退，两端钳制）；
+ *   scroll 模式 → 增量直接映射进度（两端钳制）；**方向两套输入各按自己的惯例**：
+ *     滚轮向下 = 前进（页面往下滚的直觉），触屏手指上滑 = 前进（推动内容的直觉）。
  *     倒回 f0 → 自动切回 pointer 模式。
  *
  * 与 demo-driver 的互斥：scroll 模式期间在 documentElement 上置
@@ -30,6 +32,22 @@ const readNumber = (value) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
+/* 版式飞散进度：CSS 侧所有位移都消费这一个变量（--sc，0–1）。
+ *
+ * 为什么由本模块写、而不是另起一个 scroll-stage.js：
+ *   位移必须与人物动作**同源同步**。行程累计 acc、缓动收敛都在这里，
+ *   再开一个滚轮监听器会造成两份累计值各自漂移（阈值/钳制/方向各一套），
+ *   滚动到边界时人物停了而版式还在走。这里直接复用同一份进度。
+ *
+ * 为什么写 documentElement 而不是 .stage：
+ *   位移元素跨层（.chrome z6 / .fan z7 / .infobar z4 / .title 拆层），
+ *   且部分规则在 :global() 与手机档里被覆盖；挂在根元素上是唯一能让
+ *   所有后代在任意层叠上下文里都读到同一值的做法。 */
+const SC_ROOT = document.documentElement;
+const setScatter = (value) => {
+  SC_ROOT.style.setProperty('--sc', clamp01(value).toFixed(4));
+};
+
 const view = document.querySelector('[data-scrub-view]');
 
 if (view) {
@@ -48,14 +66,15 @@ if (view) {
   if (sprite && heroSprite && frameCount && cellWidth && cellHeight && segments) {
     /* 手感参数：ENTER_PX = 进入阈值（防误触）；RANGE_PX = 满行程的累计纵向位移。
        桌面向下滚轮按 deltaY 原样累计（~100px/格，2400px ≈ 24 格走完 193 帧）。
-       触摸（pointer: coarse）本地行程只有一屏多，沿用 2400px 要划三屏多，
-       所以按 1.6×视口高折算并 clamp 到 [900, 1600]——一次全屏滑动约走 60% 帧序，
-       二次滑动到底，符合"下拉/上提"的手势直觉。 */
+       触摸行程必须按**一次自然滑动**标定（2026-09-11 用户实测"只能滑到一半"）：
+       手机上的自然滑动幅度约 0.7–0.8×视口高，所以取 0.7×视口高并 clamp 到
+       [460, 900]——这样一次满屏上滑（减去 30px 进入阈值后）恰好走完整个帧序，
+       不必划三屏；短促轻扫也还能推到 60% 以上。 */
     const ENTER_PX = 30;
     const coarse =
       typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
     const RANGE_PX = coarse
-      ? Math.max(900, Math.min(1600, Math.round(window.innerHeight * 1.6)))
+      ? Math.max(460, Math.min(900, Math.round(window.innerHeight * 0.7)))
       : 2400;
 
     const renderer = createSegmentedSpriteRenderer({
@@ -82,6 +101,10 @@ if (view) {
         sprite.hidden = true;
         heroSprite.hidden = false;
         acc = 0;
+        /* 交还 hero 时版式必须归位：这里直接清到 0，而不是等 animator 的
+           render 回调——回调只在帧号变化时触发，越过阈值即归零的情形下
+           帧号恒为 0，回调不会来，版式会永久停在飞散态。 */
+        setScatter(0);
       }
     };
 
@@ -90,6 +113,10 @@ if (view) {
       wrap: false,
       render: (frame) => {
         renderer.render(frame);
+        /* 版式飞散跟**缓动后的帧进度**而不是原始行程：这样人物动作与版式
+           位移共用同一条 smoothDamp 曲线，不会一个跟手、一个带延迟。
+           归一化用 frameCount − 1（末帧 = 1），与 animator 的取帧口径一致。 */
+        setScatter(frameCount > 1 ? frame / (frameCount - 1) : 0);
         /* 倒回 f0（且输入已回到起点）→ 交还 hero 指针跟随。
            f0 与 hero rest 对齐，切换无跳变。 */
         if (active && acc <= 0 && frame === 0) setActive(false);
@@ -117,6 +144,10 @@ if (view) {
       animator.setProgress(acc / RANGE_PX);
     }
 
+    /* 初始归零：--sc 是挂在 :root 上的内联自定义属性，跨路由导航（首页 →
+       作品集 → 返回）时浏览器会保留它，不显式清一次会带着上次的飞散态入场。 */
+    setScatter(0);
+
     /* 滚轮：line 模式（Firefox）按 ~40px/格 归一。passive:false 以便在
        scrub 生效期间阻止页面滚动（矮视口下 hero min-height 会产生滚动条）。 */
     window.addEventListener(
@@ -130,8 +161,11 @@ if (view) {
       { passive: false }
     );
 
-    /* ── 触摸：单指纵向拖动（2026-09-11 移动端适配）────────────────────
-       手指下移（y 增大）= 向下拉 = 前进，与滚轮向下同义；上提 = 倒退。
+    /* ── 触摸：单指纵向拖动（2026-09-11 移动端适配，方向 2026-09-11 深夜修正）──
+       **方向按手机惯例：手指上滑（由下往上）= 内容前进，下滑 = 倒退。**
+       与滚轮相反（滚轮向下 = 前进，那是"页面往下滚"的直觉）——手机上是
+       "手指推动内容"的直觉，向下拖 = 内容回退。用户实测反馈当前方向反了，
+       故这里对触屏取负号：dy<0（上滑）→ input 收正数 → 帧序前进。
        手势归属的三条规则：
        1. 轴向判定——首次位移超过 6px 时定轴：|dy| ≥ |dx| 判纵向（归 scrub），
           否则判横向并整段放行（把返回手势等留给浏览器，不抢）。
@@ -177,10 +211,10 @@ if (view) {
           return;
         }
         if (touchAxis === 'v') event.preventDefault();
-        const delta = y - lastTouchY;
+        const dy = y - lastTouchY; // 手指位移：下正、上负
         lastTouchY = y;
-        if (!delta) return;
-        input(delta);
+        if (!dy) return;
+        input(-dy); // 上滑（dy<0）= 前进
       },
       { passive: false }
     );

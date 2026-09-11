@@ -62,6 +62,14 @@ const cardsWithDepth = cards.map((card) => ({
   data-scrub-cell-width={scrollMeta.cellWidth}
   data-scrub-cell-height={scrollMeta.cellHeight}
 >
+  <!-- 背景层（纯 CSS 生成，2026-09-12）：
+       .stage 自身的 --paper 纯色打底，本层只负责"顶部受光"的径向提亮。
+       之所以要独立成层而不是直接用 .stage::before：本层要随滚动进度横向位移，
+       ::before 无法单独平移（它绑在 .stage 上），而直接平移 .stage 会连带
+       整个人物与卡片。独立层是唯一能"只动背景"的写法。
+       位移见 hero.css 的 .stage-bg-shift。纯装饰、不可交互。 -->
+  <div class="stage-bg-shift" aria-hidden="true"></div>
+
   <div class="ghost" aria-hidden="true">{hero.ghostEn}</div>
 
   <h1 class="title">

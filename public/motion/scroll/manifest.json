@@ -4,7 +4,7 @@
   "cellHeight": 720,
   "fps": 24,
   "source": "temp/上下滑动素材视频.mp4",
-  "matting": "RobustVideoMatting rvm_resnet50 (despill on)",
+  "matting": "RobustVideoMatting rvm_resnet50 + degreen(despill limit + bleed r16)",
   "window": {
     "left": 81,
     "top": 0,

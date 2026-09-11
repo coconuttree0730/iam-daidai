@@ -132,6 +132,14 @@
      调百分比会让"上移量"在不同屏幕上差出一倍。px 项是恒定位移量。 */
   --ghost-top: calc(36% - 30px);
 
+  /* 描边大字的横向偏移（2026-09-12 用户指定：初始右移 40px）。
+     当前 --ghost-size 让字宽 1245px > 视口 1080px（就是"两端出血"设计，
+     两边本来就会被裁）。右移不改变这个性质，只是把裁切量从
+     左 90 / 右 75 变成 左 50 / 右 115 —— 视觉重心右移，属用户要的效果。
+     写成 px 而不是 %：位移量要恒定，% 会随视口宽变化。
+     调这个值即可左右挪字，不必碰字体大小。 */
+  --ghost-shift-x: 40px;
+
   --solid-size: min(clamp(46px, 12vh, 132px), 8.15vw);
   /*                          ↑ 8.15vw 是"两词必须放得下"反解出来的：
      .title-en 是 space-between 的两词，容器宽 = 100vw·(1 − 3.4% − 6.8%) = 89.8%，
@@ -164,14 +172,71 @@
   color: var(--ink);
 }
 
-/* ── L1 背景：纸感底色 + 顶部一点提亮 ───────────────────────────── */
-.stage::before {
-  content: "";
+/* ── L1 背景：纯 CSS 生成 + 随滚动横向位移（2026-09-12）────────────
+ *
+ * 组成：
+ *   .stage         background: var(--paper)  纯色打底（纸色 #eeedeb）
+ *   .stage-bg-shift  顶部受光的径向提亮（可横向位移的独立层）
+ *
+ * ── 为什么要独立成层，而不是继续用 .stage::before ──────────────────
+ * 背景要"初始右偏 60px、随滚动向左移"。能单独平移的只有真正的元素：
+ *   · 平移 .stage 自身  → 人物/卡片/文字全部跟着走（错的）
+ *   · 平移 ::before     → 做不到，伪元素没有独立的 transform 钩子
+ * 所以把提亮层提成一个真实子元素，只动它。
+ *
+ * ── 为什么"横向平移会看着往上跑"（本次修的 bug）──────────────────
+ * 旧写法把径向渐变画在 `.stage::before`（inset:0）上，渐变的**椭圆几何
+ * 由该元素自身的盒子推导**（`130% 86% at 50% 4%` 里的百分比都相对盒子）。
+ * 一旦给它加横向 translate，盒子变了，渐变的椭圆也跟着重算 →
+ * 亮斑不跟着元素走，而是相对视口"漂移"，观感就是"横move 却在往上跑"。
+ * 修法两条，必须同时成立：
+ *   ① 位移放在**独立层**上（上面已做）；
+ *   ② 渐变的尺寸与位置改用**视口单位**（vw/vh）表达，
+ *      使它不再依赖所在盒子 → 平移该层时亮斑与元素刚性同步、纯粹横移。
+ * 用 `background-image` + `background-size`/`position`（而不是直接
+ * `background: radial-gradient(...)`）：这样 `background-size` 可以显式
+ * 用 vw/vh 定死椭圆尺寸，彻底切断"由盒子推导"这条链路。
+ *
+ * ── 位移量（用户 2026-09-12 指定）───────────────────────────────
+ *   初始：向右偏 60px（静止态构图）
+ *   触发滚动后：跟随滚动进度向左水平移动，滚到底完全移出视口左侧
+ * 只改 X，Y 恒为 0 —— 这是"不再往上跑"的硬保证。 */
+.stage-bg-shift {
   position: absolute;
-  inset: 0;
+  /* 横向出血 1 屏：初始 +60px 右偏与滚到底左移时都不露边。
+     纵向 0 出血，且**永远不动 Y**。 */
+  inset: 0 -100vw;
   z-index: 0;
   pointer-events: none;
-  background: radial-gradient(130% 86% at 50% 4%, #ffffff 0%, rgba(255, 255, 255, 0) 58%);
+  /* 渐变尺寸用视口单位（见上方 ②）：宽 1.3 屏、高 0.86 屏，
+     顶端偏上 4% 屏高的位置最亮——与原 ::before 观感对齐，
+     但不再随所在盒子变化。 */
+  background-image: radial-gradient(
+    130vw 86vh at 50% 4%,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0) 58%
+  );
+  background-repeat: no-repeat;
+  /* 亮斑锚在本层中央：本层宽 = 视口 + 2 屏出血，50% = 视口中心。 */
+  background-position: 50% 0;
+  /* 只有 X 位移，Y 恒 0。第二段必须显式写 0（不能省略）——
+     省略时若其他地方给了 translate 的 Y 分量，这里会被继承。 */
+  translate: calc(60px - var(--sc-travel) * var(--sc-v)) 0;
+}
+
+/* 位移总行程：按"初始 +60px 也要一并走完 + 一屏宽"给足。
+   本层共出血 2 屏（左右各 100vw），要求滚到底时右边缘 ≤ 0：
+     右边缘 = 60px − travel + (100vw + 200vw)
+     要 ≤ 0 → travel ≥ 300vw + 60px
+   取 300vw + 120px（留 60px 余量）。写成 calc 而非纯 vw 系数，
+   是因为 60px 静态偏置是固定值，纯系数会让窄屏差一点点。 */
+.stage {
+  --sc-travel: calc(300vw + 120px);
+}
+
+/* 减动效偏好：保留初始 +60px 构图，但不随滚动移动。 */
+@media (prefers-reduced-motion: reduce) {
+  .stage-bg-shift { translate: 60px 0; }
 }
 
 /* ── L2 描边大字：空心、超宽、两端出血 ─────────────────────────── */
@@ -180,7 +245,15 @@
   left: 50%;
   top: var(--ghost-top);
   z-index: 1;
-  transform: translateX(-50%) scaleY(var(--ghost-stretch));
+  /* 居中（-50%）+ 用户指定的初始右移（--ghost-shift-x）。
+     静态偏移写在 transform 的 translateX 里，与滚动飞散用的
+     translate 属性分属两层、互不干扰：
+       · transform: translateX(-50% + shift)  → 定位 + 初始偏置（本行）
+       · translate: calc(--sc-x * --sc-v)      → 滚动飞散（见飞散块）
+     两者按规范在渲染时独立合成，改一个不会动另一个。 */
+  transform:
+    translateX(calc(-50% + var(--ghost-shift-x)))
+    scaleY(var(--ghost-stretch));
   transform-origin: top center;
   font-family: "Anton", "Archivo Black", Impact, sans-serif;
   font-size: var(--ghost-size);
@@ -464,10 +537,28 @@
   border-radius: 50%;
 }
 
-/* 左侧中部：点阵 + 红短横 + 等宽小字 + 刻度 */
+/* 左侧中部：点阵 + 红短横 + 等宽小字 + 刻度
+ *
+ * 垂直位置由「必须整体落在描边大字上方」反解（2026-09-12 用户指定：
+ * 这个图形"应该位于背景字体（描边大字）的上方"）。
+ *
+ * 实测 1080×608（--design-h=487.7、--ui=9.18）：
+ *   描边大字  top 193.2 = 舞台高 620 × 36% − 30px（--ghost-top）
+ *             高 191.3 → 下沿 384.5
+ *   本图形    top 192.2（旧值 31%）→ 顶边与字顶几乎同高，
+ *             与字重叠 75.3px，观感是"图形贴在字上"而不是"在字上方"。
+ * 反解：要求 本图形底 ≤ 字顶 − 净空(6px) → 顶 ≤ 187.2 − 高 76.3 = 110.9px
+ *   110.9 / 620 = 17.9%（.stage 高；min-height 620px 即本档基准）
+ * 取 17%，底边落到 181.7，净空 11.5px。
+ *
+ * 为什么写成 % 而不是 px：.stage 高随视口变（100svh，下限 620px），
+ * 百分比项随舞台缩放，图形与描边大字的相对关系在任何屏高下都成立；
+ * 写成 px 会在高屏上被"甩"到字中间，窄屏上贴到顶。
+ * 注意 `--ghost-top` 自带 −30px 恒定位移、本值不带：上界换算已把它算进去，
+ * 若日后调 --ghost-top 的 px 项，这里必须同步改。 */
 .side-index {
   left: 2.6%;
-  top: 31%;
+  top: 17%;
   display: flex;
   flex-direction: column;
   gap: calc(var(--ui) * 0.6);
@@ -618,6 +709,145 @@
 .infobar .item[data-placeholder] {
   color: rgba(255, 255, 255, 0.52);
   font-weight: 500;
+}
+
+/* ── 滚动飞散：版式元素随 scrub 进度移出屏外（2026-09-12）─────────────
+ *
+ * 触发链：滚轮/触摸纵向滑动 → scroll-scrub.js 累计行程 → 193 帧动作序列
+ * 原地播放，**同一份缓动后的帧进度**写成 :root 的 --sc（0 → 1）
+ * （见 scroll-scrub.js 的 setScatter）。本文件所有位移都只消费 --sc，
+ * 不监听任何事件——版式与人物动作因此严格同源同步，倒滚时原路飞回。
+ *
+ * ── 为什么用 translate 属性而不是往 transform 里塞 ──────────────────
+ * `.card` 的 transform 是一份**有顺序契约**的复合变换（见 .card 注释：
+ * rotate(θ) 与 tilt 必须分开、tilt 必须在 translateY 之后），手机档的
+ * transform 又是另一套（槽位平移 + 合写的 theta+tilt）。往复合 transform
+ * 里加一段位移意味着两处都要改，且必须各自算好插入位置——任何一处插错
+ * 就复现"卡片沿圆环甩飞 598.8px"那类事故。
+ * `translate` / `rotate` / `scale` 是**独立的 CSS 属性**，按规范在
+ * transform 之后合成（等效于把它们拼在 transform 之前），所以这里只写
+ * translate 就能叠加位移，原 transform 一字不动——契约零风险。
+ * 方向向量由每层的 --sc-x / --sc-y 给出（单位 px），本块只负责合成、
+ * 缓动与尾部淡出。
+ *
+ * ── 分组与轨迹（依据用户截图绿色箭头）──────────────────────────────
+ *   上排黑条：左组（NO.001 / 密级）向左出屏；右组（OPEN TO WORK / DAIDAI）
+ *             向右出屏 → 但**黑条本体保留**（用户 2026-09-12 指定终态
+ *             = 人物 + 背景 + 底部黑条），故位移只作用在 .group 上
+ *             （条内左右两簇文字），黑条自身的背景板不参与位移。
+ *   大字：    PERSONAL 向左、ARCHIVE 向右（两词反向撕开）
+ *   中文：    个人档案馆 向左；About Me 向右
+ *   卡片：    01 十点、02 十一点、03 一点、04 两点方向
+ *   角标：    随所在角各自向外
+ *
+ * ── 动程与节奏──────────────────────────────────────────────────
+ * 位移量按**视口尺寸**表达（vw/vh），保证任何屏宽下都能真正移出屏外；
+ * 用固定 px 会在宽屏上"还没滚完就已出屏"、窄屏上"滚到底还留在屏内"。
+ * 缓动：与人物动作同一条 smoothDamp 曲线（--sc 来自帧进度），
+ * 尾部 30% 叠 opacity 淡出——用户 2026-09-12 选择"位移 + 尾部淡出"。 */
+
+.stage {
+  /* 飞散总开关：--sc 由脚本写；此处只做读取与缓动。
+     用 min() 双向钳制，防止异常值把元素推到离谱位置。 */
+  --sc-v: clamp(0, var(--sc, 0), 1);
+  /* 尾部淡出：60% 之前恒为 1，之后线性降到 0.15。
+     为什么留 0.15 而不是 0：元素此刻已基本离屏（位移量按 vw/vh 给足），
+     真正淡到全透明在视觉上无可观测收益，却会在倒滚时让元素"从无到有"
+     地浮现——留一点尾巴，回滚过程连续、不闪。
+     用 clamp 双向钳制，进度为 0 时保证恒为 1（否则起始态就带透明度）。 */
+  --sc-fade: clamp(0.15, calc(1 - (var(--sc-v) - 0.6) * 2.125), 1);
+}
+
+/* 位移合成器：所有参与飞散的元素共用。
+   translate 属性叠加在既有 transform 之上（见本块顶部说明），
+   --sc-x / --sc-y 由各元素自己按方向给出。 */
+.ghost,
+.title-en .w-left,
+.title-en .w-right,
+.title-zh,
+.mark-br .script,
+.card,
+.infobar .group {
+  translate: calc(var(--sc-x, 0px) * var(--sc-v)) calc(var(--sc-y, 0px) * var(--sc-v));
+}
+
+/* 尾部淡出只作用在会与人物/彼此重叠的元素上；
+   黑条文字不淡出（它移出的是左右两侧，不与人物抢读区）。 */
+.ghost,
+.title-en .w-left,
+.title-en .w-right,
+.title-zh,
+.mark-br .script,
+.card {
+  opacity: var(--sc-fade);
+}
+
+/* 描边大字：整体向左缓出（截图左上箭头） */
+.ghost { --sc-x: -60vw; --sc-y: -12vh; }
+
+/* 实心大字：两词反向撕开——红词向左、黑词向右（截图核心箭头） */
+.title-en .w-left { --sc-x: -85vw; }
+.title-en .w-right { --sc-x: 85vw; }
+
+/* 中文标题：向左出屏 */
+.title-zh { --sc-x: -85vw; --sc-y: 6vh; }
+
+/* About Me 手写体：向右出屏（截图右下箭头） */
+.mark-br .script { --sc-x: 60vw; --sc-y: 8vh; }
+
+/* 黑条：左组向左、右组向右。**黑条本体不动**（终态保留完整黑条），
+   所以位移挂在 .group 上而不是 .infobar 上。 */
+.infobar .group:first-child { --sc-x: -70vw; }
+.infobar .group:last-child { --sc-x: 70vw; }
+
+/* ── 卡片：四个方向射出（截图标注的时间方向）───────────────────────
+ * 方向按"屏幕坐标"给定（x 右正、y 下正）：
+ *   01 十点钟  → 左上（x 负、y 负）
+ *   02 十一点  → 偏上（x 略负、y 负更多）
+ *   03 一点钟  → 偏上（x 略正、y 负更多）
+ *   04 两点钟  → 右上（x 正、y 负）
+ * 用 nth-child 而不是 data-* 属性：卡片顺序即 profile.json 的 cards 顺序
+ * （ArchiveCard 逐个渲染），与本文件手机档的槽位规则同一套选择器口径。
+ * 位移量叠加了各自在扇形里的径向角方向，使卡片沿"离开头部的射线"飞出，
+ * 与截图上四个环形箭头（各自向外）一致。 */
+.fan .card:nth-child(1) { --sc-x: -70vw; --sc-y: -75vh; }
+.fan .card:nth-child(2) { --sc-x: -32vw; --sc-y: -85vh; }
+.fan .card:nth-child(3) { --sc-x: 32vw; --sc-y: -85vh; }
+.fan .card:nth-child(4) { --sc-x: 70vw; --sc-y: -75vh; }
+
+/* 装饰角标：各自朝最近的屏角退出，避免与人物争视觉 */
+.mark-tl { translate: calc(-60vw * var(--sc-v)) 0; }
+.mark-tr { translate: calc(60vw * var(--sc-v)) 0; }
+.side-index { translate: calc(-50vw * var(--sc-v)) 0; }
+.mark-bl { translate: calc(-60vw * var(--sc-v)) 0; }
+.mark-br .underline,
+.mark-br .row { translate: calc(55vw * var(--sc-v)) 0; }
+
+/* 移动端：位移量按视口宽表达已经自适应，但横向可用空间更小，
+   放大系数让卡片在窄屏上也能真正离屏（窄屏上 vw 绝对值小）。 */
+@media (max-width: 640px) {
+  .fan .card:nth-child(1) { --sc-x: -105vw; --sc-y: -55vh; }
+  .fan .card:nth-child(2) { --sc-x: -48vw; --sc-y: -62vh; }
+  .fan .card:nth-child(3) { --sc-x: 48vw; --sc-y: -62vh; }
+  .fan .card:nth-child(4) { --sc-x: 105vw; --sc-y: -55vh; }
+  /* 手机档红词单独下移过（--solid-drop），位移方向保持一致即可 */
+  .title-en .w-left { --sc-x: -110vw; }
+  .title-en .w-right { --sc-x: 110vw; }
+  .infobar .group:first-child { --sc-x: -85vw; }
+  .infobar .group:last-child { --sc-x: 85vw; }
+}
+
+/* 降低动效偏好：位移保留（它是内容主体的转场，不是装饰），
+   但去掉 opacity 淡出，避免低动效用户看到闪烁。 */
+@media (prefers-reduced-motion: reduce) {
+  .ghost,
+  .title-en .w-left,
+  .title-en .w-right,
+  .title-zh,
+  .mark-br .script,
+  .card {
+    opacity: 1;
+  }
 }
 
 /* ── 无障碍 ────────────────────────────────────────────────────── */

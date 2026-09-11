@@ -1,5 +1,5 @@
 {
-  "$comment": "滚动帧随动舞台参数（构建时静态 import，运行时零 fetch）。来源 motion/scroll-slide/build/manifest.json，素材=temp/上下滑动素材视频.mp4 193 帧 RVM 抠图，统一窗口 966×720 零缩放，20 段×10 格(2×5)。时间轴拓扑=线性钳制（wrap:false），段调度与帧缓动必须同构线性——见 src/lib/motion.js 的 wrap 开关。",
+  "$comment": "滚动帧随动舞台参数（构建时静态 import，运行时零 fetch）。来源 motion/scroll-slide/build/manifest.json，素材=temp/上下滑动素材视频.mp4 193 帧 RVM 抠图（frames/rvm-v2，经 degreen 去绿边），统一窗口 966×720 零缩放，20 段×10 格(2×5)。时间轴拓扑=线性钳制（wrap:false），段调度与帧缓动必须同构线性——见 src/lib/motion.js 的 wrap 开关。contentBox 与页面写死的对齐系数（width=1.6126×--figure-h、translateX(-57.04%)）都由 alpha 推导，换素材时只可改 RGB 不可改 alpha。",
   "frameCount": 193,
   "cellWidth": 966,
   "cellHeight": 720,
