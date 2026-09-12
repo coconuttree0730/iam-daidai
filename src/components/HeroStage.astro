@@ -154,7 +154,6 @@ const cardsWithDepth = cards.map((card) => ({
       <input type="checkbox" name="consent" value="yes" />
       <span>
         {outro.contact.consent}
-        <em class="outro-consent-hint" hidden>请先勾选同意，才能发送。</em>
       </span>
     </label>
 
@@ -316,7 +315,6 @@ const cardsWithDepth = cards.map((card) => ({
     const submitBtn = contactForm.querySelector('.outro-submit');
     const consentBox = contactForm.querySelector('input[name="consent"]');
     const consentRow = contactForm.querySelector('.outro-consent');
-    const consentHint = contactForm.querySelector('.outro-consent-hint');
     const openedAt = performance.now();
 
     /* 提交中禁用按钮防连点：换文案 SENDING…（与 SEND MESSAGE 同风格大写），
@@ -340,13 +338,11 @@ const cardsWithDepth = cards.map((card) => ({
       consentRow.classList.remove('is-error');
       void consentRow.offsetWidth;
       consentRow.classList.add('is-error');
-      if (consentHint) consentHint.hidden = false;
       return false;
     };
     consentBox?.addEventListener('change', () => {
       if (!consentBox.checked) return;
       consentRow?.classList.remove('is-error');
-      if (consentHint) consentHint.hidden = true;
     });
 
     contactForm.addEventListener('submit', (event) => {

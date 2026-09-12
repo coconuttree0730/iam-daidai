@@ -1182,12 +1182,6 @@
   border-left: 2px solid var(--red);
   padding-left: 8px;
 }
-.outro-consent-hint {
-  display: block;
-  margin-top: 4px;
-  font-style: normal;
-  font-weight: 500;
-}
 @media (prefers-reduced-motion: reduce) {
   .outro-consent.is-error {
     animation: none;
