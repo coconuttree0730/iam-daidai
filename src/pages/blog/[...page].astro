@@ -5,7 +5,7 @@
 import Base from '../../layouts/Base.astro';
 import Paginator from '../../components/Paginator.astro';
 import PostCard from '../../components/PostCard.astro';
-import { getSortedPosts } from '../../data/posts';
+import { getSortedPosts, groupPostsByYear } from '../../data/posts';
 
 export async function getStaticPaths({ paginate }) {
 	const posts = await getSortedPosts();
@@ -13,6 +13,14 @@ export async function getStaticPaths({ paginate }) {
 }
 
 const { page } = Astro.props;
+
+// 按年分组 + 跨页连续编号（2026-09-12 票04）：NO.XX 按全量排序位次
+// （第 n 页自 page.start 续起），年份分隔只是页内视觉结构，不改编号序列。
+let noSeq = page.start;
+const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
+	year,
+	items: posts.map((post) => ({ post, no: String(noSeq++).padStart(2, '0') })),
+}));
 ---
 <Base title="Daidai档案馆" description="博客板块 · 文章归档">
   <main class="sheet">
@@ -37,13 +45,18 @@ const { page } = Astro.props;
         </section>
       ) : (
         <section class="list-section" aria-label="文章列表">
-          <ul class="list list--archive" role="list">
-            {page.data.map((p, i) => (
-              <li>
-                <PostCard post={p} no={String(page.start + i).padStart(2, '0')} />
-              </li>
-            ))}
-          </ul>
+          {yearGroups.map(({ year, items }) => (
+            <section class="year-group">
+              <h2 class="year">{year}</h2>
+              <ul class="list list--archive" role="list">
+                {items.map(({ post, no }) => (
+                  <li>
+                    <PostCard post={post} no={no} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
           <Paginator page={page} />
         </section>
       )
@@ -150,6 +163,31 @@ const { page } = Astro.props;
   }
   .list--archive {
     border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+
+  /* ── 年份分隔条（票04）：Anton 描边数字，与 hero 同一视觉语言 ──
+     收尾线只在末组保留，避免多组时组间出现重复横线（code-review 修正） */
+  .year-group .list--archive {
+    border-bottom: none;
+  }
+  .year-group:last-child .list--archive {
+    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+  .year-group + .year-group {
+    margin-top: 14px;
+  }
+  .year {
+    margin: 20px 0 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: transparent;
+    -webkit-text-stroke: 1px #c3c1be;
+    user-select: none;
+  }
+  .year-group:first-child .year {
+    margin-top: 0;
   }
 
   .stamp {

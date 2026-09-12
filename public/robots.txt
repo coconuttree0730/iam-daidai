@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://daidai.click/sitemap-index.xml

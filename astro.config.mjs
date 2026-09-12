@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import remarkReadingTime from './src/plugins/remark-reading-time.ts';
 
 // 纯静态输出：构建产物 dist/ 可直接托管到 Cloudflare Pages / Netlify / Vercel
@@ -14,6 +15,7 @@ const LOCAL_TMP = '/home/vii/.tmp';
 export default defineConfig({
   site: 'https://daidai.click',
   output: 'static',
+  integrations: [sitemap()],
   markdown: {
     remarkPlugins: [remarkReadingTime],
   },

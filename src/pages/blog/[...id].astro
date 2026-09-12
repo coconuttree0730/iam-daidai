@@ -26,7 +26,13 @@ const { Content, remarkPluginFrontmatter } = await render(post);
 const minutes = remarkPluginFrontmatter?.minutes;
 const iso = post.data.publishDate.toISOString();
 ---
-<Base title={`${post.data.title} · Daidai档案馆`} description={post.data.description}>
+<Base
+  title={`${post.data.title} · Daidai档案馆`}
+  description={post.data.description}
+  type="article"
+  publishedTime={post.data.publishDate}
+  modifiedTime={post.data.updatedDate}
+>
   <main class="sheet">
     <header class="head">
       <span class="tag">NO.03</span>

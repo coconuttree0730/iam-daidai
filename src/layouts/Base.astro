@@ -1,12 +1,43 @@
 ---
+// 全站布局壳（2026-09-12 升级：SEO 头）。
+// 所有页面经此获得：canonical（绝对地址、统一尾斜杠）、OG 标签（website/article
+// 两态，article 态附发布/更新时间）、RSS 自动发现声明。
+// 说明：未提供 image 时不输出 og:image——站点暂无 1200×630 现成资产，
+// 引用不存在的图比缺卡更糟（spec 2026-09-12 实现决策）。
 import '../styles/global.css';
 
 interface Props {
   title: string;
   description?: string;
+  /** OG 页面类型：文章页传 article 并附时间元数据，其余走缺省 website */
+  type?: 'website' | 'article';
+  /** og:image（相对站点根的路径即可），未提供则不输出 */
+  image?: string;
+  publishedTime?: Date;
+  modifiedTime?: Date;
+  /** 挡索引：404 等不应被收录的页面传 true */
+  noindex?: boolean;
 }
 
-const { title, description = '同一素材 · 同一交互 · 两种交付格式' } = Astro.props;
+const {
+  title,
+  description = '同一素材 · 同一交互 · 两种交付格式',
+  type = 'website',
+  image,
+  publishedTime,
+  modifiedTime,
+  noindex = false,
+} = Astro.props;
+
+// canonical：Astro 静态构建下 pathname 为生成路由（directory format 带尾斜杠），
+// 保险起见统一补齐；中文路径由 URL 构造器按规范百分号编码。
+const rawPath = Astro.url.pathname;
+const normPath = rawPath.endsWith('/') ? rawPath : `${rawPath}/`;
+const canonical = new URL(normPath, Astro.site).href;
+const rssHref = new URL('rss.xml', Astro.site).href;
+
+const iso = (d?: Date) => d?.toISOString();
+const ogImage = image ? new URL(image, Astro.site).href : undefined;
 ---
 
 <!doctype html>
@@ -16,6 +47,27 @@ const { title, description = '同一素材 · 同一交互 · 两种交付格式
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Daidai 档案馆"
+      href={rssHref}
+    />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="Daidai 档案馆" />
+    <meta property="og:locale" content="zh_CN" />
+    {type === 'article' && publishedTime && (
+      <meta property="article:published_time" content={iso(publishedTime)} />
+    )}
+    {type === 'article' && modifiedTime && (
+      <meta property="article:modified_time" content={iso(modifiedTime)} />
+    )}
+    {ogImage && <meta property="og:image" content={ogImage} />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>

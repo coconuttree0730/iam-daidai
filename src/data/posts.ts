@@ -26,6 +26,21 @@ export async function getSortedPosts(): Promise<Post[]> {
   return [...posts].sort(collectionDateSort);
 }
 
+/**
+ * 按年分组（2026-09-12 票04）：入参须为已倒序文章列表。
+ * 返回 [年份, 文章数组] 的有序列表——年份降序、组内保持入参倒序。
+ * 仅承担数据组织；页内视觉分隔、跨页连续编号由消费方（列表页）处理。
+ */
+export function groupPostsByYear(posts: Post[]): Array<[number, Post[]]> {
+  const map = new Map<number, Post[]>();
+  for (const post of posts) {
+    const year = post.data.publishDate.getFullYear();
+    if (!map.has(year)) map.set(year, []);
+    map.get(year).push(post);
+  }
+  return [...map.entries()].sort((a, b) => b[0] - a[0]);
+}
+
 /** 档案编号感日期：2026.09.12 */
 export function getFormattedDate(date: Date): string {
   const y = date.getFullYear();
