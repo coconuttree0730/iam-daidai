@@ -21,6 +21,26 @@
     { "label": "署名", "value": "DAIDAI" }
   ],
   "_outroComment": "飞散终态（--sc→1，人物+背景+黑条留白）时从下升起的收尾区块。左=个人语录+简介，右=邮箱联系表单骨架。窗口按素材实测的头部朝向错峰：左侧在人物「看左」窗口（--sc 0.34→0.54，实测看左峰 36.5–57.3%）升起，右侧在「看右」窗口（--sc 0.62→0.82，实测看右峰 67.7–83.3%）升起——人物转头看向哪边，哪边的区块刚好到位。窗口常数写在 hero.css 的 --outro-l-* / --outro-r-*，改这里不动版式。contact 不含任何邮箱字段（2026-09-12 用户裁定：表单旁不展示 hello@，页面零邮箱明文，写信一律走表单；真实收件邮箱只存在于 Worker secret）——不要把任何邮箱地址加回这里。",
+  "_basicComment": "基本信息抽屉（#basic overlay）的唯一数据源，2026-09-13 建。标 _TODO 的值都是编的占位内容，改这里即可、不要改组件。photo 素材是 public/motion/basic-portrait.webp（图集 f0 正脸帧裁切 340×420 透明底，换姿态用 ffmpeg 重裁即可）。",
+  "basic": {
+    "fileNo": "NO.001",
+    "classification": "密级 公开",
+    "name": "DAIDAI",
+    "nameSub": "Daidai",
+    "status": "OPEN TO WORK",
+    "identity": "前端 × 设计，正在把喜欢的事做成日常。",
+    "location": "杭州 · 中国",
+    "timezone": "UTC+8",
+    "now": "正在打磨这个档案馆，顺便计划下一场说走就走。",
+    "skills": ["TypeScript", "Astro", "CSS 动效", "UI 设计", "手绘"],
+    "links": [
+      { "label": "GitHub", "href": "https://github.com/daidai" },
+      { "label": "RSS", "href": "/rss.xml" }
+    ],
+    "mbti": "INFP",
+    "zodiac": "天蝎座",
+    "_todo": ["identity", "location", "now", "skills", "links", "mbti", "zodiac"]
+  },
   "outro": {
     "quote": "把喜欢的事做成日常。",
     "intro": "DD和PP有个约定，不把喜欢寄给未来，不把热爱留在计划里。想见就见面，想出发就出发，把每一件让眼睛发亮的小事，都安放进日复一日的生活里。因为他们相信，把喜欢的事做成日常。",

@@ -37,6 +37,17 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
       <h1>博客</h1>
     </section>
 
+    <section class="searchbar" aria-label="全文检索">
+      <input
+        class="search-input"
+        type="search"
+        placeholder="检索文章全文…"
+        aria-label="检索文章全文"
+      />
+      <p class="search-status" data-search-status hidden></p>
+    </section>
+    <section class="search-results" data-search-results hidden></section>
+
     {
       page.data.length === 0 ? (
         <section class="stamp" aria-label="档案整理中">
@@ -44,7 +55,7 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
           <small>ARCHIVING · 该板块即将开放</small>
         </section>
       ) : (
-        <section class="list-section" aria-label="文章列表">
+        <section class="list-section" data-list aria-label="文章列表">
           {yearGroups.map(({ year, items }) => (
             <section class="year-group">
               <h2 class="year">{year}</h2>
@@ -68,6 +79,92 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     </footer>
   </main>
 </Base>
+
+<script>
+  /* ── 站内全文检索（Pagefind，2026-09-12 票：博客功能补完）──
+     索引由构建链 `pagefind --site dist` 生成，data-pagefind-body 已把索引
+     限定在文章正文。UI 手写：输入 ≥1 字符进入搜索态（隐藏分组列表、
+     渲染结果行），清空恢复；pagefind.js 首次输入时才懒加载。 */
+  const input = document.querySelector('.search-input');
+  const statusEl = document.querySelector('[data-search-status]');
+  const resultsEl = document.querySelector('[data-search-results]');
+  const listEl = document.querySelector('[data-list]');
+  let pagefind = null;
+  let timer = 0;
+
+  const show = (el) => el && el.removeAttribute('hidden');
+  const hide = (el) => el && el.setAttribute('hidden', '');
+
+  async function ensurePagefind() {
+    if (!pagefind) {
+      /* @vite-ignore：pagefind.js 是构建链在 dist 里生成的运行时产物，
+         构建期不存在，禁止 Vite 静态解析 */
+      pagefind = await import(/* @vite-ignore */ '/pagefind/pagefind.js');
+      await pagefind.options({ excerptLength: 20 });
+    }
+    return pagefind;
+  }
+
+  function renderResults(items) {
+    resultsEl.innerHTML = '';
+    const ul = document.createElement('ul');
+    ul.className = 'slist';
+    for (const r of items) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.className = 'srow';
+      a.href = r.url;
+      const t = document.createElement('span');
+      t.className = 'stitle';
+      t.textContent = r.meta?.title ?? r.url;
+      const x = document.createElement('span');
+      x.className = 'sexcerpt';
+      /* excerpt 含 <mark> 高亮，源自本站构建产物，可信 */
+      x.innerHTML = r.excerpt;
+      a.append(t, x);
+      li.appendChild(a);
+      ul.appendChild(li);
+    }
+    resultsEl.appendChild(ul);
+  }
+
+  async function run() {
+    const q = input.value.trim();
+    if (!q) {
+      hide(statusEl);
+      hide(resultsEl);
+      show(listEl);
+      return;
+    }
+    try {
+      const pf = await ensurePagefind();
+      const res = await pf.search(q);
+      const items = await Promise.all(
+        res.results.slice(0, 20).map((r) => r.data()),
+      );
+      show(statusEl);
+      show(resultsEl);
+      hide(listEl);
+      if (items.length === 0) {
+        statusEl.textContent = `无结果 ·「${q}」`;
+        resultsEl.innerHTML = '';
+        return;
+      }
+      statusEl.textContent = `${res.results.length} 个结果 ·「${q}」`;
+      renderResults(items);
+    } catch {
+      show(statusEl);
+      statusEl.textContent = '检索仅在构建产物可用（dev 无索引）';
+      hide(resultsEl);
+      show(listEl);
+    }
+  }
+
+  input?.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(run, 220);
+  });
+</script>
 
 <style>
   .sheet {
@@ -163,6 +260,74 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
   }
   .list--archive {
     border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+
+  /* ── 全文检索（输入框在模板，结果行由脚本注入 → 结果行用 :global）── */
+  .searchbar {
+    padding: 20px clamp(20px, 4vw, 48px) 0;
+  }
+  .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 16px;
+    border: 1.5px solid rgba(19, 18, 17, 0.4);
+    border-radius: 6px;
+    background: transparent;
+    font: inherit;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: inherit;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: #cf0a1a;
+  }
+  .search-status {
+    margin: 10px 2px 0;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: #6f6f6f;
+  }
+  .search-results {
+    padding: 12px clamp(20px, 4vw, 48px) 6px;
+  }
+  .search-results :global(.slist) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+  }
+  .search-results :global(.srow) {
+    display: block;
+    padding: 14px 2px;
+    border-top: 1px solid rgba(19, 18, 17, 0.16);
+    color: inherit;
+    text-decoration: none;
+  }
+  .search-results :global(.stitle) {
+    display: block;
+    font-weight: 900;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+  .search-results :global(.srow:hover .stitle) {
+    text-decoration: underline;
+    text-decoration-color: #cf0a1a;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .search-results :global(.sexcerpt) {
+    display: block;
+    margin-top: 4px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #6f6f6f;
+  }
+  .search-results :global(.sexcerpt mark) {
+    background: rgba(207, 10, 26, 0.14);
+    color: #cf0a1a;
+    padding: 0 2px;
+    border-radius: 2px;
   }
 
   /* ── 年份分隔条（票04）：Anton 描边数字，与 hero 同一视觉语言 ──

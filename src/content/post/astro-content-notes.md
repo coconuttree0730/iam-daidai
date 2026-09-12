@@ -2,6 +2,7 @@
 title: Astro 内容集合速记
 description: 从 Cactus 主题学来的内容管线：glob loader、zod schema、草稿过滤，一份给自己看的备忘。
 publishDate: 2026-09-12
+updatedDate: 2026-09-13
 tags: ["astro", "前端"]
 ---
 

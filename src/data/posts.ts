@@ -2,11 +2,16 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 
 export type Post = CollectionEntry<'post'>;
 
-// 生产构建过滤 draft，开发环境全部可见（与 Cactus 主题同款行为）：
-// astro build 走 PROD 分支，astro dev 走完整列表并给草稿打 (草稿) 标记。
+// 生产构建过滤 draft 与未来日期（定时发布），开发环境全部可见：
+// astro build 走 PROD 分支；astro dev 显示完整列表并给草稿打 (草稿)、
+// 未来日期文章打 (定时) 标记（标记在 PostCard 内）。
 export async function getAllPosts(): Promise<Post[]> {
+  const now = Date.now();
   return getCollection('post', ({ data }) => {
-    return import.meta.env.PROD ? !data.draft : true;
+    if (import.meta.env.PROD) {
+      return !data.draft && data.publishDate.getTime() <= now;
+    }
+    return !data.draft;
   });
 }
 

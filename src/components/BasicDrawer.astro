@@ -1,0 +1,203 @@
+---
+// ── 基本信息档案抽屉（卡 01 → #basic，2026-09-13）────────────────────────
+//
+// 载体是原生 <dialog>：showModal() 自带顶层置放、焦点圈定、Esc（cancel
+// 事件），我们只补三件事——
+//   1. 点卡 01 拦截默认锚点行为（页面上没有可滚的落点，href="#basic" 只当
+//      语义标识与深链入口用：带 #basic 打开页面也会直接开抽屉）；
+//   2. 展开动画的 transform-origin 指向卡 01 实测矩形（showModal 之后才有
+//      几何可量，同步写 --file-ox/oy，动画从下一帧样式计算开始，不闪烁）；
+//   3. 输入锁：开抽屉时给 :root 打 data-file-open，scroll-scrub.js /
+//      demo-driver.js 见标记 early-return——否则滚轮会在背板后继续驱动
+//      人物 scrub、触摸会被 .stage 的手势契约误收。
+//
+// DOM 位置：本组件由 HeroStage 渲染在 <main class="stage"> 之后（兄弟节点）。
+// 不能塞进 .stage 里面——touch-action 按命中链取交集，.stage 的 none 会把
+// 手机档 sheet 的滚动整段吞掉；站到 .stage 外面就天然豁免。
+//
+// 关闭：Esc / 点背板（::backdrop 的 click 事件 target 落在 dialog 元素上）/
+// 「合卷 ×」钮，统一走 160ms 退场动画再 dialog.close()；close 后删掉
+// data-file-open 并把焦点还给打开者（通常就是卡 01）。
+//
+// 数据全部来自 profile.json 的 basic 节（构建时静态 import，运行时零 fetch）；
+// 占位文案的清单见该节 _todo 字段，改文案只改 JSON。
+import profile from '../data/profile.json';
+import '../styles/basic-drawer.css';
+
+const basic = profile.basic;
+const skills = basic.skills ?? [];
+const links = basic.links ?? [];
+---
+
+<dialog class="file-dialog" id="basic" aria-labelledby="basic-file-title">
+  <h2 class="sr-only" id="basic-file-title">基本信息档案</h2>
+
+  <header class="file-head">
+    <span class="file-head-label">PERSONAL FILE</span>
+    <span class="file-head-no">{basic.fileNo}</span>
+    <button type="button" class="file-close" data-file-close>
+      <span class="file-close-x" aria-hidden="true">×</span>
+      <span>合卷</span>
+    </button>
+  </header>
+
+  <div class="file-body">
+    <figure class="file-photo obj" style="--tilt: -0.8deg">
+      <img
+        src="/motion/basic-portrait.webp"
+        alt="Daidai 的档案照（正面立绘帧）"
+        width="340"
+        height="420"
+        loading="lazy"
+      />
+      <span class="tape tape-a" aria-hidden="true"></span>
+      <span class="tape tape-b" aria-hidden="true"></span>
+      <span class="file-photo-stamp" aria-hidden="true">已归档<br />2026</span>
+      <figcaption>FIG.01 — 档案照</figcaption>
+    </figure>
+
+    <div class="file-objects">
+      <article class="obj file-id" style="--tilt: 0.6deg">
+        <p class="file-id-name">{basic.name}</p>
+        <p class="file-id-sub">{basic.nameSub}</p>
+        <dl class="file-id-rows">
+          <div><dt>编号</dt><dd>{basic.fileNo}</dd></div>
+          <div><dt>密级</dt><dd>{basic.classification}</dd></div>
+        </dl>
+      </article>
+
+      <article class="obj file-stampcard" style="--tilt: -0.9deg">
+        <p class="obj-label">POST · 坐标</p>
+        <p class="file-stampcard-value">{basic.location}</p>
+        <p class="file-stampcard-tz">{basic.timezone}</p>
+        <span class="file-postmark" aria-hidden="true">POST<br />2026</span>
+      </article>
+
+      <article class="obj file-note" style="--tilt: 0.9deg">
+        <p class="obj-label">IDENTITY · 身份</p>
+        <p class="file-note-text">{basic.identity}</p>
+        <span class="tape" aria-hidden="true"></span>
+      </article>
+
+      <article class="obj file-now" style="--tilt: -0.7deg">
+        <p class="obj-label">NOW · 正在做</p>
+        <p class="file-now-text">{basic.now}</p>
+      </article>
+
+      <article class="obj file-skills" style="--tilt: 0.5deg">
+        <p class="obj-label">INDEX · 技能</p>
+        <ul class="file-skills-list">
+          {skills.map((skill) => <li>{skill}</li>)}
+        </ul>
+      </article>
+
+      <div class="file-links">
+        {
+          links.map((link) => (
+            <a
+              class="file-link"
+              style="--tilt: 0deg"
+              href={link.href}
+              target={link.href.startsWith('/') ? undefined : '_blank'}
+              rel={link.href.startsWith('/') ? undefined : 'noopener noreferrer'}
+            >
+              <span>{link.label}</span>
+              <i aria-hidden="true">↗</i>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+
+  <span class="file-badge" aria-hidden="true">{basic.status}</span>
+  <span class="file-sticker" aria-hidden="true">
+    <span>
+      <strong>{basic.mbti}</strong>
+      <small>{basic.zodiac}</small>
+    </span>
+  </span>
+
+  <footer class="file-foot">
+    <span>FILE {basic.fileNo} · ARCHIVED</span>
+    <span class="file-foot-bar" aria-hidden="true"></span>
+  </footer>
+</dialog>
+
+<script>
+  const dialog = document.getElementById('basic');
+  const root = document.documentElement;
+
+  if (dialog instanceof HTMLDialogElement) {
+    const closeBtn = dialog.querySelector('[data-file-close]');
+    let opener = null;
+
+    const openFrom = (el) => {
+      if (dialog.open) return;
+      opener = el instanceof HTMLElement ? el : null;
+      /* 输入锁先行：showModal 之前打标记，防止同一帧内的输入漏进 scrub */
+      root.setAttribute('data-file-open', 'on');
+      dialog.showModal();
+
+      /* 展开起点 = 卡 01 中心（关着的时候没有几何，所以只能在 showModal
+         之后量；同一同步任务里写变量，动画从下一帧样式计算开始，不闪烁） */
+      const card = document.querySelector('a.card[href="#basic"]');
+      if (card instanceof HTMLElement) {
+        const cr = card.getBoundingClientRect();
+        const dr = dialog.getBoundingClientRect();
+        dialog.style.setProperty(
+          '--file-ox',
+          `${(cr.left + cr.width / 2 - dr.left).toFixed(1)}px`
+        );
+        dialog.style.setProperty(
+          '--file-oy',
+          `${(cr.top + cr.height / 2 - dr.top).toFixed(1)}px`
+        );
+      }
+    };
+
+    /* 退场动画 + 真正 close：170ms > CSS 的 160ms，动画播完才撤出顶层 */
+    const closeAnimated = () => {
+      if (!dialog.open || dialog.classList.contains('file-closing')) return;
+      dialog.classList.add('file-closing');
+      window.setTimeout(() => {
+        dialog.classList.remove('file-closing');
+        dialog.close();
+      }, 170);
+    };
+
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element)) return;
+      const card = event.target.closest('a[href="#basic"]');
+      if (card) {
+        if (!event.defaultPrevented) {
+          event.preventDefault();
+          openFrom(card);
+        }
+        return;
+      }
+      /* 点背板：::backdrop 不接收事件，click 会以 dialog 自身为 target 落下；
+         点在卷宗内容上时 target 是内容元素，不会误关 */
+      if (dialog.open && event.target === dialog) closeAnimated();
+    });
+
+    closeBtn?.addEventListener('click', closeAnimated);
+
+    /* Esc 走原生 cancel：拦下默认的瞬时 close，改走带动画的路径 */
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeAnimated();
+    });
+
+    dialog.addEventListener('close', () => {
+      delete root.dataset.fileOpen;
+      opener?.focus();
+      opener = null;
+    });
+
+    /* 深链：#basic 直达抽屉（关闭后地址栏不动，刷新仍在——够用且零侵入） */
+    if (location.hash === '#basic') {
+      openFrom(document.querySelector('a.card[href="#basic"]'));
+    }
+  }
+</script>

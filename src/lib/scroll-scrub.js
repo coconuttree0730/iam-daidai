@@ -205,6 +205,10 @@ if (view) {
     window.addEventListener(
       'wheel',
       (event) => {
+        /* 档案抽屉（#basic dialog）打开期间让位：不累计、不 preventDefault，
+           让滚轮去滚 overlay 自己的内容（2026-09-13，data-file-open 由
+           BasicDrawer 开关抽屉时写在 :root 上） */
+        if (document.documentElement.dataset.fileOpen !== undefined) return;
         const delta = event.deltaMode === 1 ? event.deltaY * 40 : event.deltaY;
         if (!delta) return;
         noteDelta(Math.abs(delta)); // 先按量级自适应档位，再累计
@@ -240,6 +244,8 @@ if (view) {
     window.addEventListener(
       'touchstart',
       (event) => {
+        /* 抽屉打开期间：触摸手势全部让位给 overlay（sheet 滚动、点链接） */
+        if (document.documentElement.dataset.fileOpen !== undefined) return resetTouch();
         if (event.touches.length !== 1) return resetTouch();
         const t = event.touches[0];
         touchStart = { x: t.clientX, y: t.clientY };
@@ -251,6 +257,8 @@ if (view) {
     window.addEventListener(
       'touchmove',
       (event) => {
+        /* 抽屉打开期间让位：既不消费位移也不 preventDefault，sheet 才能滚 */
+        if (document.documentElement.dataset.fileOpen !== undefined) return;
         if (lastTouchY == null || event.touches.length !== 1) return;
         const t = event.touches[0];
         const y = t.clientY;

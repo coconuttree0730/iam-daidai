@@ -26,6 +26,9 @@ const iso = post.data.publishDate.toISOString();
   <span class="body">
     <span class="title">
       {post.data.draft && <span class="draft">(草稿) </span>}
+      {post.data.publishDate.getTime() > Date.now() && (
+        <span class="draft">(定时) </span>
+      )}
       {post.data.title}
     </span>
     <q class="desc">{post.data.description}</q>

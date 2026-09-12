@@ -296,6 +296,9 @@ function applyProgress() {
      冻结 hero 姿态：两套素材不是连续动作，指针映射此刻无意义；
      退出 scrub 的时机由 scrub 模块在倒回 f0 时决定。 */
   if (document.documentElement.dataset.scrub === 'on') return;
+  /* 档案抽屉（#basic dialog）打开期间同样冻结（2026-09-13）：指针在 overlay
+     上移动不该让背板后的人物转头；data-file-open 由 BasicDrawer 开关时维护 */
+  if (document.documentElement.dataset.fileOpen !== undefined) return;
   for (const m of mounted) {
     let p;
     if (pinnedFrame != null && m.frameCount > 1) {

@@ -16,6 +16,7 @@
 // 卡片数据来自 src/data/profile.json，图集参数来自 src/data/atlas-meta.json，
 // 都是构建时静态 import——运行时零 fetch。
 import ArchiveCard from './ArchiveCard.astro';
+import BasicDrawer from './BasicDrawer.astro';
 import atlas from '../data/atlas-meta.json';
 import scrollMeta from '../data/scroll-meta.json';
 import profile from '../data/profile.json';
@@ -166,9 +167,8 @@ const cardsWithDepth = cards.map((card) => ({
     <!-- 后端已接线（2026-09-12）：worker/ 目录的 Cloudflare Worker +
          send_email binding 直发收件邮箱（真实邮箱只在 Worker secret，
          不上网页）；Route iam.daidai.click/api/* 同源接入，data-endpoint
-         用相对路径即可，无 CORS。发送失败时状态行提示稍后重试——
+         用相对路径即可，无 CORS。发送结果以顶部 toast 提示并自动淡出——
          对外不展示邮箱地址（2026-09-12 用户裁定），写信一律走表单。 -->
-    <p class="outro-status" data-contact-status role="status" aria-live="polite"></p>
     <!-- 反垃圾三件套之一：honeypot 陷阱字段（.hp-field 把它扔出视口）。
          人类不可见不可填，脚本提交时字段非空 → Worker 假成功不投递。
          （原 _subject hidden 是 Formspree 服务的字段惯例，方案已定为
@@ -236,6 +236,12 @@ const cardsWithDepth = cards.map((card) => ({
   </footer>
 </main>
 
+<!-- 基本信息档案抽屉（#basic，2026-09-13）：必须是 .stage 的**兄弟节点**而不是
+     后代——touch-action 按命中链取交集，.stage 的 none 会吞掉手机档 sheet 的
+     滚动手势；站到 .stage 外面天然豁免（见 BasicDrawer.astro 头注）。
+     打开时给 :root 打 data-file-open，scrub / 指针驱动见标记让位。 -->
+<BasicDrawer />
+
 <script>
   /* ── 收尾区块的「到位」标记 ────────────────────────────────────────
    *
@@ -298,20 +304,52 @@ const cardsWithDepth = cards.map((card) => ({
    * binding 直发收件邮箱（真实地址只在 wrangler.jsonc，不上网页）。
    *
    * 分工：Worker 端做校验（Origin 白名单 + honeypot + 最短停留），
-   * 这里只负责采集、防连点、渲染三态状态行。
+   * 这里只负责采集、防连点、渲染顶部 toast 消息（2026-09-12 起，
+   * 取代旧常驻状态行——旧方案在表单 reset 后文字永驻，是本次改动的病灶）。
    *
    * _elapsed 从本脚本初始化（页面加载）计到提交：真实人类从打开页面到
    * 滚到收尾区提交必然 >3s，秒提交视为脚本行为，Worker 假成功不投递。
    *
-   * 降级：fetch 失败（网络断 / 超时）时状态行提示稍后重试。
+   * 降级：fetch 失败（网络断 / 超时）时 toast 提示稍后重试。
    * 对外不展示任何邮箱地址（2026-09-12 用户裁定，原 mailto 兜底已删），
    * 写信入口收敛为这一个表单。
    *
    * 为什么用原生 JS 而不是 Astro 的 actions：actions 需要 SSR，
    * 本项目是静态输出，引入 SSR 会连带整套 Node adapter 部署成本。 */
+
+  /* ── toast：顶部弹出的系统消息 ──────────────────────────────────────
+   * 容器挂在 <body>（不在 .stage 内）——滚动到任何位置都能看到。
+   * 生命周期：滑入（.is-in）→ 停留 autoMs → 淡出（.is-out）→ 移除 DOM。
+   * pending 态不自动消失，由请求回调显式关掉再补最终结果；
+   * 点击任意 toast 可提前关闭。role=status + aria-live=polite 保读屏播报。 */
+  const toastStack = document.createElement('div');
+  toastStack.className = 'toast-stack';
+  toastStack.setAttribute('role', 'status');
+  toastStack.setAttribute('aria-live', 'polite');
+  document.body.appendChild(toastStack);
+
+  const showToast = (kind, text, autoMs = 0) => {
+    const el = document.createElement('div');
+    el.className = `toast toast--${kind}`;
+    el.textContent = text;
+    toastStack.appendChild(el);
+    const dismiss = () => {
+      if (!el.isConnected || el.classList.contains('is-out')) return;
+      el.classList.add('is-out');
+      el.addEventListener('transitionend', () => el.remove(), { once: true });
+      setTimeout(() => el.remove(), 600); /* 兜底：transitionend 可能不触发 */
+    };
+    el.addEventListener('click', dismiss);
+    /* 双 rAF：确保「未挂 .is-in 的初始态」先完成一次绘制，过渡才稳定触发 */
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => el.classList.add('is-in')),
+    );
+    if (autoMs > 0) setTimeout(dismiss, autoMs);
+    return dismiss;
+  };
+
   const contactForm = document.querySelector('.outro-contact');
   if (contactForm) {
-    const status = contactForm.querySelector('[data-contact-status]');
     const submitBtn = contactForm.querySelector('.outro-submit');
     const consentBox = contactForm.querySelector('input[name="consent"]');
     const consentRow = contactForm.querySelector('.outro-consent');
@@ -347,7 +385,6 @@ const cardsWithDepth = cards.map((card) => ({
 
     contactForm.addEventListener('submit', (event) => {
       event.preventDefault();
-      if (!status) return;
       if (!flagConsentError()) return;
 
       const endpoint = contactForm.dataset.endpoint;
@@ -364,8 +401,7 @@ const cardsWithDepth = cards.map((card) => ({
         _page: location.href,
       };
 
-      status.dataset.state = 'pending';
-      status.textContent = '正在发送…';
+      const closePending = showToast('pending', '正在发送…');
       setBusy(true);
 
       fetch(endpoint, {
@@ -378,13 +414,17 @@ const cardsWithDepth = cards.map((card) => ({
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const result = await res.json().catch(() => ({ ok: true }));
           if (!result.ok) throw new Error('rejected');
-          status.dataset.state = 'ok';
-          status.textContent = '已发送，我会尽快回复。';
+          closePending();
           contactForm.reset();
+          showToast('ok', '已发送，我会尽快回复。', 3600);
         })
         .catch((err) => {
-          status.dataset.state = 'error';
-          status.textContent = `发送失败（${err?.message ?? '网络异常'}），请稍后再试。`;
+          closePending();
+          showToast(
+            'error',
+            `发送失败（${err?.message ?? '网络异常'}），请稍后再试。`,
+            5200,
+          );
         })
         .finally(() => setBusy(false));
     });

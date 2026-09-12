@@ -1,0 +1,547 @@
+/* ── 基本信息档案抽屉（#basic overlay，2026-09-13）────────────────────────
+ *
+ * 设计裁定（grilling 两轮确认）：
+ *   • 载体 = 点卡 01 弹出的"档案抽屉"：桌面居中模态 ~680px，手机 ≤640px 底部
+ *     全宽 sheet；展开动画从卡 01 的位置 scale+fade（transform-origin 由
+ *     BasicDrawer 脚本在 showModal() 后按卡 01 实测矩形写入 --file-ox/oy）。
+ *   • 内部 = 方案 B 卷宗分栏：左档案照（图集 f0 正脸帧裁切）+ 右物件流；
+ *     手机退化成 A 的单列物件流。
+ *   • 物件化 = harinisk 式"自我介绍拆成物件"：证件卡 / 邮票 / 打字便签 /
+ *     横线便签 / 索引卡 / 票根，矩形物件旋转封顶 ±1.5°；圆形件（邮戳、
+ *     已归档章、贴纸、徽章）是"盖章"物理动作，允许更大角度（≤14°）。
+ *   • 输入锁 = :root[data-file-open]：scroll-scrub.js / demo-driver.js 见
+ *     标记 early-return（改动见两文件顶部注释）；本组件不是 .stage 后代，
+ *     .stage 的 touch-action:none 管不到这里，滚动容器显式 touch-action:pan-y。
+ *   • 关闭 = Esc（原生 cancel 事件）+ 点背板 + 「合卷 ×」钮，带 160ms 退场；
+ *     关闭后焦点还给卡 01（原生 dialog 焦点圈定免费获得）。
+ *
+ * 调色完全复用 hero.css 的既有语汇（--paper/--card/--ink/--red 的取值），
+ * 但作用域收敛在 .file-dialog 内，不依赖 .stage 上的变量。 */
+
+.file-dialog {
+  --fp: #eeedeb;
+  --fc: #fdfdfc;
+  --fi: #131211;
+  --fr: #cf0a1a;
+  --fh: rgba(19, 18, 17, 0.16);
+  --fm: #8d8a86;
+  --fmono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+
+  position: fixed;
+  border: 1.2px solid var(--fi);
+  border-radius: 12px;
+  background: var(--fp);
+  color: var(--fi);
+  padding: 0;
+  width: min(680px, calc(100vw - 40px));
+  max-height: min(88vh, 780px);
+  margin: auto;
+  overflow: visible;
+  overscroll-behavior: contain;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+.file-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  transform-origin: var(--file-ox, 50%) var(--file-oy, 88%);
+  animation: file-in 340ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+
+.file-dialog:not([open]) {
+  display: none;
+}
+
+.file-dialog::backdrop {
+  background: rgba(19, 18, 17, 0.32);
+  animation: file-scrim-in 340ms ease;
+}
+
+/* 退场：给 .file-closing 再等 160ms 才 dialog.close()（脚本负责计时），
+   pointer-events 先掐掉防双击。 */
+.file-dialog.file-closing {
+  animation: file-out 160ms ease forwards;
+  pointer-events: none;
+}
+.file-dialog.file-closing::backdrop {
+  animation: file-scrim-out 160ms ease forwards;
+}
+
+@keyframes file-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+@keyframes file-out {
+  to {
+    opacity: 0;
+    transform: scale(0.93);
+  }
+}
+@keyframes file-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes file-scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-dialog[open],
+  .file-dialog::backdrop,
+  .file-dialog.file-closing,
+  .file-dialog.file-closing::backdrop {
+    animation: none;
+  }
+}
+
+.file-dialog :focus-visible {
+  outline: 2px solid var(--fr);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── 卷宗头 ─────────────────────────────────────────────────────────── */
+.file-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--fh);
+}
+.file-head-label {
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--fm);
+}
+.file-head-no {
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--fr);
+}
+.file-close {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 13px;
+  background: var(--fc);
+  border: 1px solid var(--fh);
+  border-radius: 999px;
+  color: var(--fi);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.file-close:hover {
+  border-color: var(--fr);
+  color: var(--fr);
+}
+.file-close-x {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── 主体：B 分栏（左照片 / 右物件流），滚动容器 ──────────────────────
+   min-height:0 是 flex 列里 overflow 生效的前提。 */
+.file-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  padding: 22px 22px 28px;
+  overflow: auto;
+  touch-action: pan-y;
+}
+
+/* ── 物件基座：矩形件旋转封顶 ±1.5°，由 --tilt 逐件给值 ──────────────── */
+.obj {
+  background: var(--fc);
+  border: 1px solid var(--fh);
+  border-radius: 8px;
+  rotate: var(--tilt, 0deg);
+}
+.obj-label {
+  margin: 0;
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--fm);
+}
+
+/* 胶带：贴照片与便签的半透明纸胶带 */
+.tape {
+  position: absolute;
+  width: 60px;
+  height: 18px;
+  background: rgba(19, 18, 17, 0.1);
+  pointer-events: none;
+}
+
+/* ── 左栏：档案照（拍立得白框，底边厚）──────────────────────────────── */
+.file-photo {
+  position: relative;
+  margin: 0;
+  padding: 8px 8px 30px;
+}
+.file-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 340 / 420;
+  object-fit: cover;
+}
+.file-photo figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  text-align: center;
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fm);
+}
+.tape-a {
+  top: -9px;
+  left: -18px;
+  rotate: -5deg;
+}
+.tape-b {
+  top: -9px;
+  right: -18px;
+  rotate: 4deg;
+}
+/* 已归档章：圆形、双环、旋转——"盖章"件允许大角度 */
+.file-photo-stamp {
+  position: absolute;
+  right: 5px;
+  bottom: 26px;
+  width: 58px;
+  height: 58px;
+  border: 1.5px solid var(--fr);
+  outline: 1px dashed rgba(207, 10, 26, 0.45);
+  outline-offset: -6px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-family: var(--fmono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  color: var(--fr);
+  rotate: -12deg;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+/* ── 物件流（右栏 / 手机单列）───────────────────────────────────────── */
+.file-objects {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* 1. 证件卡：花名 + 编号/密级 */
+.file-id {
+  padding: 15px 16px 14px;
+}
+.file-id-name {
+  margin: 0;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+.file-id-sub {
+  margin: 4px 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--fm);
+}
+.file-id-rows {
+  margin: 0;
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--fh);
+  padding-top: 11px;
+}
+.file-id-rows div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.file-id-rows dt {
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--fm);
+}
+.file-id-rows dd {
+  margin: 0;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+}
+
+/* 2. 邮票：锯齿感用双框（外虚线 + 内实线）代替打孔 mask，省一层合成 */
+.file-stampcard {
+  position: relative;
+  padding: 13px 16px;
+  border: 1px dashed rgba(19, 18, 17, 0.4);
+}
+.file-stampcard::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--fh);
+  border-radius: 5px;
+  pointer-events: none;
+}
+.file-stampcard-value {
+  margin: 7px 0 2px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.file-stampcard-tz {
+  margin: 0;
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--fm);
+}
+/* 邮戳：压在邮票右侧，内容简短 */
+.file-postmark {
+  position: absolute;
+  right: 12px;
+  top: calc(50% - 27px);
+  width: 54px;
+  height: 54px;
+  border: 1.5px solid var(--fr);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-family: var(--fmono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  color: var(--fr);
+  rotate: -14deg;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* 3. 打字便签：暖纸色 + mono 正文，顶上一条胶带 */
+.file-note {
+  position: relative;
+  padding: 13px 16px 14px;
+  background: #fbf7ec;
+}
+.file-note .tape {
+  top: -10px;
+  left: 26px;
+  width: 56px;
+  rotate: -3deg;
+}
+.file-note-text {
+  margin: 7px 0 0;
+  font-family: var(--fmono);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+/* 4. 横线便签：文字压在 repeating 渐变画出的横线上（行高 24px 对齐） */
+.file-now {
+  padding: 12px 16px 15px;
+}
+.file-now-text {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 24px;
+  background-image: repeating-linear-gradient(
+    transparent 0 23px,
+    rgba(19, 18, 17, 0.1) 23px 24px
+  );
+}
+
+/* 5. 索引卡：红横线 + 破折号清单 */
+.file-skills {
+  padding: 12px 16px 14px;
+}
+.file-skills-list {
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 2px solid var(--fr);
+  display: grid;
+  gap: 6px;
+}
+.file-skills-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+}
+.file-skills-list li::before {
+  content: "—";
+  color: var(--fr);
+}
+
+/* 6. 票根：外链一排两张，左缘虚线是"撕票口" */
+.file-links {
+  display: flex;
+  gap: 10px;
+}
+.file-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--fc);
+  border: 1px solid var(--fh);
+  border-left: 1px dashed rgba(19, 18, 17, 0.4);
+  border-radius: 8px;
+  color: var(--fi);
+  text-decoration: none;
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  rotate: var(--tilt, 0deg);
+}
+.file-link i {
+  font-style: normal;
+  color: var(--fm);
+}
+.file-link:hover {
+  border-color: var(--fr);
+  color: var(--fr);
+}
+.file-link:hover i {
+  color: var(--fr);
+}
+
+/* ── 压角散布件（圆形，允许更大角度；absolute 挂在 dialog 上）───────── */
+.file-badge {
+  position: absolute;
+  top: -11px;
+  right: 70px;
+  z-index: 2;
+  background: var(--fr);
+  color: #fdfdfc;
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  padding: 5px 13px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+  rotate: -3deg;
+  pointer-events: none;
+}
+.file-sticker {
+  position: absolute;
+  right: -8px;
+  bottom: 44px;
+  z-index: 2;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: var(--fr);
+  border: 3px solid #fdfdfc;
+  box-shadow: 0 0 0 1px var(--fh);
+  color: #fdfdfc;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  rotate: 6deg;
+  pointer-events: none;
+}
+.file-sticker strong {
+  display: block;
+  font-family: var(--fmono);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+.file-sticker small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  opacity: 0.9;
+}
+
+/* ── 卷宗脚：编号存档行 + 条码 ──────────────────────────────────────── */
+.file-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--fh);
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--fm);
+}
+.file-foot-bar {
+  margin-left: auto;
+  width: 92px;
+  height: 14px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--fi) 0 2px,
+    transparent 2px 4px,
+    var(--fi) 4px 7px,
+    transparent 7px 9px,
+    var(--fi) 9px 10px,
+    transparent 10px 14px,
+    var(--fi) 14px 16px,
+    transparent 16px 17px,
+    var(--fi) 17px 19px,
+    transparent 19px 23px
+  );
+}
+
+/* ── 手机档：底部全宽 sheet + A 单列物件流（2026-09-13 裁定）─────────── */
+@media (max-width: 640px) {
+  .file-dialog {
+    width: 100vw;
+    max-width: none;
+    max-height: none;
+    height: min(88dvh, 100dvh);
+    margin: auto 0 0;
+    border-radius: 16px 16px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .file-body {
+    grid-template-columns: 1fr;
+    padding-bottom: 68px;
+  }
+  .file-photo {
+    width: min(190px, 56%);
+    justify-self: center;
+  }
+  .file-badge {
+    top: -10px;
+    right: 16px;
+  }
+  .file-sticker {
+    right: 8px;
+    bottom: 12px;
+  }
+}
