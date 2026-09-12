@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="BUA8uOJCqD9JGYPhsPTJBn">
+<head data-page-node-id="xECSLijqByamCF2Zb0HVNG">
+<meta charset="UTF-8" data-page-node-id="QCZ5MaMMpEyJJ2ZV3n2Mwy" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="J2TGHNWWGaRgAgUhtJJ1DM" />
+<title>作品集卡片实验室 · Portfolio Card Lab</title>
+<style>
+  :root{
+    --paper:#eeedeb;
+    --ink:#131211;
+    --red:#cf0a1a;
+    --line:rgba(19,18,17,.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Noto Sans CJK SC","Source Han Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6;
+  }
+  header.top{
+    padding:34px clamp(20px,5vw,72px) 10px;
+    border-bottom:1px solid var(--line);
+  }
+  header.top h1{font-size:clamp(24px,4vw,40px);margin:0;letter-spacing:.02em;}
+  header.top p{margin:6px 0 0;color:rgba(19,18,17,.6);max-width:60ch;}
+  section{padding:30px clamp(20px,5vw,72px);border-bottom:1px solid var(--line);}
+  h2{font-size:20px;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+  h2 .no{font-family:"Archivo Black",Arial,sans-serif;color:var(--red);font-size:14px;}
+  .hint{color:rgba(19,18,17,.55);font-size:13px;margin:0 0 22px;}
+  .stage{display:flex;flex-wrap:wrap;gap:32px;align-items:center;}
+
+  /* ============ 1. JS 鼠标跟随立体倾斜 ============ */
+  .tilt{
+    --rx:0deg; --ry:0deg; --mx:50%; --my:50%;
+    width:280px; height:360px; border-radius:14px;
+    perspective:1000px; cursor:pointer; position:relative;
+  }
+  .tilt .inner{
+    width:100%; height:100%; border-radius:14px; position:relative;
+    transform-style:preserve-3d;
+    transform:rotateX(var(--rx)) rotateY(var(--ry));
+    transition:transform .25s ease-out, box-shadow .25s ease-out;
+    box-shadow:0 10px 30px rgba(0,0,0,.18);
+    background:linear-gradient(160deg,#1f1e1c,#2c2a27);
+    overflow:hidden;
+  }
+  .tilt:hover .inner{box-shadow:0 28px 60px rgba(0,0,0,.32);}
+  .tilt .cover{
+    position:absolute;inset:0;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(207,10,26,.35), transparent 60%),
+      linear-gradient(135deg,#3a3835,#171614);
+  }
+  .tilt .scrim{
+    position:absolute;inset:0;
+    background:linear-gradient(to top, rgba(0,0,0,.78) 12%, transparent 55%);
+  }
+  .tilt .content{
+    position:absolute;left:0;right:0;bottom:0;padding:18px;
+    transform:translateZ(40px); /* 内容浮在卡面之上 */
+  }
+  .tilt .badge{
+    display:inline-block;background:var(--red);color:#fff;
+    font-size:11px;font-weight:700;letter-spacing:.12em;
+    padding:3px 9px;border-radius:5px;margin-bottom:8px;
+  }
+  .tilt .content h3{margin:0;font-size:20px;color:#fff;}
+  .tilt .content span{color:rgba(255,255,255,.6);font-size:12px;}
+  .tilt .glare{
+    position:absolute;inset:0;border-radius:14px;pointer-events:none;
+    background:radial-gradient(circle at var(--mx) var(--my), rgba(255,255,255,.28), transparent 45%);
+    opacity:0;transition:opacity .2s;
+  }
+  .tilt:hover .glare{opacity:1;}
+
+  /* ============ 2. 纯 CSS 悬停：扫光 + 抬升 ============ */
+  .csscard{
+    width:280px;height:360px;border-radius:14px;position:relative;
+    overflow:hidden;cursor:pointer;text-decoration:none;color:#fff;
+    background:linear-gradient(160deg,#2a2926,#171614);
+    box-shadow:0 8px 28px rgba(0,0,0,.5);
+    transition:transform .35s cubic-bezier(.25,.46,.45,.94), box-shadow .35s;
+    display:block;
+  }
+  .csscard:hover{transform:rotateX(7deg) rotateY(-7deg) scale(1.03);box-shadow:0 28px 64px rgba(0,0,0,.6);}
+  .csscard .shimmer{
+    position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.18) 50%,transparent 60%);
+    transform:translateX(-120%);transition:transform .6s ease;
+  }
+  .csscard:hover .shimmer{transform:translateX(120%);}
+  .csscard .scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.75),transparent 55%);}
+  .csscard .content{position:absolute;left:0;right:0;bottom:0;padding:18px;}
+  .csscard .content h3{margin:0;font-size:20px;}
+  .csscard .content span{color:rgba(255,255,255,.6);font-size:12px;}
+
+  /* ============ 3. 瀑布流（CSS columns，纯 CSS，零 JS） ============ */
+  .masonry{column-count:3;column-gap:18px;margin-top:8px;}
+  @media(max-width:900px){.masonry{column-count:2;}}
+  @media(max-width:560px){.masonry{column-count:1;}}
+  .masonry .item{
+    break-inside:avoid;margin-bottom:18px;border-radius:12px;overflow:hidden;
+    background:linear-gradient(160deg,#2a2926,#171614);position:relative;cursor:pointer;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);transition:transform .25s,box-shadow .25s;
+  }
+  .masonry .item:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(0,0,0,.3);}
+  .masonry .item .ph{width:100%;display:block;}
+  .masonry .item .cap{padding:12px 14px;color:#fff;}
+  .masonry .item .cap b{display:block;font-size:15px;}
+  .masonry .item .cap small{color:rgba(255,255,255,.55);font-size:11px;}
+
+  /* ============ 代码片段卡 ============ */
+  pre{
+    background:#171614;color:#e8e6e2;border-radius:10px;padding:16px 18px;
+    overflow:auto;font-size:12.5px;line-height:1.55;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  pre .c{color:#8a8782;} pre .k{color:#e0a06a;} pre .v{color:#9fd3a0;}
+  code.inline{background:rgba(19,18,17,.08);padding:1px 6px;border-radius:4px;font-size:13px;}
+
+  .note{
+    background:rgba(207,10,26,.07);border:1px solid rgba(207,10,26,.3);
+    border-radius:10px;padding:14px 16px;font-size:13px;color:#5a0910;margin-top:18px;
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none!important;}
+    .tilt .inner,.csscard,.masonry .item{transform:none!important;}
+  }
+</style>
+</head>
+<body data-page-node-id="xC9XFjN1bENgJchRS2dCqk">
+<header class="top" data-page-node-id="y1IJTiAN2xXMej95mJbuYX">
+  <h1 data-page-node-id="1fMHbSEaOhccjFmttc7FpU">作品集卡片实验室</h1>
+  <p data-page-node-id="zmFsBESqqn3gHghmh91wrT">一个独立可用的学习文件：三种卡片实现 + 可抄的代码片段。配色沿用你站点的档案美学（纸感底 / 红印章 / 条码）。在浏览器里打开即可交互感受，抄代码前先读懂分层。</p>
+</header>
+
+<section data-page-node-id="dsuZP3slSzwZDGjRiOwGpH">
+  <h2 data-page-node-id="SLqxgpumCPtfz4YS0pIG5m"><span class="no" data-page-node-id="M35BlMUiIf7aBWwMhutENs">01</span> 鼠标跟随立体倾斜（JS 驱动）</h2>
+  <p class="hint" data-page-node-id="AYXnQjH7Ycu2l1CqFW6QY3">pointermove 算偏移 → 写 rotateX/rotateY + 高光位置。平滑回正用 transition。最跟手，但需 JS 与 rAF。</p>
+  <div class="stage" data-page-node-id="0Nf0JYNdDHpUaK5JkEXA6L">
+    <div class="tilt" id="tilt" data-page-node-id="Z87zx7OTAMaGNv5QR86fCM">
+      <div class="inner" data-page-node-id="4njVLFx3K6NIU5luCQ2Bz6">
+        <div class="cover" data-page-node-id="NwVzKgIf4QrHuDFmm5zENL"></div>
+        <div class="scrim" data-page-node-id="xoS0W1R7xTDv5OQ61TB9nD"></div>
+        <div class="content" data-page-node-id="uwiqr0zdB6UXSBY8jFoFly">
+          <span class="badge" data-page-node-id="kAs6YHAoYMu9xNUN7k7A3R">WEBGL</span>
+          <h3 data-page-node-id="cyc8sdmACAhb7jdvFGipft">实时粒子装置</h3>
+          <span data-page-node-id="CygeonCrhtUXEFYZBGTEZE">Three.js · 交互叙事</span>
+        </div>
+        <div class="glare" data-page-node-id="zWPC3BZp3QpWvIETLir92w"></div>
+      </div>
+    </div>
+  </div>
+  <pre data-page-node-id="atX9MCGuVRMvX04UO98JH7"><span class="c" data-page-node-id="73j2NPqMx2jdsRosqR3cub">// 倾斜内核：偏移 → 角度，写自定义属性，CSS 负责渲染</span>
+<span class="k" data-page-node-id="QnZuCIyfdVn48lsItdAYJH">const</span> card = <span class="v" data-page-node-id="dqFULuyZADKOlKJAptuBlS">document</span>.querySelector(<span class="v" data-page-node-id="uoDIkZfIjmq5K5t5KFnfPH">'#tilt'</span>);
+card.addEventListener(<span class="v" data-page-node-id="2O5QigSfmQq2E302JlCthL">'pointermove'</span>, e =&gt; {
+  <span class="k" data-page-node-id="ld6snD6bUoD2a4Arg5NJRR">const</span> r = card.getBoundingClientRect();      <span class="c" data-page-node-id="y3sHkTYtCXByyapLECEIXH">// 缓存到 resize，别每次 move 都读</span>
+  <span class="k" data-page-node-id="ar2e6J6iPfrAR8vHXyH5q1">const</span> px = (e.clientX - r.left) / r.width  - .5;
+  <span class="k" data-page-node-id="mEpN9OiER4wrucwbaRUFJF">const</span> py = (e.clientY - r.top)  / r.height - .5;
+  card.style.setProperty(<span class="v" data-page-node-id="OZKBHsR0Y6HNSJS4VAESc7">'--rx'</span>, (py * -12) + <span class="v" data-page-node-id="lPzQ3kA0zWOmF44AQ3oiT2">'deg'</span>);
+  card.style.setProperty(<span class="v" data-page-node-id="SiOBvroUosFOfJExG5cOVt">'--ry'</span>, (px *  12) + <span class="v" data-page-node-id="AGTmFCDy2yraGaFnn1UDs8">'deg'</span>);
+  card.style.setProperty(<span class="v" data-page-node-id="VHnizuHpOej6iasOgvazbn">'--mx'</span>, (px * 100 + 50) + <span class="v" data-page-node-id="ybqjIqRzEjDp0oAJDXLqRu">'%'</span>);
+  card.style.setProperty(<span class="v" data-page-node-id="YY9SxkQMDjd1X4QOzYGjWv">'--my'</span>, (py * 100 + 50) + <span class="v" data-page-node-id="eowbyIMz6g97g9H1mowFTr">'%'</span>);
+});
+card.addEventListener(<span class="v" data-page-node-id="pyTZrlA5nLwyvsha9VxHsq">'pointerleave'</span>, () =&gt; {
+  card.style.setProperty(<span class="v" data-page-node-id="W046oLA4ZOS46PF8enjnT5">'--rx'</span>, <span class="v" data-page-node-id="1AbpMnvPIfuRrqSfJWm8Of">'0deg'</span>);
+  card.style.setProperty(<span class="v" data-page-node-id="dMDuP3ZW8P1Thq1uz4cpoC">'--ry'</span>, <span class="v" data-page-node-id="RuQV4ttZlV51fo4072pU7d">'0deg'</span>);  <span class="c" data-page-node-id="t7HtDOxcAgg45bxqJ26uZv">// 平滑回正靠 CSS transition</span>
+});</pre>
+  <div class="note" data-page-node-id="SWjk6YmoopjvBTxB2ViIeq">要点：<code class="inline" data-page-node-id="vMkVCrJBV6XVsIEeBzyneU">perspective</code> 写在父级（不是卡面）；内容层用 <code class="inline" data-page-node-id="v7G6BuelFqaEW3NpsAfJc5">translateZ(40px)</code> 浮起才有景深；<code class="inline" data-page-node-id="SWKiDv7Ire0orf1CHtZdZm">will-change:transform</code> 提示合成层；旋转角控制在 5–15°，再大就显假。</div>
+</section>
+
+<section data-page-node-id="8GwGo6S99LIGvhbRv6Z6qQ">
+  <h2 data-page-node-id="C8zBqqnhsL3Yx2wuBclCmM"><span class="no" data-page-node-id="WFnJ9AVIL6KBfeMxevNSqk">02</span> 纯 CSS 悬停（扫光 + 抬升）</h2>
+  <p class="hint" data-page-node-id="bGNU8HlhchAHGk2iQAvoj8">零 JS、GPU 合成、无运行时成本。代价：倾斜是固定角度，不跟手。小屏与低性能设备首选。</p>
+  <div class="stage" data-page-node-id="kYSqMZ1eCSbYDiQTotkvDJ">
+    <a class="csscard" href="#" data-page-node-id="SlAzaOliGcRyuCNRpMmBNI">
+      <div class="shimmer" data-page-node-id="JS2qrdvuA0R93zIOR6U6Pw"></div>
+      <div class="scrim" data-page-node-id="HupiNu7HsxI29uAkofxfBU"></div>
+      <div class="content" data-page-node-id="cpxgTHPx4w1CNNzQf9ntRw">
+        <h3 data-page-node-id="7XkAXr7wiXOos8UxCE4eNl">编辑型作品集</h3>
+        <span data-page-node-id="v9pxihfTcFDTRUE03a1h7y">纯 CSS · 静态网格</span>
+      </div>
+    </a>
+  </div>
+  <pre data-page-node-id="UlR6hxgR2JrCNVb4lWtigZ"><span class="c" data-page-node-id="xnWqDBROhlgtjjP3thMRnh">/* 倾斜是固定角，扫光用 ::after 一次性横扫 */</span>
+.csscard{ transition:transform .35s, box-shadow .35s; }
+.csscard:hover{
+  transform:rotateX(7deg) rotateY(-7deg) scale(1.03);
+  box-shadow:0 28px 64px rgba(0,0,0,.6);
+}
+.csscard .shimmer{
+  background:linear-gradient(135deg,transparent 40%,
+    rgba(255,255,255,.18) 50%,transparent 60%);
+  transform:translateX(-120%); transition:transform .6s;
+}
+.csscard:hover .shimmer{ transform:translateX(120%); }</pre>
+</section>
+
+<section data-page-node-id="g8B20lsOvgXsEbQGJK50j9">
+  <h2 data-page-node-id="hWoCtsN532dAWPAfDwRbGv"><span class="no" data-page-node-id="KsZu5AwpFzNptBiO52530L">03</span> 瀑布流（CSS columns，纯 CSS）</h2>
+  <p class="hint" data-page-node-id="kJqbp6HtQHoMotCgJoYuXp">作品高度不一时用。column-count 自适应断点，break-inside:avoid 防卡片被拦腰截断。注意：阅读顺序是逐列从上到下，纯图集 OK，文字卡要小心 Tab 顺序。</p>
+  <div class="masonry" data-page-node-id="TTFB3jSdS4QRMNhPcE9I8e">
+    <div class="item" data-page-node-id="v1Z8ReXGTwT9jRXpvRzeVt"><div class="ph" style="height:200px;background:linear-gradient(160deg,#3a3835,#171614)" data-page-node-id="1ZiJlWvZkUL6VuIeMM83KE"></div><div class="cap" data-page-node-id="FwO8DpSquLfNLxC8KmTadM"><b data-page-node-id="dCZMqW7ZC70SsT9NToTuSG">项目 Alpha</b><small data-page-node-id="p7wE1NLEyDDFntypu0hCgS">品牌系统 · 2025</small></div></div>
+    <div class="item" data-page-node-id="DHvoLZcwMRnvD6fLKnUjsM"><div class="ph" style="height:300px;background:linear-gradient(160deg,#43403c,#171614)" data-page-node-id="VDsBjvXvzc7K5AD9abDsPF"></div><div class="cap" data-page-node-id="NaJrtey9OVc52ZhzpNiogC"><b data-page-node-id="8EFUvwUQ6MYXCRVDeImaQz">装置 Beta</b><small data-page-node-id="AuGDeAGoiTAvMJAkNlBDWJ">WebGL · 交互</small></div></div>
+    <div class="item" data-page-node-id="AKAv7lIod77Dqqaq0n5B1q"><div class="ph" style="height:160px;background:linear-gradient(160deg,#2f2d2a,#171614)" data-page-node-id="sUgLQqHu5mJ3YfgD2Gi2jG"></div><div class="cap" data-page-node-id="WqYqHnB6t9lFRx3LyrQFi0"><b data-page-node-id="0JarNgGxvSYtLld1b9ck64">海报 Gamma</b><small data-page-node-id="b1S9xe6bqL5omjP014bs6H">平面 · 印刷</small></div></div>
+    <div class="item" data-page-node-id="lmEAFCMqCpADe489SLKCKb"><div class="ph" style="height:260px;background:linear-gradient(160deg,#3a3835,#171614)" data-page-node-id="DewxUpGKWwQVWtdBtJlTlx"></div><div class="cap" data-page-node-id="PAp1P6CZZgVCfGr5bk9T3T"><b data-page-node-id="rdNes3rEwLXuRJPCfprTxs">短片 Delta</b><small data-page-node-id="8reyqYlevLCWjQpNrB40Gq">动态影像</small></div></div>
+    <div class="item" data-page-node-id="FletyeeHxb7VBq5AS3BW69"><div class="ph" style="height:190px;background:linear-gradient(160deg,#43403c,#171614)" data-page-node-id="zWgfbjdJilXe5eJ6CJgB86"></div><div class="cap" data-page-node-id="JOiiRmqf2xAiPiQva33MET"><b data-page-node-id="EDuc7dngucqZtpuk2alWw3">网站 Epsilon</b><small data-page-node-id="fvuR1dDS461xadGDmVIdMG">前端 · Astro</small></div></div>
+    <div class="item" data-page-node-id="WIGodO8mIHR1wf6GTsr7pW"><div class="ph" style="height:230px;background:linear-gradient(160deg,#2f2d2a,#171614)" data-page-node-id="TSpKYQ8f91CmOEKr8CDmgc"></div><div class="cap" data-page-node-id="awE8Z7O2fAxA2Tdz1kA1Ag"><b data-page-node-id="7VVxwCedTOJGzqP1Or0lMr">实验 Zeta</b><small data-page-node-id="SEHn84wfRpYDZlkk35JGXq"> generative</small></div></div>
+  </div>
+  <pre data-page-node-id="hdDRc5H52lnHU0xzQiIZdx"><span class="c" data-page-node-id="AX1n74K1xjmhi5J8uekKlp">/* 三种瀑布流方案里最稳的：多列布局，零 JS */</span>
+.masonry{ column-count:3; column-gap:18px; }
+.masonry .item{ break-inside:avoid; margin-bottom:18px; }
+<span class="k" data-page-node-id="WNVHJgcbDQccyA8A6OU90x">@media</span>(max-width:900px){ .masonry{ column-count:2; } }
+<span class="k" data-page-node-id="HNcPnTwCTzoq9DvEsKafe3">@media</span>(max-width:560px){ .masonry{ column-count:1; } }</pre>
+</section>
+
+<section data-page-node-id="CPuQviatVR0eEFQxjDgQsv">
+  <h2 data-page-node-id="vLk2VrcFQWmlaC10bO4RcJ"><span class="no" data-page-node-id="0a0MZovrz6QE43eOMzFIRV">04</span> 通用骨架：结构层 / 视觉层 / 性能层</h2>
+  <pre data-page-node-id="s74BvdWWsyfGTQxXHXDCJz"><span class="c" data-page-node-id="YYc8suikrBGGHOM6emSiOB">&lt;!-- 结构：用 &lt;a&gt; 包裹导航卡，利于 SEO/键盘/预取；内容顺序 = 读屏顺序 --&gt;</span>
+&lt;<span class="k" data-page-node-id="gVGPGBcUHPREXsgSCd0XpU">a</span> class=<span class="v" data-page-node-id="f0rBGAaHTDe5Q9OKc9XSN4">"card"</span> href=<span class="v" data-page-node-id="ixsCbl8wCh9dbgNovu0ri9">"/works/alpha"</span>&gt;
+  &lt;<span class="k" data-page-node-id="hMHCjzFjicuxV9fljoFnUv">div</span> class=<span class="v" data-page-node-id="e7u09w6j1xx4mV69wYPouJ">"cover"</span>&gt;&lt;/div&gt;          <span class="c" data-page-node-id="bUgIHyzJNjbuE1N979YiVy">&lt;!-- 封面：aspect-ratio 锁高，零 CLS --&gt;</span>
+  &lt;<span class="k" data-page-node-id="cRPSf2gjShu4OX60RJgkN0">div</span> class=<span class="v" data-page-node-id="GakQPT9A2fClAttdaAWicr">"scrim"</span>&gt;&lt;/div&gt;          <span class="c" data-page-node-id="CyUN3crIhY4Syotb8V67Sy">&lt;!-- 渐变遮罩：保证文字可读 --&gt;</span>
+  &lt;<span class="k" data-page-node-id="PAMsr2t9RJ6YBXb9agozUo">div</span> class=<span class="v" data-page-node-id="b4mNHJlp6z3voVIR61PADU">"content"</span>&gt;
+    &lt;<span class="k" data-page-node-id="8uBMaiwGrvWeeN00sjEsjO">span</span> class=<span class="v" data-page-node-id="pHmW0yEal38UAqOjk7AT8N">"badge"</span>&gt;WEBGL&lt;/span&gt;
+    &lt;<span class="k" data-page-node-id="rF1UVCuHSMLr4dRh7F1IY1">h3</span>&gt;标题&lt;/h3&gt;
+    &lt;<span class="k" data-page-node-id="XYLS09FaavthwE29S5u2Jn">span</span>&gt;副信息&lt;/span&gt;
+  &lt;/<span class="k" data-page-node-id="wRdkd2ljnerSzIlDu7vDTS">div</span>&gt;
+&lt;/<span class="k" data-page-node-id="e1p2Jq4uYAQrTvjcD7GN5e">a</span>&gt;
+
+<span class="c" data-page-node-id="yRiHTaOgazYDwycqSXH8aj">/* 性能：锁比例 + 只动 GPU 属性 + 尊重 reduced-motion */</span>
+.card .cover{ aspect-ratio:3/4; object-fit:cover; }     <span class="c" data-page-node-id="EAgMsOfHZCyAHsZIhsCYrp">/* 防布局抖动 */</span>
+.card{ will-change:transform; }                          <span class="c" data-page-node-id="3dfNdZ2AmfrgmuI4M10MRA">/* 提示合成层 */</span>
+<span class="k" data-page-node-id="6IY60Rdei3EkLnuXYXcOzf">@media</span>(prefers-reduced-motion:reduce){
+  .card{ transition:none; transform:none; }
+}</pre>
+  <div class="note" data-page-node-id="wXETX6L6RjwMyaKHEuFGtf">对你站点的落地建议：先用 01/02 的档案卡做 <code class="inline" data-page-node-id="SHT3WcK8sEHkm8S38zuUel">/works/</code> 列表（纸感底 + 编号头 + 红印章 hover 揭示），瀑布流只在作品媒体高低不一时上。daidai 现有美学是克制的编辑感，倾斜别超过 8°，移动端直接退回纯抬升（你已有的 parallax.js 写 <code class="inline" data-page-node-id="LA6Ygp9jcBS0u71oaSkoSE">--px/--py</code>，可复用做卡片景深）。</div>
+</section>
+</body>
+<script>
+  const card = document.getElementById('tilt');
+  card.addEventListener('pointermove', e => {
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width  - .5;
+    const py = (e.clientY - r.top)  / r.height - .5;
+    card.style.setProperty('--rx', (py * -12) + 'deg');
+    card.style.setProperty('--ry', (px *  12) + 'deg');
+    card.style.setProperty('--mx', (px * 100 + 50) + '%');
+    card.style.setProperty('--my', (py * 100 + 50) + '%');
+  });
+  card.addEventListener('pointerleave', () => {
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  });
+</script>
+</html>

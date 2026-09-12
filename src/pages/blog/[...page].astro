@@ -6,6 +6,10 @@ import Base from '../../layouts/Base.astro';
 import Paginator from '../../components/Paginator.astro';
 import PostCard from '../../components/PostCard.astro';
 import { getSortedPosts, groupPostsByYear } from '../../data/posts';
+/* default-ui 的组件样式是独立 CSS（JS 里不含样式，漏引 = 输入框裸原生样式，
+   2026-09-12 dev 截图暴露的正是这个，线上同样会裸）。类名前缀 pagefind-ui，
+   不会污染站内样式；.search-mount 上的 --pagefind-ui-* 变量负责主题换肤。 */
+import '@pagefind/default-ui/css/ui.css';
 
 export async function getStaticPaths({ paginate }) {
 	const posts = await getSortedPosts();
@@ -38,29 +42,9 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     </section>
 
     <section class="searchbar" aria-label="全文检索">
-      <div class="search-wrap">
-        <input
-          class="search-input"
-          type="search"
-          placeholder="检索文章全文…"
-          aria-label="检索文章全文"
-          spellcheck="false"
-          autocomplete="off"
-        />
-        <button class="search-clear" type="button" aria-label="清空检索" hidden>
-          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-            <path
-              d="M1 1l10 10M11 1L1 11"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"></path>
-          </svg>
-        </button>
-      </div>
+      <div class="search-mount" id="search-mount"></div>
       <p class="search-status" data-search-status hidden></p>
     </section>
-    <section class="search-results" data-search-results hidden></section>
 
     {
       page.data.length === 0 ? (
@@ -95,108 +79,58 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
 </Base>
 
 <script>
-  /* ── 站内全文检索（Pagefind，2026-09-12 票：博客功能补完）──
-     索引由构建链 `pagefind --site dist` 生成，data-pagefind-body 已把索引
-     限定在文章正文。UI 手写：输入 ≥1 字符进入搜索态（隐藏分组列表、
-     渲染结果行），清空恢复；pagefind.js 首次输入时才懒加载。 */
-  const input = document.querySelector('.search-input');
+  /* ── 站内全文检索（Pagefind）──
+     方案二（2026-09-12 用户裁定）：@pagefind/default-ui 构建时打包成独立
+     chunk，运行时由 UI 内部按需加载 /pagefind/ 索引产物（bundlePath）。
+     相对手写 UI（原方案一）：UI 成熟度（键盘导航/过滤/可访问性）更高，
+     后端加载链与其完全同构，无额外故障面；代价是 +37KB gzip chunk 与
+     DOM 定制受限（只能改官方 CSS 变量）。
+     dev 下无索引 → import.meta.env.DEV 门控直接不挂载（构建期折叠，
+     生产包不含 dev 分支），提示由 .search-status 承载。 */
+  const mountEl = document.getElementById('search-mount');
   const statusEl = document.querySelector('[data-search-status]');
-  const resultsEl = document.querySelector('[data-search-results]');
-  const listEl = document.querySelector('[data-list]');
-  const clearBtn = document.querySelector('.search-clear');
-  let pagefind = null;
-  let timer = 0;
-
   const show = (el) => el && el.removeAttribute('hidden');
-  const hide = (el) => el && el.setAttribute('hidden', '');
 
-  async function ensurePagefind() {
-    if (!pagefind) {
-      /* specifier 必须保持「非字面量」（变量拼接）：dev 的 vite:import-analysis
-         对字面量 specifier 的动态 import 会无条件静态 resolve，@vite-ignore 在该
-         路径不生效（它只抑制非字面量 import 的 warning）→ dev 撞
-         "Failed to resolve import"。非字面量则落入「无法分析 → 原样放行」分支；
-         build 侧 rollup 见 @vite-ignore 同样放行，运行时命中 dist/pagefind/。 */
-      const PF_ENTRY = '/pagefind/' + 'pagefind.js';
-      pagefind = await import(/* @vite-ignore */ PF_ENTRY);
-      await pagefind.options({ excerptLength: 20 });
-    }
-    return pagefind;
+  async function mountSearch() {
+    const { PagefindUI } = await import('@pagefind/default-ui');
+    new PagefindUI({
+      element: mountEl,
+      bundlePath: import.meta.env.BASE_URL.replace(/\/$/, '') + '/pagefind/',
+      /* resetStyles 默认 true 会向 <head> 注入全局重置，可能波及站内样式，关掉 */
+      resetStyles: false,
+      showSubResults: true,
+      excerptLength: 20,
+      translations: {
+        placeholder: '检索文章全文…',
+        clear_search: '清空',
+        load_more: '加载更多',
+        search_label: '站内全文检索',
+        filters_label: '过滤',
+        zero_results: '没有与「[QUERY]」匹配的结果',
+        one_result: '[COUNT] 个结果 ·「[QUERY]」',
+        many_results: '[COUNT] 个结果 ·「[QUERY]」',
+        searching: '检索中…',
+        error_searching: '检索出错，请重试',
+      },
+    });
   }
 
-  function renderResults(items) {
-    resultsEl.innerHTML = '';
-    const ul = document.createElement('ul');
-    ul.className = 'slist';
-    for (const r of items) {
-      const li = document.createElement('li');
-      const a = document.createElement('a');
-      a.className = 'srow';
-      a.href = r.url;
-      const t = document.createElement('span');
-      t.className = 'stitle';
-      t.textContent = r.meta?.title ?? r.url;
-      const x = document.createElement('span');
-      x.className = 'sexcerpt';
-      /* excerpt 含 <mark> 高亮，源自本站构建产物，可信 */
-      x.innerHTML = r.excerpt;
-      a.append(t, x);
-      li.appendChild(a);
-      ul.appendChild(li);
-    }
-    resultsEl.appendChild(ul);
+  /* dev 也挂载（2026-09-12 用户反馈「输入框怎么没有了」）：cactus 原版在
+     dev 直接 return 不装 UI，但 dev 看不到真实版式等于盲区。改为 dev 照常
+     挂载输入框、状态行解释「无索引」；输入后 UI 内部报「检索出错」是
+     dev 预期行为（/pagefind/ 产物只在构建链生成）。 */
+  if (import.meta.env.DEV) {
+    show(statusEl);
+    statusEl.textContent = 'dev 模式无索引 · 全文检索在构建产物 / 线上可用';
   }
-
-  async function run() {
-    const q = input.value.trim();
-    if (!q) {
-      hide(statusEl);
-      hide(resultsEl);
-      show(listEl);
-      return;
-    }
-    try {
-      const pf = await ensurePagefind();
-      const res = await pf.search(q);
-      const items = await Promise.all(
-        res.results.slice(0, 20).map((r) => r.data()),
-      );
+  if (mountEl) {
+    mountSearch().catch((err) => {
+      /* 生产环境把真实错误外显（含 chunk 加载失败），不静默吞掉 */
+      console.error('[blog-search] 检索 UI 挂载失败：', err);
       show(statusEl);
-      show(resultsEl);
-      hide(listEl);
-      if (items.length === 0) {
-        statusEl.textContent = `无结果 ·「${q}」`;
-        resultsEl.innerHTML = '';
-        return;
-      }
-      statusEl.textContent = `${res.results.length} 个结果 ·「${q}」`;
-      renderResults(items);
-    } catch {
-      show(statusEl);
-      statusEl.textContent = '全文检索在构建产物 / 线上可用 · dev 模式无索引';
-      hide(resultsEl);
-      show(listEl);
-    }
+      statusEl.textContent = `检索 UI 加载失败：${err?.message ?? err}`;
+    });
   }
-
-  /* 清除按钮：随输入显隐；点击清空并立即恢复列表态（不走 220ms 防抖） */
-  const syncClear = () => {
-    if (clearBtn) clearBtn.hidden = !input.value;
-  };
-  /* webkit type=search 的 Escape 清空触发 search 事件，不一定触发 input */
-  input?.addEventListener('search', syncClear);
-  input?.addEventListener('input', () => {
-    syncClear();
-    clearTimeout(timer);
-    timer = setTimeout(run, 220);
-  });
-  clearBtn?.addEventListener('click', () => {
-    input.value = '';
-    syncClear();
-    clearTimeout(timer);
-    input.focus();
-    run();
-  });
 </script>
 
 <style>
@@ -295,114 +229,27 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     border-bottom: 1px solid rgba(19, 18, 17, 0.16);
   }
 
-  /* ── 全文检索（输入框在模板，结果行由脚本注入 → 结果行用 :global）── */
+  /* ── 全文检索（方案二：default-ui 挂载点，官方 CSS 变量对齐档案馆风）── */
   .searchbar {
     padding: 20px clamp(20px, 4vw, 48px) 0;
   }
-  .search-wrap {
-    position: relative;
-  }
-  .search-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 12px 52px 12px 16px;
-    border: 1.5px solid rgba(19, 18, 17, 0.4);
-    border-radius: 6px;
-    background: transparent;
-    font: inherit;
-    font-size: 15px;
-    letter-spacing: 0.02em;
-    color: inherit;
-  }
-  .search-input:focus {
-    outline: none;
-    border-color: #cf0a1a;
-  }
-  /* 原生清除按钮样式不可控（webkit 默认 ×，颜色不随主题），隐藏后用自定义按钮 */
-  .search-input::-webkit-search-cancel-button,
-  .search-input::-webkit-search-decoration {
-    -webkit-appearance: none;
-    appearance: none;
-    display: none;
-  }
-  .search-clear {
-    position: absolute;
-    top: 50%;
-    right: 13px;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 1.5px solid rgba(19, 18, 17, 0.3);
-    border-radius: 50%;
-    background: transparent;
-    color: #6f6f6f;
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, transform 0.25s ease;
-  }
-  .search-clear:hover {
-    color: #cf0a1a;
-    border-color: #cf0a1a;
-    transform: translateY(-50%) rotate(90deg);
-  }
-  .search-clear:focus-visible {
-    outline: none;
-    color: #cf0a1a;
-    border-color: #cf0a1a;
-  }
-  /* 用 hidden 切换设了 display 的元素必须配强规则（作者样式压过 UA 的 [hidden]） */
-  .search-clear[hidden] {
-    display: none !important;
+  .search-mount {
+    --pagefind-ui-scale: 0.95;
+    --pagefind-ui-primary: #cf0a1a;
+    --pagefind-ui-text: #131211;
+    --pagefind-ui-background: transparent;
+    --pagefind-ui-border: rgba(19, 18, 17, 0.4);
+    --pagefind-ui-tag: #6f6f6f;
+    --pagefind-ui-border-width: 1.5px;
+    --pagefind-ui-border-radius: 6px;
+    --pagefind-ui-font: inherit;
+    min-height: 46px;
   }
   .search-status {
     margin: 10px 2px 0;
     font-size: 12px;
     letter-spacing: 0.06em;
     color: #6f6f6f;
-  }
-  .search-results {
-    padding: 12px clamp(20px, 4vw, 48px) 6px;
-  }
-  .search-results :global(.slist) {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
-  }
-  .search-results :global(.srow) {
-    display: block;
-    padding: 14px 2px;
-    border-top: 1px solid rgba(19, 18, 17, 0.16);
-    color: inherit;
-    text-decoration: none;
-  }
-  .search-results :global(.stitle) {
-    display: block;
-    font-weight: 900;
-    font-size: 16px;
-    line-height: 1.4;
-  }
-  .search-results :global(.srow:hover .stitle) {
-    text-decoration: underline;
-    text-decoration-color: #cf0a1a;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-  }
-  .search-results :global(.sexcerpt) {
-    display: block;
-    margin-top: 4px;
-    font-size: 12.5px;
-    line-height: 1.7;
-    color: #6f6f6f;
-  }
-  .search-results :global(.sexcerpt mark) {
-    background: rgba(207, 10, 26, 0.14);
-    color: #cf0a1a;
-    padding: 0 2px;
-    border-radius: 2px;
   }
 
   /* ── 年份分隔条（票04）：Anton 描边数字，与 hero 同一视觉语言 ──

@@ -18,6 +18,7 @@
     "astro": "^7.3.2"
   },
   "devDependencies": {
+    "@pagefind/default-ui": "^1.5.2",
     "pagefind": "^1.5.2"
   }
 }
