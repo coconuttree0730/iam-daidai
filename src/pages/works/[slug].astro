@@ -1,0 +1,247 @@
+---
+// 作品详情页（2026-09-12 建）：/works/01/ … /works/07/。
+// 作品集列表页（works.astro）卡面只留「编号 + 标题」，描述 / 标签 /
+// 状态 / 年份全部收进本页——用户裁定「点击进去才是详情」。
+// 数据源同列表页 = profile.json 的 works 节；slug 用条目编号（01…07）。
+import Base from '../../layouts/Base.astro';
+import profile from '../../data/profile.json';
+
+const works = profile.works.items;
+
+export function getStaticPaths() {
+  // 注意：getStaticPaths 在预渲染 chunk 里被独立求值，闭包引用不到
+  // 模块顶层 const（实测报 "works is not defined"），数据必须在这里重新取。
+  return profile.works.items.map((w, idx) => ({
+    params: { slug: w.no },
+    props: { w, idx },
+  }));
+}
+
+const { w, idx } = Astro.props;
+const prev = works[(idx - 1 + works.length) % works.length];
+const next = works[(idx + 1) % works.length];
+---
+<Base title={`${w.title} · 作品集 · Daidai档案馆`} description={w.desc}>
+  <main class="sheet">
+    <header class="head">
+      <span class="tag">NO.02</span>
+      <span class="tag tag--red">{w.no}</span>
+      <a class="back" href="/works/">← 返回作品集</a>
+    </header>
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">{w.en}</p>
+      <h1>{w.title}</h1>
+      <div class="meta">
+        <span class="status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
+        <span>{w.year}</span>
+      </div>
+    </section>
+
+    <section class="detail">
+      <p class="desc">{w.desc}</p>
+      <ul class="chips" role="list">
+        {w.tags.map((t) => <li>{t}</li>)}
+      </ul>
+      {w.href ? (
+        <a class="go" href={w.href}>{w.href === '/' ? '回到首页体验 →' : '访问项目 →'}</a>
+      ) : (
+        <span class="go go--none">尚未归档 · 敬请期待</span>
+      )}
+    </section>
+
+    <nav class="pn" aria-label="上一篇 / 下一篇">
+      <a class="pn-link" href={`/works/${prev.no}/`}><small>上一件</small>{prev.title}</a>
+      <a class="pn-link pn-link--r" href={`/works/${next.no}/`}><small>下一件</small>{next.title}</a>
+    </nav>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  .sheet {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--c-paper);
+    color: var(--c-ink);
+    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
+      "Microsoft YaHei", sans-serif;
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px clamp(20px, 4vw, 48px);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .tag {
+    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border: 1px solid var(--c-ink);
+    border-radius: 4px;
+  }
+  .tag--red {
+    border-color: var(--c-red);
+    color: var(--c-red);
+  }
+  .back {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    padding-bottom: 2px;
+  }
+  .back:hover { color: var(--c-red); border-color: var(--c-red); }
+
+  .hero {
+    padding: clamp(28px, 6vh, 64px) clamp(20px, 4vw, 48px) 0;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: "Anton", Impact, sans-serif;
+    font-size: clamp(18px, 3.4vw, 34px);
+    line-height: 1;
+    letter-spacing: 0.05em;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--c-ghost);
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 8px 0 0;
+    font-size: clamp(30px, 5.6vw, 56px);
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    font-size: 12.5px;
+    letter-spacing: 0.12em;
+    color: var(--c-muted-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .status {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 3px 9px;
+    border: 1px solid var(--c-ink);
+    border-radius: 4px;
+    color: var(--c-ink);
+  }
+  .status[data-tone="red"] {
+    border-color: var(--c-red);
+    color: var(--c-red);
+  }
+
+  .detail {
+    flex: 1;
+    padding: clamp(20px, 4vh, 40px) clamp(20px, 4vw, 48px);
+    max-width: 760px;
+  }
+  .desc {
+    margin: 0;
+    font-size: 15px;
+    line-height: 2;
+    color: var(--c-ink-2);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chips li {
+    font-size: 12px;
+    padding: 3px 11px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.28);
+    border-radius: 999px;
+    color: var(--c-muted);
+  }
+  .go {
+    display: inline-block;
+    margin-top: 30px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 2px solid var(--c-red);
+    padding-bottom: 3px;
+    transition: color 0.15s ease;
+  }
+  .go:hover { color: var(--c-red); }
+  .go--none {
+    border-bottom-style: dashed;
+    border-bottom-color: rgba(var(--c-ink-rgb), 0.3);
+    color: var(--c-muted-3);
+    font-weight: 400;
+    cursor: default;
+  }
+
+  .pn {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px clamp(20px, 4vw, 48px);
+    border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .pn-link {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 46%;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-ink);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .pn-link small {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: var(--c-muted-2);
+  }
+  .pn-link:hover { color: var(--c-red); }
+  .pn-link--r { text-align: right; }
+
+  .foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 48px) 26px;
+  }
+  .foot .dash {
+    width: 34px;
+    height: 5px;
+    background: var(--c-red);
+  }
+  .foot .barcode {
+    height: 14px;
+    width: 64px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--c-ink) 0 1px,
+      transparent 1px 2.4px,
+      var(--c-ink) 2.4px 4.4px,
+      transparent 4.4px 5.4px,
+      var(--c-ink) 5.4px 6.4px,
+      transparent 6.4px 8.4px
+    );
+  }
+</style>

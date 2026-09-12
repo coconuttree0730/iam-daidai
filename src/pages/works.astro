@@ -1,10 +1,19 @@
 ---
-// 占位页模板（2026-09-11）：作品集板块。
-// 统一档案风格：纸感底色 + 编号头 + 大字标题 + 「档案整理中」红色印章。
-// 板块建成后直接替换本文件内容，页头编号与导航结构可复用。
+// 作品集页（2026-09-12 建，当晚按用户反馈精简改版）。
+// 交互参考 rauno.me：页面锁 100dvh 不可滚，竖向滚轮被驱动折算成
+// 卡片轨道的横向位移（src/lib/works-rail.js：滚轮 / 拖拽 / 惯性 /
+// 键盘四输入共用一份进度，指数缓动，收敛停帧）。
+// 页面三件套：顶部刻度尺游标（随滑动横移）+ 大封面卡轨道 + 底部进度泊位。
+// 卡面只留「编号 + 标题」小标签与大封面（用户裁定：信息精简，
+// 描述/标签/状态全部移入 /works/[slug]/ 详情页）；整卡可点进详情。
+// 数据源 = profile.json 的 works 节（改文案只改数据，不动组件）。
 import Base from '../layouts/Base.astro';
+import profile from '../data/profile.json';
+
+const works = profile.works.items;
+const pad2 = (n) => String(n).padStart(2, '0');
 ---
-<Base title="Daidai档案馆" description="作品集板块 · 档案整理中">
+<Base title="作品集 · Daidai档案馆" description="作品集板块 · 精选项目档案">
   <main class="sheet">
     <header class="head">
       <span class="tag">NO.02</span>
@@ -12,39 +21,131 @@ import Base from '../layouts/Base.astro';
       <a class="back" href="/">← 返回档案馆</a>
     </header>
 
-    <section class="hero">
-      <p class="en" aria-hidden="true">SELECTED WORKS</p>
-      <h1>作品集</h1>
+    <h1 class="sr-only">作品集</h1>
+
+    {/* 顶部刻度尺：游标随轨道进度横移（rauno.me 同款指示器） */}
+    <section class="ruler-strip" aria-hidden="true">
+      <div class="ruler" data-ruler>
+        <span class="ticks">
+          {Array.from({ length: 29 }).map(() => (
+            <i></i>
+          ))}
+        </span>
+        <span class="frame" data-frame></span>
+      </div>
     </section>
 
-    <section class="stamp" aria-label="档案整理中">
-      <strong>档案整理中</strong>
-      <small>ARCHIVING · 该板块即将开放</small>
+    <section class="rail-wrap" data-rail-viewport aria-label="作品卡片轨道" tabindex="-1">
+      <ul class="rail" data-rail data-total={works.length} role="list">
+        {
+          works.map((w) => (
+            <li class="slot">
+              <a class="witem" href={`/works/${w.no}/`}>
+                <span class="label">
+                  <b>{w.no}</b>
+                  {w.title}
+                </span>
+                <span class="wcard" data-cover={w.cover}>
+                  {w.img ? <img class="cover-img" src={w.img} alt={w.title} loading="lazy" decoding="async" /> : null}
+                  <span class="bigno" aria-hidden="true">{w.no}</span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+        <li class="slot">
+          <a class="witem" href="/#basic">
+            <span class="label">完</span>
+            <span class="wcard wcard--end">
+              <span class="end-zh" aria-hidden="true">完</span>
+              <span class="end-line">有想一起做的项目？</span>
+            </span>
+          </a>
+        </li>
+      </ul>
     </section>
 
-    <footer class="foot" aria-hidden="true">
-      <span class="dash"></span>
-      <span class="barcode"></span>
+    <footer class="dock">
+      <span class="dash" aria-hidden="true"></span>
+      <span class="track" aria-hidden="true"><span class="fill" data-progress></span></span>
+      <span class="count"><b data-now>01</b> / {pad2(works.length)}</span>
     </footer>
   </main>
 </Base>
 
+<noscript>
+  <style>
+    /* 无 JS 兜底：轨道退化为原生横向滚动 */
+    .rail-wrap { overflow-x: auto; }
+    .rail { transform: none !important; }
+  </style>
+</noscript>
+
+<script>
+  import { createWorksRail } from '../lib/works-rail.js';
+
+  const viewport = document.querySelector('[data-rail-viewport]');
+  const rail = document.querySelector('[data-rail]');
+  const nowEl = document.querySelector('[data-now]');
+  const progressEl = document.querySelector('[data-progress]');
+  const rulerEl = document.querySelector('[data-ruler]');
+  const frameEl = document.querySelector('[data-frame]');
+  const total = Number(rail?.dataset.total ?? '0');
+
+  if (viewport && rail) {
+    createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, rulerEl, total });
+  }
+</script>
+
+<style is:global>
+  /* 本页描边大字需要 Anton / Archivo Black，@font-face 只在 hero.css 声明过
+     （本页不加载它），这里按同源文件重复声明，font-display: swap 保首帧。 */
+  @font-face {
+    font-family: "Anton";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/fonts/anton.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Archivo Black";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/fonts/archivo-black.woff2") format("woff2");
+  }
+</style>
+
 <style>
   .sheet {
-    min-height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     background: var(--c-paper);
     color: var(--c-ink);
     font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
       "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
+  /* ── 编号头（与占位页同款）── */
   .head {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 22px clamp(20px, 4vw, 48px);
+    padding: 18px clamp(20px, 4vw, 48px);
     border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
   }
   .tag {
@@ -69,79 +170,259 @@ import Base from '../layouts/Base.astro';
   }
   .back:hover { color: var(--c-red); border-color: var(--c-red); }
 
-  .hero {
+  /* ── 顶部刻度尺 ──
+     29 根细刻度 + 一枚游标框；游标 transform 由驱动按进度写入。
+     刻度是纯装饰（aria-hidden），语义进度在底部泊位的计数器里。 */
+  .ruler-strip {
+    display: flex;
+    justify-content: center;
+    padding: clamp(14px, 2.6vh, 26px) 20px 0;
+  }
+  .ruler {
+    position: relative;
+    height: 18px;
+  }
+  .ticks {
+    display: flex;
+    gap: 4px;
+    height: 100%;
+    align-items: flex-start;
+  }
+  .ticks i {
+    width: 1px;
+    height: 12px;
+    background: rgba(var(--c-ink-rgb), 0.35);
+  }
+  .frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 22px;
+    height: 16px;
+    border: 1.5px solid rgba(var(--c-ink-rgb), 0.55);
+    background: var(--c-paper);
+    will-change: transform;
+  }
+
+  /* ── 轨道区 ──
+     overflow hidden + JS transform 驱动；触摸档 pan-y 放行纵向手势
+     （页面无纵向滚动，等价吞掉），横向拖拽由驱动接管。 */
+  .rail-wrap {
     flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: pan-y;
+    outline: none;
+  }
+  .rail-wrap:active { cursor: grabbing; }
+  .rail {
+    display: flex;
+    align-items: stretch;
+    gap: clamp(18px, 3vw, 44px);
+    padding-inline: clamp(20px, 6vw, 72px);
+    margin: 0;
+    padding-block: clamp(14px, 3vh, 28px);
+    list-style: none;
+    will-change: transform;
+  }
+  .slot { flex: none; display: flex; }
+
+  /* ── 卡片：小标签 + 大封面，整卡是详情页链接 ── */
+  .witem {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    padding: 48px 20px;
-    text-align: center;
+    gap: 9px;
+    text-decoration: none;
+    color: inherit;
+    outline: none;
   }
-  .hero .en {
-    margin: 0;
-    font-family: "Anton", Impact, sans-serif;
-    font-size: clamp(28px, 6vw, 72px);
-    line-height: 1;
+  .witem:focus-visible .wcard {
+    outline: 2px solid var(--c-red);
+    outline-offset: 3px;
+  }
+  .label {
+    font-size: 12.5px;
     letter-spacing: 0.04em;
-    color: transparent;
-    -webkit-text-stroke: 1.2px var(--c-ghost);
+    color: var(--c-muted);
+    transition: color 0.15s ease;
     user-select: none;
   }
-  .hero h1 {
-    margin: 0;
-    font-weight: 900;
-    font-size: clamp(34px, 7vw, 84px);
+  .label b {
+    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 400;
+    margin-right: 8px;
+    color: var(--c-ink-2);
+  }
+  .witem:hover .label { color: var(--c-red); }
+
+  .wcard {
+    position: relative;
+    display: block;
+    width: min(520px, 82vw);
+    height: clamp(320px, 58vh, 560px);
+    background: var(--c-card);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.22);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 14px 30px rgba(var(--c-ink-rgb), 0.09);
+    /* 静态倾角写独立 rotate 属性（不与 hover 的 transform 叠写），
+       封顶 ±1.5°（用户裁定的矩形物件旋转上限） */
+    rotate: -0.7deg;
+    transition: transform 0.25s ease, rotate 0.25s ease, box-shadow 0.25s ease;
+  }
+  .slot:nth-child(even) .wcard { rotate: 0.6deg; }
+  .witem:hover .wcard {
+    rotate: 0deg;
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(var(--c-ink-rgb), 0.13);
+  }
+
+  /* 封面纹样由 data-cover 变体决定，全部消费墨色通道变量（换肤随动） */
+  .wcard[data-cover="grid"] {
+    background-image:
+      linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%),
+      linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%);
+    background-size: 26px 26px;
+    background-position: 0 0, 13px 13px;
+  }
+  .wcard[data-cover="stripes"] {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(var(--c-ink-rgb), 0.055) 0 2px,
+      transparent 2px 12px
+    );
+  }
+  .wcard[data-cover="rings"] {
+    background-image: repeating-radial-gradient(
+      circle at 72% 28%,
+      rgba(var(--c-ink-rgb), 0.07) 0 1.5px,
+      transparent 1.5px 15px
+    );
+  }
+  .wcard[data-cover="dots"] {
+    background-image: radial-gradient(
+      rgba(var(--c-ink-rgb), 0.10) 1.2px,
+      transparent 1.3px
+    );
+    background-size: 17px 17px;
+  }
+  .wcard[data-cover="bars"] {
+    background-image: repeating-linear-gradient(
+      90deg,
+      rgba(var(--c-ink-rgb), 0.09) 0 2px,
+      transparent 2px 6px,
+      rgba(var(--c-ink-rgb), 0.09) 6px 7px,
+      transparent 7px 14px
+    );
+  }
+  .wcard[data-cover="cross"] {
+    background-image:
+      repeating-linear-gradient(0deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px);
+  }
+  .cover-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .bigno {
+    position: absolute;
+    right: 16px;
+    bottom: -8px;
+    font-family: "Anton", Impact, sans-serif;
+    font-size: clamp(110px, 22vh, 190px);
     line-height: 1;
-    letter-spacing: 0.02em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--c-ghost);
+    user-select: none;
+    pointer-events: none;
   }
 
-  .stamp {
-    align-self: center;
-    margin-bottom: 40px;
-    padding: 14px 26px;
-    border: 2px solid var(--c-red);
-    border-radius: 6px;
-    color: var(--c-red);
-    text-align: center;
-    transform: rotate(-2.5deg);
-  }
-  .stamp strong {
-    display: block;
-    font-size: 18px;
-    font-weight: 900;
-    letter-spacing: 0.22em;
-  }
-  .stamp small {
-    display: block;
-    margin-top: 6px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-  }
-
-  .foot {
+  /* 末卡：空档案袋 + 红色「完」章 */
+  .wcard--end {
+    border: 1.5px dashed rgba(var(--c-ink-rgb), 0.35);
+    background: transparent;
+    box-shadow: none;
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 clamp(20px, 4vw, 48px) 26px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
   }
-  .foot .dash {
+  .end-zh {
+    font-size: 54px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--c-red);
+    border: 2.5px solid var(--c-red);
+    border-radius: 8px;
+    padding: 10px 16px;
+    rotate: -5deg;
+    letter-spacing: 0.1em;
+  }
+  .end-line {
+    font-size: 13px;
+    color: var(--c-muted);
+  }
+
+  /* ── 底部泊位：进度条 + 计数器 ── */
+  .dock {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px clamp(20px, 4vw, 48px) 18px;
+    border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .dash {
+    flex: none;
     width: 34px;
     height: 5px;
     background: var(--c-red);
   }
-  .foot .barcode {
-    height: 14px;
-    width: 64px;
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--c-ink) 0 1px,
-      transparent 1px 2.4px,
-      var(--c-ink) 2.4px 4.4px,
-      transparent 4.4px 5.4px,
-      var(--c-ink) 5.4px 6.4px,
-      transparent 6.4px 8.4px
-    );
+  .track {
+    position: relative;
+    flex: 1;
+    height: 3px;
+    background: rgba(var(--c-ink-rgb), 0.14);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .fill {
+    position: absolute;
+    inset: 0;
+    background: var(--c-red);
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+  .count {
+    flex: none;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .count b {
+    color: var(--c-ink);
+    font-weight: 900;
+  }
+
+  @media (max-width: 640px) {
+    .wcard {
+      width: min(360px, 84vw);
+      height: clamp(300px, 52vh, 460px);
+    }
+    .bigno { font-size: clamp(88px, 15vh, 130px); }
+    .ticks i { height: 10px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wcard { transition: none; }
   }
 </style>
