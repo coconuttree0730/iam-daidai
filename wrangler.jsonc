@@ -1,0 +1,13 @@
+{
+  // 纯静态站点：assets 部署，不走 SSR 适配器。
+  // 此文件的存在会让 `wrangler deploy` 跳过 auto-config——2026-09-12 事故：
+  // 无配置时 wrangler 4.131.1 检测到 Astro 自动执行 `astro add cloudflare`
+  // 并二次构建，resvg 原生 .node 无法被 worker 打包，UNLOADABLE_DEPENDENCY。
+  // 联系表单 Worker 在 worker/ 有独立配置，与此文件互不影响。
+  "name": "iam-daidai",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}
