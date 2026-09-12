@@ -97,9 +97,13 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
 
   async function ensurePagefind() {
     if (!pagefind) {
-      /* @vite-ignore：pagefind.js 是构建链在 dist 里生成的运行时产物，
-         构建期不存在，禁止 Vite 静态解析 */
-      pagefind = await import(/* @vite-ignore */ '/pagefind/pagefind.js');
+      /* specifier 必须保持「非字面量」（变量拼接）：dev 的 vite:import-analysis
+         对字面量 specifier 的动态 import 会无条件静态 resolve，@vite-ignore 在该
+         路径不生效（它只抑制非字面量 import 的 warning）→ dev 撞
+         "Failed to resolve import"。非字面量则落入「无法分析 → 原样放行」分支；
+         build 侧 rollup 见 @vite-ignore 同样放行，运行时命中 dist/pagefind/。 */
+      const PF_ENTRY = '/pagefind/' + 'pagefind.js';
+      pagefind = await import(/* @vite-ignore */ PF_ENTRY);
       await pagefind.options({ excerptLength: 20 });
     }
     return pagefind;
@@ -403,3 +407,4 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     );
   }
 </style>
+
