@@ -1,0 +1,21 @@
+---
+title: 档案馆现已支持 MDX
+description: 博客正文从纯 Markdown 升级为 MDX——技术文里可以直接长出可交互的组件，这篇本身就是第一个样例。
+publishDate: 2026-09-12
+tags:
+  - meta
+  - astro
+---
+
+博客正文格式从纯 Markdown 升级为 **MDX**：`.md` 文章照旧原样渲染，`.mdx` 文章可以在正文中直接 import 并使用 Astro 组件。对写技术文的意义是——演示不再只能贴截图，交互示例可以长在文章里。
+
+下面这块「批注条」就是内嵌组件，不是图片：
+
+import ArchiveStamp from '../../components/mdx/ArchiveStamp.astro';
+
+<ArchiveStamp text="我是一个真实的 Astro 组件，渲染于 MDX 正文中。颜色走语义色板，暗色模式下会跟着换肤。" />
+
+配合站内已有的 expressive-code 代码高亮与 Pagefind 全文检索，MDX 文章的正文同样进索引。写法上只有两条约定：
+
+1. 文件放 `src/content/post/`，扩展名用 `.mdx`；
+2. 需要的组件在正文顶部 import，路径相对本文件（如 `../../components/...`）。

@@ -3,7 +3,34 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import mdx from '@astrojs/mdx';
+import expressiveCode from 'astro-expressive-code';
 import remarkReadingTime from './src/plugins/remark-reading-time.ts';
+
+// expressive-code 双主题绑定（Cactus 同款契约，2026-09-12 暗色模式）：
+// 首个主题决定基准 type，另一枚取相反 type，各自生成 [data-theme='dark'|'light']
+// 选择器——代码块随站点主题章整体换肤。
+const expressiveCodeOptions = {
+  themes: ['github-dark', 'github-light'],
+  themeCssSelector: (theme, { styleVariants }) => {
+    if (styleVariants.length >= 2) {
+      const baseTheme = styleVariants[0]?.theme;
+      const altTheme = styleVariants.find(
+        (v) => v.theme.type !== baseTheme?.type,
+      )?.theme;
+      if (theme === baseTheme || theme === altTheme)
+        return `[data-theme='${theme.type}']`;
+    }
+    return `[data-theme="${theme.name}"]`;
+  },
+  styleOverrides: {
+    borderRadius: '6px',
+    frames: {
+      frameBoxShadowCssValue: 'none',
+    },
+  },
+  useThemedScrollbars: false,
+};
 
 // Pagefind 索引挂在 astro:build:done 钩子上，而不是 package.json 的 build
 // 脚本链（`&& pagefind --site dist`）：Cloudflare Pages 的构建命令是站点接入
@@ -46,7 +73,12 @@ const LOCAL_TMP = '/home/vii/.tmp';
 export default defineConfig({
   site: 'https://daidai.click',
   output: 'static',
-  integrations: [sitemap(), pagefindIndexer()],
+  integrations: [
+    expressiveCode(expressiveCodeOptions),
+    sitemap(),
+    mdx(),
+    pagefindIndexer(),
+  ],
   markdown: {
     remarkPlugins: [remarkReadingTime],
   },
