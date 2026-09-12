@@ -1,7 +1,38 @@
 import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import remarkReadingTime from './src/plugins/remark-reading-time.ts';
+
+// Pagefind 索引挂在 astro:build:done 钩子上，而不是 package.json 的 build
+// 脚本链（`&& pagefind --site dist`）：Cloudflare Pages 的构建命令是站点接入
+// 时配置的字面 `astro build`，不会跟随 build 脚本的后续追加——2026-09-12
+// 事故：该写法只在本地生效，线上 dist 没有 pagefind/，检索永远走 catch。
+// 挂进钩子后，CI 跑 `astro build` 或 `npm run build` 都会产出 dist/pagefind/。
+function pagefindIndexer() {
+  return {
+    name: 'pagefind-indexer',
+    hooks: {
+      'astro:build:done': ({ dir, logger }) => {
+        const outDir = typeof dir === 'string' ? dir : fileURLToPath(dir);
+        // --no-install：只允许本地安装的 pagefind（npm ci 后必有），
+        // 防止 npx 在环境异常时静默远程拉包
+        const res = spawnSync(
+          'npx',
+          ['--no-install', 'pagefind', '--site', outDir],
+          { stdio: 'inherit', shell: true },
+        );
+        if (res.status !== 0) {
+          throw new Error(
+            `pagefind 索引生成失败（退出码 ${res.status}），检索将不可用`,
+          );
+        }
+        logger.info('pagefind 索引已生成');
+      },
+    },
+  };
+}
 
 // 纯静态输出：构建产物 dist/ 可直接托管到 Cloudflare Pages / Netlify / Vercel
 // 不需要常驻 Node 进程，没有服务端运行时。
@@ -15,7 +46,7 @@ const LOCAL_TMP = '/home/vii/.tmp';
 export default defineConfig({
   site: 'https://daidai.click',
   output: 'static',
-  integrations: [sitemap()],
+  integrations: [sitemap(), pagefindIndexer()],
   markdown: {
     remarkPlugins: [remarkReadingTime],
   },
