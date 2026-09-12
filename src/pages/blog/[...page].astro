@@ -38,12 +38,26 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     </section>
 
     <section class="searchbar" aria-label="全文检索">
-      <input
-        class="search-input"
-        type="search"
-        placeholder="检索文章全文…"
-        aria-label="检索文章全文"
-      />
+      <div class="search-wrap">
+        <input
+          class="search-input"
+          type="search"
+          placeholder="检索文章全文…"
+          aria-label="检索文章全文"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button class="search-clear" type="button" aria-label="清空检索" hidden>
+          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <path
+              d="M1 1l10 10M11 1L1 11"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"></path>
+          </svg>
+        </button>
+      </div>
       <p class="search-status" data-search-status hidden></p>
     </section>
     <section class="search-results" data-search-results hidden></section>
@@ -89,6 +103,7 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
   const statusEl = document.querySelector('[data-search-status]');
   const resultsEl = document.querySelector('[data-search-results]');
   const listEl = document.querySelector('[data-list]');
+  const clearBtn = document.querySelector('.search-clear');
   let pagefind = null;
   let timer = 0;
 
@@ -158,15 +173,29 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
       renderResults(items);
     } catch {
       show(statusEl);
-      statusEl.textContent = '检索仅在构建产物可用（dev 无索引）';
+      statusEl.textContent = '全文检索在构建产物 / 线上可用 · dev 模式无索引';
       hide(resultsEl);
       show(listEl);
     }
   }
 
+  /* 清除按钮：随输入显隐；点击清空并立即恢复列表态（不走 220ms 防抖） */
+  const syncClear = () => {
+    if (clearBtn) clearBtn.hidden = !input.value;
+  };
+  /* webkit type=search 的 Escape 清空触发 search 事件，不一定触发 input */
+  input?.addEventListener('search', syncClear);
   input?.addEventListener('input', () => {
+    syncClear();
     clearTimeout(timer);
     timer = setTimeout(run, 220);
+  });
+  clearBtn?.addEventListener('click', () => {
+    input.value = '';
+    syncClear();
+    clearTimeout(timer);
+    input.focus();
+    run();
   });
 </script>
 
@@ -270,10 +299,13 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
   .searchbar {
     padding: 20px clamp(20px, 4vw, 48px) 0;
   }
+  .search-wrap {
+    position: relative;
+  }
   .search-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 16px;
+    padding: 12px 52px 12px 16px;
     border: 1.5px solid rgba(19, 18, 17, 0.4);
     border-radius: 6px;
     background: transparent;
@@ -285,6 +317,45 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
   .search-input:focus {
     outline: none;
     border-color: #cf0a1a;
+  }
+  /* 原生清除按钮样式不可控（webkit 默认 ×，颜色不随主题），隐藏后用自定义按钮 */
+  .search-input::-webkit-search-cancel-button,
+  .search-input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+  .search-clear {
+    position: absolute;
+    top: 50%;
+    right: 13px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1.5px solid rgba(19, 18, 17, 0.3);
+    border-radius: 50%;
+    background: transparent;
+    color: #6f6f6f;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, transform 0.25s ease;
+  }
+  .search-clear:hover {
+    color: #cf0a1a;
+    border-color: #cf0a1a;
+    transform: translateY(-50%) rotate(90deg);
+  }
+  .search-clear:focus-visible {
+    outline: none;
+    color: #cf0a1a;
+    border-color: #cf0a1a;
+  }
+  /* 用 hidden 切换设了 display 的元素必须配强规则（作者样式压过 UA 的 [hidden]） */
+  .search-clear[hidden] {
+    display: none !important;
   }
   .search-status {
     margin: 10px 2px 0;
