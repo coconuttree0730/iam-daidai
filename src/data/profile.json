@@ -24,22 +24,20 @@
   "_basicComment": "基本信息抽屉（#basic overlay）的唯一数据源，2026-09-13 建。标 _TODO 的值都是编的占位内容，改这里即可、不要改组件。photo 素材是 public/motion/basic-portrait.webp（图集 f0 正脸帧裁切 340×420 透明底，换姿态用 ffmpeg 重裁即可）。",
   "basic": {
     "fileNo": "NO.001",
-    "classification": "密级 公开",
-    "name": "DAIDAI",
-    "nameSub": "Daidai",
+    "name": "DAIDAI@饿得快",
     "status": "OPEN TO WORK",
     "identity": "前端 × 设计，正在把喜欢的事做成日常。",
-    "location": "杭州 · 中国",
-    "timezone": "UTC+8",
     "now": "正在打磨这个档案馆，顺便计划下一场说走就走。",
-    "skills": ["TypeScript", "Astro", "CSS 动效", "UI 设计", "手绘"],
+    "skills": ["Java后端开发", "AI-Agent", "小程序开发", "UI 设计", "手绘"],
     "links": [
-      { "label": "GitHub", "href": "https://github.com/daidai" },
-      { "label": "RSS", "href": "/rss.xml" }
+      { "label": "GitHub", "href": "https://github.com/coconuttree0730", "icon": "/icons/github.svg", "mono": true },
+      { "label": "小红书", "href": "https://www.xiaohongshu.com/user/profile/5de89db60000000001004414", "icon": "/icons/xiaohongshu.svg" },
+      { "label": "邮箱", "href": "mailto:3540820032@qq.com", "icon": "/icons/mail.svg" },
+      { "label": "RSS", "href": "/rss.xml", "icon": "/icons/rss.svg" }
     ],
     "mbti": "INFP",
-    "zodiac": "天蝎座",
-    "_todo": ["identity", "location", "now", "skills", "links", "mbti", "zodiac"]
+    "zodiac": "狮子座",
+    "_todo": ["identity", "now", "skills", "mbti", "zodiac", "links[].href（小红书仍是占位主页地址，待填真实主页链接）"]
   },
   "outro": {
     "quote": "把喜欢的事做成日常。",

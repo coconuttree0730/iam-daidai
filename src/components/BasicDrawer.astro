@@ -59,18 +59,33 @@ const links = basic.links ?? [];
     <div class="file-objects">
       <article class="obj file-id" style="--tilt: 0.6deg">
         <p class="file-id-name">{basic.name}</p>
-        <p class="file-id-sub">{basic.nameSub}</p>
-        <dl class="file-id-rows">
-          <div><dt>编号</dt><dd>{basic.fileNo}</dd></div>
-          <div><dt>密级</dt><dd>{basic.classification}</dd></div>
-        </dl>
+        <div class="file-id-social">
+          {
+            links.map((link) => {
+              /* 只有 http(s) 外链开新标签；mailto: / 站内 /rss.xml 当前页处理 */
+              const external = link.href.startsWith('http');
+              return (
+                <a
+                  class:list={["file-social", { "file-social--mono": link.mono }]}
+                  href={link.href}
+                  title={link.label}
+                  aria-label={link.label}
+                  target={external ? '_blank' : undefined}
+                  rel={external ? 'noopener noreferrer' : undefined}
+                >
+                  <img src={link.icon} alt="" width="22" height="22" loading="lazy" />
+                </a>
+              );
+            })
+          }
+        </div>
       </article>
 
-      <article class="obj file-stampcard" style="--tilt: -0.9deg">
-        <p class="obj-label">POST · 坐标</p>
-        <p class="file-stampcard-value">{basic.location}</p>
-        <p class="file-stampcard-tz">{basic.timezone}</p>
-        <span class="file-postmark" aria-hidden="true">POST<br />2026</span>
+      <article class="obj file-skills" style="--tilt: 0.5deg">
+        <p class="obj-label">INDEX · 技能</p>
+        <ul class="file-skills-list">
+          {skills.map((skill) => <li>{skill}</li>)}
+        </ul>
       </article>
 
       <article class="obj file-note" style="--tilt: 0.9deg">
@@ -82,31 +97,8 @@ const links = basic.links ?? [];
       <article class="obj file-now" style="--tilt: -0.7deg">
         <p class="obj-label">NOW · 正在做</p>
         <p class="file-now-text">{basic.now}</p>
+        <span class="file-now-stamp" aria-hidden="true">NOW<br />2026</span>
       </article>
-
-      <article class="obj file-skills" style="--tilt: 0.5deg">
-        <p class="obj-label">INDEX · 技能</p>
-        <ul class="file-skills-list">
-          {skills.map((skill) => <li>{skill}</li>)}
-        </ul>
-      </article>
-
-      <div class="file-links">
-        {
-          links.map((link) => (
-            <a
-              class="file-link"
-              style="--tilt: 0deg"
-              href={link.href}
-              target={link.href.startsWith('/') ? undefined : '_blank'}
-              rel={link.href.startsWith('/') ? undefined : 'noopener noreferrer'}
-            >
-              <span>{link.label}</span>
-              <i aria-hidden="true">↗</i>
-            </a>
-          ))
-        }
-      </div>
     </div>
   </div>
 
