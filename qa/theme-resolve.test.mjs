@@ -4,16 +4,16 @@
 import assert from 'node:assert/strict';
 import { resolveTheme, currentTheme, THEME_KEY } from '../src/lib/theme.js';
 
-// 合法存储值优先
+// 合法存储值优先（点过「夜」的记忆生效）
 assert.equal(resolveTheme('dark', false), 'dark');
+assert.equal(resolveTheme('dark', true), 'dark');
 assert.equal(resolveTheme('light', true), 'light');
-// 非法/缺失存储值 → 系统偏好兜底
-assert.equal(resolveTheme(null, true), 'dark');
+// 非法/缺失存储值 → 一律浅色（2026-09-12 用户裁定：默认昼，
+// 系统深色偏好不再参与决策；prefersDark 形参保留但恒被忽略）
+assert.equal(resolveTheme(null, true), 'light');
 assert.equal(resolveTheme(undefined, false), 'light');
-assert.equal(resolveTheme('', true), 'dark');
-assert.equal(resolveTheme('blue', true), 'dark'); // 非法值视同缺失
-// 系统偏好缺失（matchMedia 不可用传 false）→ 浅色
-assert.equal(resolveTheme(null, false), 'light');
+assert.equal(resolveTheme('', true), 'light');
+assert.equal(resolveTheme('blue', true), 'light'); // 非法值视同缺失
 
 // currentTheme：未标记 → light 兜底
 assert.equal(currentTheme({ dataset: {} }), 'light');

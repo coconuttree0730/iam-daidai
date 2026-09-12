@@ -46,18 +46,15 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
     <meta charset="UTF-8" />
     <!-- 主题初始化：必须在首帧前同步执行（防 FOUC）。此段逻辑与
         src/lib/theme.js 的 resolveTheme 等价（内联脚本无法 import），
-        改决策规则时两处同步。 -->
+        改决策规则时两处同步。
+        2026-09-12 用户裁定：默认昼，无合法记忆值一律浅色，
+        系统深色偏好不参与决策；点过「夜」的记忆值仍生效。 -->
     <script is:inline>
       (function () {
         var t = 'light';
         try {
           var s = localStorage.getItem('theme');
-          t =
-            s === 'dark' || s === 'light'
-              ? s
-              : window.matchMedia('(prefers-color-scheme: dark)').matches
-                ? 'dark'
-                : 'light';
+          t = s === 'dark' || s === 'light' ? s : 'light';
         } catch (e) {}
         document.documentElement.dataset.theme = t;
       })();

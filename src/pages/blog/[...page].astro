@@ -34,8 +34,11 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
       <a class="back" href="/">← 返回档案馆</a>
     </header>
 
-    {/* 页头横幅：横幅底 + 人物层两件套（素材由 .tmp/prep_blog_header.py 生成，
-        横幅已抹除内嵌人物、纸色重映射为站纸 var(--c-paper)；h1 转视觉隐藏保语义） */}
+    {/* 页头横幅三件套（2026-09-12 晚升级）：横幅底 + 独立地面阴影 + Q版人物层。
+        横幅底：纸色重映射为站纸 var(--c-paper)、内嵌人物与地面阴影已剥离（.tmp/prep_blog_header.py）；
+        阴影层：从横幅反解的 RGBA（.tmp/split 逻辑并入 prep 脚本 3c 步），可独立位移；
+        人物层：Q版贴纸风插画（源 temp/图片优化-character.png，alpha 裁边后 1279x1950）。
+        h1 转视觉隐藏保语义 */}
     <section class="hero">
       <h1 class="sr-only">博客</h1>
       <div class="hero-band">
@@ -49,11 +52,20 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
           decoding="async"
         />
         <img
-          class="hero-band__char"
-          src="/motion/blog-character.webp"
+          class="hero-band__shadow"
+          src="/motion/blog-shadow.webp"
           alt=""
-          width="623"
-          height="915"
+          width="760"
+          height="76"
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          class="hero-band__char"
+          src="/motion/blog-character-chibi.webp"
+          alt=""
+          width="1279"
+          height="1950"
           loading="eager"
           decoding="async"
         />
@@ -251,13 +263,14 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     position: relative;
     width: 100%;
     /* 桌面收窄（2026-09-12 用户反馈：全宽 2:1 太高，把下方文字挤出首屏）。
-       860px 下高 430px；横幅纸色与页面同色，收窄后无可见接缝。
-       移动端视口 < 860px 不受影响。 */
-    max-width: 860px;
+       860→760px（同日二次反馈仍偏大，高 380px）；横幅纸色与页面同色，
+       收窄后无可见接缝。移动端视口 < 760px 不受影响。 */
+    max-width: 760px;
     margin-inline: auto;
     aspect-ratio: 2 / 1;
   }
   .hero-band__bg,
+  .hero-band__shadow,
   .hero-band__char {
     position: absolute;
     display: block;
@@ -267,12 +280,21 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     width: 100%;
     height: 100%;
   }
-  /* 落点 = 抠图内容在横幅 2048x1024 中的配准矩形（见 .tmp/prep_blog_header.py）；
-     +5px 右移（2026-09-12 用户裁定）：原位发丝微挡 NOTES 的 S，绝对像素值各端一致 */
+  /* 阴影层落点 = 剥离时在横幅 2048x1024 中的原配准矩形（prep 脚本 3c 步打印）。
+     原位回贴即与横幅构图（NOTES/基线）逐像素对齐；要跟随人物位移时改 left 偏移 */
+  .hero-band__shadow {
+    left: 52.7344%;
+    top: 87.8906%;
+    width: 37.1094%;
+    height: 7.4219%;
+  }
+  /* Q版人物层（2026-09-12 晚，源 temp/图片优化-character.png → blog-character-chibi.webp）。
+     沿用原照片人物的调校框（-15px 微调：头部轻微盖住 NOTES 的 S），按新图长宽比
+     1279:1950 重算宽度保持高度 91.1133% 不变（脚底落基线下方，与参考构图一致） */
   .hero-band__char {
-    left: calc(56.2012% + 5px);
+    left: calc(56.2012% - 15px);
     top: 4.4922%;
-    width: 31.0059%;
+    width: 29.8828%;
     height: 91.1133%;
   }
 

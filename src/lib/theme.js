@@ -10,13 +10,16 @@
 export const THEME_KEY = 'theme';
 
 /**
+ * 默认昼（2026-09-12 用户裁定）：首次访问（无合法记忆值）一律浅色，
+ * 系统深色偏好不再参与决策——只有游客点「夜」写入记忆后才切黑。
+ *
  * @param {string | null | undefined} stored  localStorage 记忆值（可能非法）
- * @param {boolean} prefersDark  系统深色偏好
+ * @param {boolean} [prefersDark]  已废弃：保留形参避免调用点断裂，恒被忽略
  * @returns {'dark' | 'light'}
  */
 export function resolveTheme(stored, prefersDark) {
   if (stored === 'dark' || stored === 'light') return stored;
-  return prefersDark ? 'dark' : 'light';
+  return 'light';
 }
 
 /** 把主题写到根元素的 data-theme 属性上 */
