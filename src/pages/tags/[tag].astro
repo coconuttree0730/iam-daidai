@@ -42,9 +42,9 @@ const { tag, posts } = Astro.props;
 
     <section class="list-section" aria-label={`标签 ${tag} 的文章列表`}>
       <ul class="list" role="list">
-        {posts.map((p, i) => (
+        {posts.map((p) => (
           <li>
-            <PostCard post={p} no={String(i + 1).padStart(2, '0')} />
+            <PostCard post={p} />
           </li>
         ))}
       </ul>
@@ -62,8 +62,8 @@ const { tag, posts } = Astro.props;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #eeedeb;
-    color: #131211;
+    background: var(--c-paper);
+    color: var(--c-ink);
     font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
       'Microsoft YaHei', sans-serif;
   }
@@ -73,41 +73,41 @@ const { tag, posts } = Astro.props;
     align-items: center;
     gap: 12px;
     padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
   }
   .tag {
     font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
     font-size: 12px;
     letter-spacing: 0.08em;
     padding: 4px 10px;
-    border: 1px solid #131211;
+    border: 1px solid var(--c-ink);
     border-radius: 4px;
   }
   .tag--red {
-    border-color: #cf0a1a;
-    color: #cf0a1a;
+    border-color: var(--c-red);
+    color: var(--c-red);
   }
   .tag--link {
-    color: #6f6f6f;
-    border-color: rgba(19, 18, 17, 0.3);
+    color: var(--c-muted);
+    border-color: rgba(var(--c-ink-rgb), 0.3);
     text-decoration: none;
     transition: color 0.15s ease, border-color 0.15s ease;
   }
   .tag--link:hover {
-    color: #cf0a1a;
-    border-color: #cf0a1a;
+    color: var(--c-red);
+    border-color: var(--c-red);
   }
   .back {
     margin-left: auto;
     font-size: 13px;
-    color: #131211;
+    color: var(--c-ink);
     text-decoration: none;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
     padding-bottom: 2px;
   }
   .back:hover {
-    color: #cf0a1a;
-    border-color: #cf0a1a;
+    color: var(--c-red);
+    border-color: var(--c-red);
   }
 
   .hero {
@@ -125,7 +125,7 @@ const { tag, posts } = Astro.props;
     line-height: 1;
     letter-spacing: 0.04em;
     color: transparent;
-    -webkit-text-stroke: 1.2px #c3c1be;
+    -webkit-text-stroke: 1.2px var(--c-ghost);
     user-select: none;
   }
   .hero h1 {
@@ -145,7 +145,7 @@ const { tag, posts } = Astro.props;
     margin: 0;
     padding: 0;
     list-style: none;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
   }
 
   .foot {
@@ -157,18 +157,18 @@ const { tag, posts } = Astro.props;
   .foot .dash {
     width: 34px;
     height: 5px;
-    background: #cf0a1a;
+    background: var(--c-red);
   }
   .foot .barcode {
     height: 14px;
     width: 64px;
     background-image: repeating-linear-gradient(
       90deg,
-      #131211 0 1px,
+      var(--c-ink) 0 1px,
       transparent 1px 2.4px,
-      #131211 2.4px 4.4px,
+      var(--c-ink) 2.4px 4.4px,
       transparent 4.4px 5.4px,
-      #131211 5.4px 6.4px,
+      var(--c-ink) 5.4px 6.4px,
       transparent 6.4px 8.4px
     );
   }

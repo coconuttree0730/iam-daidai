@@ -7,14 +7,16 @@
  * @pagefind/default-ui 构建时打包）落地后该风险结构性消除（包名
  * specifier 是 Vite 原生支持路径），v1 失去保护对象，就地改写。
  *
- * 现在锁三件事（纯本地文件断言，无网络无 dev server，秒级）：
+ * 现在锁四件事（纯本地文件断言，无网络无 dev server，秒级）：
  *   1. 源码形态：搜索脚本必须是「import.meta.env.DEV 门控 +
  *      import('@pagefind/default-ui')」，且不残留方案一的运行时
  *      import 索引产物写法（import(...) 内出现 pagefind.js）；
- *   2. 产物折叠（若 dist/blog/index.html 存在）：dev 兜底文案已被
+ *   2. 自定义清除按钮：源码必须含 .search-clear 圆圈 × 结构，且隐藏
+ *      default-ui 自带文本清除按钮（.pagefind-ui__search-clear）；
+ *   3. 产物折叠（若 dist/blog/index.html 存在）：dev 兜底文案已被
  *      构建期折叠剔除、生产错误分支与挂载点保留；
- *   3. 产物 chunk：dist/_astro/ 存在 default-ui chunk（含 PagefindUI
- *      标识、>100KB）。
+ *   4. 产物 chunk：dist/_astro/ 存在 default-ui chunk（含 PagefindUI
+ *      标识、>50KB）。
  * 产物比源码旧时 exit 2（提示先 build），不算真回归。
  * 退出码：0 通过 / 1 真回归 / 2 环境问题。
  * 不含 Chrome / 截图（遵守「改后不跑无头浏览器」约定）。
@@ -42,8 +44,14 @@ if (!/import\(['"`]@pagefind\/default-ui['"`]\)/.test(src)) {
 if (/import\([^)]*pagefind\.js/.test(src)) {
 	problems.push('源码残留方案一的运行时 import 产物写法（import(...) 内含 pagefind.js）');
 }
+if (!src.includes('search-clear')) {
+	problems.push('源码缺少自定义圆圈 × 清除按钮（search-clear）');
+}
+if (!src.includes('.pagefind-ui__search-clear')) {
+	problems.push('源码未隐藏 default-ui 自带文本清除按钮（.pagefind-ui__search-clear）');
+}
 
-/* ── 2+3. 产物断言 ── */
+/* ── 2+3+4. 产物断言 ── */
 if (!existsSync(DIST_HTML)) {
 	console.error('[pagefind-ui] dist 未构建，产物断言跳过。请先 npm run build 再重跑本脚本。');
 	process.exit(2);

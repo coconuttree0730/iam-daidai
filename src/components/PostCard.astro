@@ -1,24 +1,23 @@
 ---
 // 博客卡片（行式条目），参照 Astro-theme-Cactus-zh_CN 的 PostPreview.astro：
 // 构建期渲染、零客户端 JS。
-// 2026-09-12 定稿：档案风骨架（NO.编号 + 标题 + 箭头 hover 红章色），
+// 2026-09-12 定稿：档案风骨架（标题 + 箭头 hover 红章色），
 // 微调两项——①描述用 <q>（弯引号 + 斜体，同 Cactus 原味渲染）；
 // ②日期列改用 Cactus 的字型（无衬线 600 字重 14px 灰调，弃等宽字体）。
+// （2026-09-12 用户裁定：文档标签保留时间，去掉 NO.xx 编号。）
 import { getFormattedDate, type Post } from '../data/posts';
 
 interface Props {
   post: Post;
-  no?: string;
 }
 
-const { post, no } = Astro.props;
+const { post } = Astro.props;
 const href = `/blog/${post.id}/`;
 const iso = post.data.publishDate.toISOString();
 ---
 
 <a class="row" href={href}>
   <span class="lead">
-    {no && <span class="no" aria-hidden="true">NO.{no}</span>}
     <time class="date" datetime={iso}>
       {getFormattedDate(post.data.publishDate)}
     </time>
@@ -56,19 +55,13 @@ const iso = post.data.publishDate.toISOString();
     color: inherit;
     text-decoration: none;
   }
-  .lead {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 120px;
-  }
-  .no {
-    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: #cf0a1a;
-  }
-  /* 日期列：Cactus 原味字型（无衬线 600 / 14px / 灰），2026-09-12 定稿 */
+	.lead {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 120px;
+	}
+	/* 日期列：Cactus 原味字型（无衬线 600 / 14px / 灰），2026-09-12 定稿 */
   .date {
     font-weight: 600;
     font-size: 14px;
