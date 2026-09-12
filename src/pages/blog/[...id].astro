@@ -32,6 +32,7 @@ const iso = post.data.publishDate.toISOString();
   type="article"
   publishedTime={post.data.publishDate}
   modifiedTime={post.data.updatedDate}
+  image={`/og-image/${post.id}.png`}
 >
   <main class="sheet">
     <header class="head">
@@ -155,8 +156,8 @@ const iso = post.data.publishDate.toISOString();
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #eeedeb;
-    color: #131211;
+    background: var(--c-paper);
+    color: var(--c-ink);
     font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
       "Microsoft YaHei", sans-serif;
   }
@@ -166,29 +167,29 @@ const iso = post.data.publishDate.toISOString();
     align-items: center;
     gap: 12px;
     padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
   }
   .tag {
     font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
     font-size: 12px;
     letter-spacing: 0.08em;
     padding: 4px 10px;
-    border: 1px solid #131211;
+    border: 1px solid var(--c-ink);
     border-radius: 4px;
   }
   .tag--red {
-    border-color: #cf0a1a;
-    color: #cf0a1a;
+    border-color: var(--c-red);
+    color: var(--c-red);
   }
   .back {
     margin-left: auto;
     font-size: 13px;
-    color: #131211;
+    color: var(--c-ink);
     text-decoration: none;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
     padding-bottom: 2px;
   }
-  .back:hover { color: #cf0a1a; border-color: #cf0a1a; }
+  .back:hover { color: var(--c-red); border-color: var(--c-red); }
 
   .post {
     flex: 1;
@@ -206,7 +207,7 @@ const iso = post.data.publishDate.toISOString();
     line-height: 1;
     letter-spacing: 0.04em;
     color: transparent;
-    -webkit-text-stroke: 1px #c3c1be;
+    -webkit-text-stroke: 1px var(--c-ghost);
     user-select: none;
   }
   .post-head h1 {
@@ -227,33 +228,33 @@ const iso = post.data.publishDate.toISOString();
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px;
     letter-spacing: 0.06em;
-    color: #6f6f6f;
+    color: var(--c-muted);
     font-variant-numeric: tabular-nums;
   }
   .chip {
     display: inline-block;
     padding: 1px 8px;
-    border: 1px solid rgba(207, 10, 26, 0.45);
+    border: 1px solid rgba(var(--c-red-rgb), 0.45);
     border-radius: 4px;
     font-size: 10.5px;
     letter-spacing: 0.06em;
-    color: #cf0a1a;
+    color: var(--c-red);
   }
   a.chip {
     text-decoration: none;
     transition: border-color 0.15s ease, background 0.15s ease;
   }
   a.chip:hover {
-    border-color: #cf0a1a;
-    background: rgba(207, 10, 26, 0.08);
+    border-color: var(--c-red);
+    background: rgba(var(--c-red-rgb), 0.08);
   }
   .sep {
-    color: rgba(19, 18, 17, 0.35);
+    color: rgba(var(--c-ink-rgb), 0.35);
   }
   .read {
     font-size: 12.5px;
     letter-spacing: 0.06em;
-    color: #6f6f6f;
+    color: var(--c-muted);
   }
 
   /* ── 目录（TOC）：容器在模板，内部 ul/li/a 由脚本注入 → 必须 :global ── */
@@ -261,7 +262,7 @@ const iso = post.data.publishDate.toISOString();
     max-width: 720px;
     margin: 10px auto 0;
     padding: 12px 20px 14px;
-    border: 1px dashed rgba(19, 18, 17, 0.3);
+    border: 1px dashed rgba(var(--c-ink-rgb), 0.3);
     border-radius: 8px;
     font-size: 13.5px;
   }
@@ -277,7 +278,7 @@ const iso = post.data.publishDate.toISOString();
     font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
     font-size: 10.5px;
     letter-spacing: 0.14em;
-    color: #cf0a1a;
+    color: var(--c-red);
   }
   .toc :global(li) {
     margin: 4px 0;
@@ -286,14 +287,14 @@ const iso = post.data.publishDate.toISOString();
     padding-left: 18px;
   }
   .toc :global(a) {
-    color: #131211;
+    color: var(--c-ink);
     text-decoration: none;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.25);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.25);
     padding-bottom: 1px;
   }
   .toc :global(a:hover) {
-    color: #cf0a1a;
-    border-color: #cf0a1a;
+    color: var(--c-red);
+    border-color: var(--c-red);
   }
 
   /* ── 代码块复制按钮（脚本生成 wrapper）── */
@@ -305,18 +306,19 @@ const iso = post.data.publishDate.toISOString();
     top: 8px;
     right: 8px;
     padding: 3px 10px;
-    border: 1px solid rgba(238, 237, 235, 0.4);
+    border: 1px solid rgba(var(--c-paper-rgb), 0.4);
     border-radius: 5px;
-    background: rgba(19, 18, 17, 0.55);
-    color: #eeedeb;
+    background: rgba(var(--c-ink-rgb), 0.55);
+    color: var(--c-paper);
     font-size: 11px;
     letter-spacing: 0.08em;
     cursor: pointer;
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .prose :global(.copy-btn:hover) {
-    border-color: #cf0a1a;
-    color: #fff;
+    border-color: var(--c-red);
+    /* 两种主题下按钮底都随 --c-ink 翻转，hover 字色用红字而非白字才可读 */
+    color: var(--c-red);
   }
 
   /* ── 相邻文章导航（上一篇/下一篇）── */
@@ -334,7 +336,7 @@ const iso = post.data.publishDate.toISOString();
     flex-direction: column;
     gap: 6px;
     padding: 14px 16px;
-    border: 1px solid rgba(19, 18, 17, 0.25);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.25);
     border-radius: 8px;
     color: inherit;
     text-decoration: none;
@@ -344,7 +346,7 @@ const iso = post.data.publishDate.toISOString();
   .navcard small {
     font-size: 11px;
     letter-spacing: 0.08em;
-    color: #6f6f6f;
+    color: var(--c-muted);
   }
   .navcard strong {
     font-size: 14px;
@@ -352,10 +354,10 @@ const iso = post.data.publishDate.toISOString();
     line-height: 1.4;
   }
   .navcard:hover {
-    border-color: #cf0a1a;
+    border-color: var(--c-red);
   }
   .navcard:hover small {
-    color: #cf0a1a;
+    color: var(--c-red);
   }
   .navcard--right {
     text-align: right;
@@ -379,7 +381,7 @@ const iso = post.data.publishDate.toISOString();
     font-weight: 900;
     margin: 34px 0 12px;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
   }
   .prose :global(h3) {
     font-size: 16.5px;
@@ -390,7 +392,7 @@ const iso = post.data.publishDate.toISOString();
     margin: 0 0 14px;
   }
   .prose :global(a) {
-    color: #cf0a1a;
+    color: var(--c-red);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 2px;
@@ -404,8 +406,8 @@ const iso = post.data.publishDate.toISOString();
   .prose :global(blockquote) {
     margin: 18px 0;
     padding: 4px 18px;
-    border-left: 3px solid #cf0a1a;
-    color: #6f6f6f;
+    border-left: 3px solid var(--c-red);
+    color: var(--c-muted);
   }
   .prose :global(blockquote p) {
     margin: 8px 0;
@@ -423,8 +425,8 @@ const iso = post.data.publishDate.toISOString();
     font-size: 0.86em;
     padding: 1px 6px;
     border-radius: 4px;
-    background: rgba(19, 18, 17, 0.06);
-    border: 1px dotted rgba(19, 18, 17, 0.35);
+    background: rgba(var(--c-ink-rgb), 0.06);
+    border: 1px dotted rgba(var(--c-ink-rgb), 0.35);
   }
   .prose :global(pre) {
     margin: 18px 0;
@@ -446,7 +448,7 @@ const iso = post.data.publishDate.toISOString();
   }
   .prose :global(hr) {
     border: 0;
-    border-top: 1px dashed rgba(19, 18, 17, 0.3);
+    border-top: 1px dashed rgba(var(--c-ink-rgb), 0.3);
     margin: 30px 0;
   }
   .prose :global(table) {
@@ -457,13 +459,13 @@ const iso = post.data.publishDate.toISOString();
   }
   .prose :global(th),
   .prose :global(td) {
-    border-bottom: 1px dashed rgba(19, 18, 17, 0.3);
+    border-bottom: 1px dashed rgba(var(--c-ink-rgb), 0.3);
     padding: 8px 10px;
     text-align: left;
   }
   .prose :global(th) {
     font-weight: 800;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
   }
 
   .foot {
@@ -475,18 +477,18 @@ const iso = post.data.publishDate.toISOString();
   .foot .dash {
     width: 34px;
     height: 5px;
-    background: #cf0a1a;
+    background: var(--c-red);
   }
   .foot .barcode {
     height: 14px;
     width: 64px;
     background-image: repeating-linear-gradient(
       90deg,
-      #131211 0 1px,
+      var(--c-ink) 0 1px,
       transparent 1px 2.4px,
-      #131211 2.4px 4.4px,
+      var(--c-ink) 2.4px 4.4px,
       transparent 4.4px 5.4px,
-      #131211 5.4px 6.4px,
+      var(--c-ink) 5.4px 6.4px,
       transparent 6.4px 8.4px
     );
   }

@@ -1,8 +1,45 @@
 :root {
-  --ink: #1a1a1a;
-  --muted: #6f6f6f;
-  --line: rgba(0, 0, 0, 0.12);
-  --panel: rgba(255, 255, 255, 0.72);
+  color-scheme: light;
+
+  /* ── 语义色板（2026-09-12 暗色模式）────────────────────────────
+     浅色值 = 档案纸感原值，一字未改；暗色在 [data-theme="dark"] 整体翻转。
+     --c-*-rgb 通道变量专供 rgba(var(--c-ink-rgb), α) 形态消费——
+     同一墨色/印红的 alpha 衍生色（描边、淡底、阴影）随之一起换肤。 */
+  --c-page: #f2f0ee;
+  --c-paper: #eeedeb;
+  --c-paper-rgb: 238, 237, 235;
+  --c-card: #fdfdfc;
+  --c-card-rgb: 253, 253, 252;
+  --c-card-warm: #fbf7ec;
+  --c-ink: #131211;
+  --c-ink-rgb: 19, 18, 17;
+  --c-ink-2: #55524e;
+  --c-note-ink: #3f3f42;
+  --c-muted: #6f6f6f;
+  --c-muted-2: #8d8a86;
+  --c-muted-3: #a9a6a1;
+  --c-line: rgba(0, 0, 0, 0.12);
+  --c-check: rgba(0, 0, 0, 0.035);   /* 棋盘格底纹 */
+  --c-code-bg: rgba(0, 0, 0, 0.06);  /* 行内代码底 */
+  --c-red: #cf0a1a;
+  --c-red-rgb: 207, 10, 26;
+  --c-red-deep: #ba040d;
+  --c-ghost: #c3c1be;                /* 描边大字的描边色 */
+  --c-glow: #ffffff;                 /* 纸面径向提亮 */
+  /* 信息条黑条：两种主题都保持深底（用户裁定「黑条在人物之下」，黑是其身份） */
+  --c-bar: #131211;
+  --c-ok: #3b6d11;
+  --c-badge-ink: #0f6e56;
+  --c-badge-bg: rgba(29, 158, 117, 0.14);
+  --c-warn-ink: #633806;
+  --c-warn-line: rgba(186, 117, 23, 0.3);
+  --c-warn-bg: rgba(250, 238, 218, 0.8);
+
+  /* 旧变量兼容层：既有规则引用的 --ink/--muted/--line/--panel 改由色板供数 */
+  --ink: var(--c-ink);
+  --muted: var(--c-muted);
+  --line: var(--c-line);
+  --panel: rgba(var(--c-card-rgb), 0.72);
 
   /* 主体显示宽度（CSS px）。这是唯一的尺寸旋钮：
      482 × 602 px 单格 ÷ DPR 2 = 241 × 301，即 DPR 2 下的 1:1 像素对齐尺寸。
@@ -11,6 +48,41 @@
 
      241px 偏小，这里按 1.6 倍显示（约 386px），28vh 是矮屏兜底。 */
   --stage-width: min(386px, 56vh, 44vw);
+}
+
+/* ── 暗色主题（「夜览档案」）────────────────────────────────────────
+   只翻转 --c-* 色板，不动任何版式几何；深炭暖调，红章提亮保对比。
+   信息条 --c-bar 不翻（黑条两种主题都是黑）。 */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-page: #171614;
+  --c-paper: #1d1c1a;
+  --c-paper-rgb: 29, 28, 26;
+  --c-card: #232220;
+  --c-card-rgb: 35, 34, 32;
+  --c-card-warm: #29261f;
+  --c-ink: #e6e3dd;
+  --c-ink-rgb: 230, 227, 221;
+  --c-ink-2: #c2beb6;
+  --c-note-ink: #c2beb6;
+  --c-muted: #9a968e;
+  --c-muted-2: #85817a;
+  --c-muted-3: #6d6a64;
+  --c-line: rgba(255, 255, 255, 0.14);
+  --c-check: rgba(255, 255, 255, 0.045);
+  --c-code-bg: rgba(255, 255, 255, 0.07);
+  --c-red: #e5454f;
+  --c-red-rgb: 229, 69, 79;
+  --c-red-deep: #ef6a73;
+  --c-ghost: #3c3a37;
+  --c-glow: rgba(255, 255, 255, 0.05);
+  --c-ok: #8fbf6a;
+  --c-badge-ink: #4cc39a;
+  --c-badge-bg: rgba(76, 195, 154, 0.16);
+  --c-warn-ink: #d9a44a;
+  --c-warn-line: rgba(217, 164, 74, 0.4);
+  --c-warn-bg: rgba(80, 62, 30, 0.55);
 }
 
 * { box-sizing: border-box; }
@@ -208,3 +280,63 @@ table.facts tr:last-child td { border-bottom: 0; }
   line-height: 1.7;
 }
 .notice.is-on { display: block; }
+
+/* ── 无障碍：视觉隐藏（hero.css 有一份同款，但博客等页面不加载它）── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 主题切换章（2026-09-12 暗色模式）─────────────────────────────
+   固定定位悬浮章，默认右上角；可拖动换位（2026-09-12 用户裁定：
+   固定位置有时挡住其他组件）。z-index 900 = 压过 hero 全部层（≤6）、低于 toast(9999)。 */
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 900;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--c-line);
+  background: var(--c-card);
+  color: var(--c-ink);
+  font: 900 15px/1 -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  /* 圆形章旋转封顶 ≤14°（用户裁定） */
+  rotate: -8deg;
+  cursor: grab;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  /* 触摸端：手指按在章上拖动 = 移动章，不滚页面 */
+  touch-action: none;
+}
+/* 拖动换位后由 JS 的 left/top 接管，right 让位（否则 left/right 同时生效互相拉扯） */
+.theme-toggle--free {
+  right: auto;
+}
+.theme-toggle--drag {
+  cursor: grabbing;
+}
+.theme-toggle:hover {
+  border-color: var(--c-red);
+  color: var(--c-red);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 2px;
+}
+/* 章面字：亮色显「夜」（点了去夜览），暗色显「昼」 */
+.theme-toggle .t-night,
+.theme-toggle .t-day { display: none; }
+:root:not([data-theme="dark"]) .theme-toggle .t-night { display: block; }
+[data-theme="dark"] .theme-toggle .t-day { display: block; }

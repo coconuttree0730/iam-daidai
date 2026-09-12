@@ -36,12 +36,12 @@
 
 .stage {
   /* ── 版式旋钮：本文件所有可调参数都在这里 ───────────────────────── */
-  --paper: #eeedeb;
-  --card: #fdfdfc;
-  --ink: #131211;
-  --red: #cf0a1a;          /* 实测中位 #ba040d（JPEG 压暗），按观感上调 */
-  --ghost: #c3c1be;        /* 描边大字的描边色，实测 luma 189 / 背景 237 */
-  --hair: rgba(19, 18, 17, 0.16);
+  --paper: var(--c-paper);
+  --card: var(--c-card);
+  --ink: var(--c-ink);
+  --red: var(--c-red);          /* 实测中位 var(--c-red-deep)（JPEG 压暗），按观感上调 */
+  --ghost: var(--c-ghost);        /* 描边大字的描边色，实测 luma 189 / 背景 237 */
+  --hair: rgba(var(--c-ink-rgb), 0.16);
 
   /* 扇形轴心：2026-09-10 从 101%（≈底边中点）抬到 90%。
    *
@@ -175,7 +175,7 @@
 /* ── L1 背景：纯 CSS 生成 + 随滚动横向位移（2026-09-12）────────────
  *
  * 组成：
- *   .stage         background: var(--paper)  纯色打底（纸色 #eeedeb）
+ *   .stage         background: var(--paper)  纯色打底（纸色 var(--c-paper)）
  *   .stage-bg-shift  顶部受光的径向提亮（可横向位移的独立层）
  *
  * ── 为什么要独立成层，而不是继续用 .stage::before ──────────────────
@@ -213,7 +213,7 @@
      但不再随所在盒子变化。 */
   background-image: radial-gradient(
     130vw 86vh at 50% 4%,
-    #ffffff 0%,
+    var(--c-glow) 0%,
     rgba(255, 255, 255, 0) 58%
   );
   background-repeat: no-repeat;
@@ -389,7 +389,7 @@
   color: var(--ink);
   text-decoration: none;
   overflow: hidden;
-  box-shadow: 0 0.5em 1.2em rgba(19, 18, 17, 0.07);
+  box-shadow: 0 0.5em 1.2em rgba(var(--c-ink-rgb), 0.07);
   pointer-events: auto;
   will-change: transform;
   transition:
@@ -405,11 +405,11 @@
   --tilt: calc(var(--theta) * -1);
   --scale: 1.07;
   --py-lift: calc(var(--card-h) * -0.14);
-  box-shadow: 0 1.1em 2.2em rgba(19, 18, 17, 0.18);
+  box-shadow: 0 1.1em 2.2em rgba(var(--c-ink-rgb), 0.18);
 }
 
 .card:focus-visible {
-  outline: 0.16em solid rgba(207, 10, 26, 0.5);
+  outline: 0.16em solid rgba(var(--c-red-rgb), 0.5);
   outline-offset: 0.18em;
 }
 
@@ -568,7 +568,7 @@
   height: calc(var(--ui) * 4.6);
   background-image: radial-gradient(
     circle,
-    rgba(19, 18, 17, 0.5) calc(var(--ui) * 0.14),
+    rgba(var(--c-ink-rgb), 0.5) calc(var(--ui) * 0.14),
     transparent calc(var(--ui) * 0.16)
   );
   background-size: calc(var(--ui) * 1.15) calc(var(--ui) * 1.15);
@@ -587,7 +587,7 @@
   font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.16em;
-  color: #8d8a86;
+  color: var(--c-muted-2);
 }
 .side-index .ruler {
   width: calc(var(--ui) * 11);
@@ -666,7 +666,7 @@
   height: calc(var(--ui) * 1.1);
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(19, 18, 17, 0.5) 0 calc(var(--ui) * 0.16),
+    rgba(var(--c-ink-rgb), 0.5) 0 calc(var(--ui) * 0.16),
     transparent calc(var(--ui) * 0.16) calc(var(--ui) * 0.9)
   );
 }
@@ -684,7 +684,9 @@
   /* 左右两组分置两侧：黑条在人物之下，居中排布会被躯干压住 */
   justify-content: space-between;
   padding-inline: clamp(24px, 4.5vw, 84px);
-  background: var(--ink);
+  /* 信息条 = 黑条：两种主题都保持深底（用户裁定「黑条在人物之下」，黑是其身份）。
+     不消费 --c-ink（暗色下会翻转成浅底）。 */
+  background: var(--c-bar);
   color: #fff;
   font-family: var(--font-cjk);
   font-weight: 900;
@@ -707,6 +709,7 @@
 }
 /* 占位态：未填真实数据时用弱化的字重，避免看起来像已完成 */
 .infobar .item[data-placeholder] {
+  /* 黑条上的占位文字：白 alpha 字面量，主题不变量（条底恒黑） */
   color: rgba(255, 255, 255, 0.52);
   font-weight: 500;
 }
@@ -998,7 +1001,7 @@
   font-weight: 400;
   line-height: 1.85;
   letter-spacing: 0.015em;
-  color: #55524e;
+  color: var(--c-ink-2);
 }
 
 /* 「语录 · QUOTE」装饰小字已按用户要求（2026-09-12）移除。
@@ -1043,7 +1046,7 @@
   font-weight: 400;
   line-height: 1.6;
   letter-spacing: 0.015em;
-  color: #7d7a76;
+  color: var(--c-muted);
 }
 
 /* 字段：标签视觉隐藏（表单一律用 placeholder 提示，与截图一致），
@@ -1076,7 +1079,7 @@
   line-height: 1.5;
   color: var(--ink);
   /* 透明底 + 描边：让纸色透上来，与 hero 的线稿语汇一致 */
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(var(--c-card-rgb),0.5);
   border: 1px solid var(--hair);
   border-radius: clamp(4px, 0.42vw, 7px);
   /* transition 只列颜色类属性：不与 translate/opacity 打架（那两个逐帧即时生效） */
@@ -1090,12 +1093,12 @@
 }
 .field input::placeholder,
 .field textarea::placeholder {
-  color: #a9a6a1;
+  color: var(--c-muted-3);
 }
 .field input:focus,
 .field textarea:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(var(--c-card-rgb),0.86);
   border-color: var(--ink);
 }
 
@@ -1145,7 +1148,7 @@
   margin-top: clamp(10px, 1vw, 14px);
   font-size: 11px;
   line-height: 1.7;
-  color: #8d8a86;
+  color: var(--c-muted-2);
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
@@ -1202,8 +1205,8 @@
 
 /* ── 顶部系统消息（toast，2026-09-12）────────────────────────────────
  * 由 HeroStage 表单脚本动态挂到 <body>，不在 .stage 里——不能消费
- * --paper/--ink 等作用域在 .stage 的变量，颜色按调色板字面写（#131211
- * 即 --ink，红取 --red #cf0a1a 的提亮版、绿取旧状态行 ok 色 #3b6d11
+ * --paper/--ink 等作用域在 .stage 的变量，颜色按调色板字面写（var(--c-ink)
+ * 即 --ink，红取 --red var(--c-red) 的提亮版、绿取旧状态行 ok 色 var(--c-ok)
  * 的提亮版——深色底上原色不够亮，读不清）。
  * 三态：pending 灰点 / ok 绿点 / error 红点。滑入 → 停留 → 淡出，
  * 点击可提前关闭；容器 pointer-events:none，不挡页面点击。 */
@@ -1225,6 +1228,7 @@
   max-width: min(calc(100vw - 48px), 420px);
   padding: 10px 18px;
   border-radius: 3px;
+  /* toast 恒深底浅字（主题不变量）：浮层自带的黑章底，不随主题翻转 */
   background: #131211;
   color: #f4f3f1;
   font-size: clamp(11px, 1.4vw, 13px);
@@ -1236,7 +1240,7 @@
   transform: translateY(-14px);
   transition: opacity 0.32s ease, transform 0.32s ease;
 }
-/* 状态圆点：pending 灰（旧状态行同款 #8d8a86） */
+/* 状态圆点：pending 灰（旧状态行同款 var(--c-muted-2)） */
 .toast::before {
   content: "";
   display: inline-block;
@@ -1245,13 +1249,13 @@
   border-radius: 50%;
   margin-right: 9px;
   vertical-align: 1px;
-  background: #8d8a86;
+  background: var(--c-muted-2);
 }
 .toast--ok::before {
-  background: #6abf40; /* 旧 ok 色 #3b6d11 的提亮版（深底可读） */
+  background: #6abf40; /* 旧 ok 色 var(--c-ok) 的提亮版（深底可读） */
 }
 .toast--error::before {
-  background: #ff5449; /* --red #cf0a1a 的提亮版（深底可读） */
+  background: #ff5449; /* --red var(--c-red) 的提亮版（深底可读） */
 }
 .toast.is-in {
   opacity: 1;

@@ -34,8 +34,8 @@ import Base from '../layouts/Base.astro';
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #eeedeb;
-    color: #131211;
+    background: var(--c-paper);
+    color: var(--c-ink);
     font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
       "Microsoft YaHei", sans-serif;
   }
@@ -45,29 +45,29 @@ import Base from '../layouts/Base.astro';
     align-items: center;
     gap: 12px;
     padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(19, 18, 17, 0.16);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
   }
   .tag {
     font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
     font-size: 12px;
     letter-spacing: 0.08em;
     padding: 4px 10px;
-    border: 1px solid #131211;
+    border: 1px solid var(--c-ink);
     border-radius: 4px;
   }
   .tag--red {
-    border-color: #cf0a1a;
-    color: #cf0a1a;
+    border-color: var(--c-red);
+    color: var(--c-red);
   }
   .back {
     margin-left: auto;
     font-size: 13px;
-    color: #131211;
+    color: var(--c-ink);
     text-decoration: none;
-    border-bottom: 1px solid rgba(19, 18, 17, 0.4);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
     padding-bottom: 2px;
   }
-  .back:hover { color: #cf0a1a; border-color: #cf0a1a; }
+  .back:hover { color: var(--c-red); border-color: var(--c-red); }
 
   .hero {
     flex: 1;
@@ -86,7 +86,7 @@ import Base from '../layouts/Base.astro';
     line-height: 1;
     letter-spacing: 0.04em;
     color: transparent;
-    -webkit-text-stroke: 1.2px #c3c1be;
+    -webkit-text-stroke: 1.2px var(--c-ghost);
     user-select: none;
   }
   .hero h1 {
@@ -101,9 +101,9 @@ import Base from '../layouts/Base.astro';
     align-self: center;
     margin-bottom: 40px;
     padding: 14px 26px;
-    border: 2px solid #cf0a1a;
+    border: 2px solid var(--c-red);
     border-radius: 6px;
-    color: #cf0a1a;
+    color: var(--c-red);
     text-align: center;
     transform: rotate(-2.5deg);
   }
@@ -129,18 +129,18 @@ import Base from '../layouts/Base.astro';
   .foot .dash {
     width: 34px;
     height: 5px;
-    background: #cf0a1a;
+    background: var(--c-red);
   }
   .foot .barcode {
     height: 14px;
     width: 64px;
     background-image: repeating-linear-gradient(
       90deg,
-      #131211 0 1px,
+      var(--c-ink) 0 1px,
       transparent 1px 2.4px,
-      #131211 2.4px 4.4px,
+      var(--c-ink) 2.4px 4.4px,
       transparent 4.4px 5.4px,
-      #131211 5.4px 6.4px,
+      var(--c-ink) 5.4px 6.4px,
       transparent 6.4px 8.4px
     );
   }

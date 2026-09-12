@@ -6,8 +6,9 @@
  *     BasicDrawer 脚本在 showModal() 后按卡 01 实测矩形写入 --file-ox/oy）。
  *   • 内部 = 方案 B 卷宗分栏：左档案照（图集 f0 正脸帧裁切）+ 右物件流；
  *     手机退化成 A 的单列物件流。
- *   • 物件化 = harinisk 式"自我介绍拆成物件"：证件卡 / 邮票 / 打字便签 /
- *     横线便签 / 索引卡 / 票根，矩形物件旋转封顶 ±1.5°；圆形件（邮戳、
+ *   • 物件化 = harinisk 式"自我介绍拆成物件"：证件卡（花名 + 社交图标行）/
+ *     索引卡 / 打字便签 / NOW 便签（虚线双框 + NOW 2026 红章，设计移植自
+ *     已移除的坐标邮票卡），矩形物件旋转封顶 ±1.5°；圆形件（红章、
  *     已归档章、贴纸、徽章）是"盖章"物理动作，允许更大角度（≤14°）。
  *   • 输入锁 = :root[data-file-open]：scroll-scrub.js / demo-driver.js 见
  *     标记 early-return（改动见两文件顶部注释）；本组件不是 .stage 后代，
@@ -19,12 +20,12 @@
  * 但作用域收敛在 .file-dialog 内，不依赖 .stage 上的变量。 */
 
 .file-dialog {
-  --fp: #eeedeb;
-  --fc: #fdfdfc;
-  --fi: #131211;
-  --fr: #cf0a1a;
-  --fh: rgba(19, 18, 17, 0.16);
-  --fm: #8d8a86;
+  --fp: var(--c-paper);
+  --fc: var(--c-card);
+  --fi: var(--c-ink);
+  --fr: var(--c-red);
+  --fh: rgba(var(--c-ink-rgb), 0.16);
+  --fm: var(--c-muted-2);
   --fmono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
 
   position: fixed;
@@ -54,7 +55,7 @@
 }
 
 .file-dialog::backdrop {
-  background: rgba(19, 18, 17, 0.32);
+  background: rgba(var(--c-ink-rgb), 0.32);
   animation: file-scrim-in 340ms ease;
 }
 
@@ -185,7 +186,7 @@
   position: absolute;
   width: 60px;
   height: 18px;
-  background: rgba(19, 18, 17, 0.1);
+  background: rgba(var(--c-ink-rgb), 0.1);
   pointer-events: none;
 }
 
@@ -231,7 +232,7 @@
   width: 58px;
   height: 58px;
   border: 1.5px solid var(--fr);
-  outline: 1px dashed rgba(207, 10, 26, 0.45);
+  outline: 1px dashed rgba(var(--c-red-rgb), 0.45);
   outline-offset: -6px;
   border-radius: 50%;
   display: grid;
@@ -254,7 +255,7 @@
   min-width: 0;
 }
 
-/* 1. 证件卡：花名 + 编号/密级 */
+/* 1. 证件卡：花名 + 社交图标行（官方品牌 SVG，public/icons/） */
 .file-id {
   padding: 15px 16px 14px;
 }
@@ -262,46 +263,65 @@
   margin: 0;
   font-family: "Archivo Black", sans-serif;
   font-size: 26px;
+  font-weight: 900; /* @中文段落在 Archivo Black 覆盖之外，靠字重兜底 */
   line-height: 1;
   letter-spacing: 0.03em;
 }
-.file-id-sub {
-  margin: 4px 0 12px;
-  font-size: 12px;
-  letter-spacing: 0.3em;
-  color: var(--fm);
-}
-.file-id-rows {
-  margin: 0;
-  display: grid;
-  gap: 7px;
+.file-id-social {
+  margin-top: 13px;
+  padding-top: 12px;
   border-top: 1px solid var(--fh);
-  padding-top: 11px;
-}
-.file-id-rows div {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 16px;
 }
-.file-id-rows dt {
-  font-family: var(--fmono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  color: var(--fm);
+.file-social {
+  display: inline-flex;
+  border-radius: 6px;
+  transition: opacity 140ms ease, rotate 140ms ease;
 }
-.file-id-rows dd {
-  margin: 0;
-  font-size: 12.5px;
-  letter-spacing: 0.04em;
+.file-social img {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.file-social:hover {
+  opacity: 0.72;
+  rotate: -6deg;
+}
+/* 单色品牌件（GitHub #181717 近黑）：暗色主题下反相成浅灰，
+   亮色主题保持官方黑不变 */
+[data-theme="dark"] .file-social--mono img {
+  filter: invert(0.91);
 }
 
-/* 2. 邮票：锯齿感用双框（外虚线 + 内实线）代替打孔 mask，省一层合成 */
-.file-stampcard {
+/* 3. 打字便签：暖纸色 + mono 正文，顶上一条胶带 */
+.file-note {
   position: relative;
-  padding: 13px 16px;
-  border: 1px dashed rgba(19, 18, 17, 0.4);
+  padding: 13px 16px 14px;
+  background: var(--c-card-warm);
 }
-.file-stampcard::before {
+.file-note .tape {
+  top: -10px;
+  left: 26px;
+  width: 56px;
+  rotate: -3deg;
+}
+.file-note-text {
+  margin: 7px 0 0;
+  font-family: var(--fmono);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+/* 4. NOW 便签：移植原「坐标邮票卡」的设计——外虚线 + 内实线双框，
+      右侧压红圈章（NOW 2026）；横线底纹保留 */
+.file-now {
+  position: relative;
+  padding: 12px 84px 15px 16px;
+  border: 1px dashed rgba(var(--c-ink-rgb), 0.4);
+}
+.file-now::before {
   content: "";
   position: absolute;
   inset: 4px;
@@ -309,23 +329,19 @@
   border-radius: 5px;
   pointer-events: none;
 }
-.file-stampcard-value {
-  margin: 7px 0 2px;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+.file-now-text {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 24px;
+  background-image: repeating-linear-gradient(
+    transparent 0 23px,
+    rgba(var(--c-ink-rgb), 0.1) 23px 24px
+  );
 }
-.file-stampcard-tz {
-  margin: 0;
-  font-family: var(--fmono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--fm);
-}
-/* 邮戳：压在邮票右侧，内容简短 */
-.file-postmark {
+/* NOW 2026 红章：压在便签右侧（圆形件允许大角度） */
+.file-now-stamp {
   position: absolute;
-  right: 12px;
+  right: 14px;
   top: calc(50% - 27px);
   width: 54px;
   height: 54px;
@@ -342,39 +358,6 @@
   rotate: -14deg;
   opacity: 0.85;
   pointer-events: none;
-}
-
-/* 3. 打字便签：暖纸色 + mono 正文，顶上一条胶带 */
-.file-note {
-  position: relative;
-  padding: 13px 16px 14px;
-  background: #fbf7ec;
-}
-.file-note .tape {
-  top: -10px;
-  left: 26px;
-  width: 56px;
-  rotate: -3deg;
-}
-.file-note-text {
-  margin: 7px 0 0;
-  font-family: var(--fmono);
-  font-size: 13px;
-  line-height: 1.75;
-}
-
-/* 4. 横线便签：文字压在 repeating 渐变画出的横线上（行高 24px 对齐） */
-.file-now {
-  padding: 12px 16px 15px;
-}
-.file-now-text {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 24px;
-  background-image: repeating-linear-gradient(
-    transparent 0 23px,
-    rgba(19, 18, 17, 0.1) 23px 24px
-  );
 }
 
 /* 5. 索引卡：红横线 + 破折号清单 */
@@ -400,40 +383,6 @@
   color: var(--fr);
 }
 
-/* 6. 票根：外链一排两张，左缘虚线是"撕票口" */
-.file-links {
-  display: flex;
-  gap: 10px;
-}
-.file-link {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 14px;
-  background: var(--fc);
-  border: 1px solid var(--fh);
-  border-left: 1px dashed rgba(19, 18, 17, 0.4);
-  border-radius: 8px;
-  color: var(--fi);
-  text-decoration: none;
-  font-size: 12.5px;
-  letter-spacing: 0.05em;
-  rotate: var(--tilt, 0deg);
-}
-.file-link i {
-  font-style: normal;
-  color: var(--fm);
-}
-.file-link:hover {
-  border-color: var(--fr);
-  color: var(--fr);
-}
-.file-link:hover i {
-  color: var(--fr);
-}
-
 /* ── 压角散布件（圆形，允许更大角度；absolute 挂在 dialog 上）───────── */
 .file-badge {
   position: absolute;
@@ -441,6 +390,7 @@
   right: 70px;
   z-index: 2;
   background: var(--fr);
+  /* 红章白字：白是章面文字的主题不变量，不随 --c-card 翻转 */
   color: #fdfdfc;
   font-family: var(--fmono);
   font-size: 11px;
@@ -460,6 +410,7 @@
   height: 78px;
   border-radius: 50%;
   background: var(--fr);
+  /* 红章白字（白边 + 白字）：主题不变量，同 .file-badge */
   border: 3px solid #fdfdfc;
   box-shadow: 0 0 0 1px var(--fh);
   color: #fdfdfc;

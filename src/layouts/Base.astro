@@ -2,8 +2,8 @@
 // 全站布局壳（2026-09-12 升级：SEO 头）。
 // 所有页面经此获得：canonical（绝对地址、统一尾斜杠）、OG 标签（website/article
 // 两态，article 态附发布/更新时间）、RSS 自动发现声明。
-// 说明：未提供 image 时不输出 og:image——站点暂无 1200×630 现成资产，
-// 引用不存在的图比缺卡更糟（spec 2026-09-12 实现决策）。
+// 说明：未提供 image 时不输出 og:image 的旧注释已失效（2026-09-12 晚：
+// og-image 静态端点已建成，文章详情页会自动传入）。
 import '../styles/global.css';
 
 interface Props {
@@ -44,6 +44,24 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!-- 主题初始化：必须在首帧前同步执行（防 FOUC）。此段逻辑与
+        src/lib/theme.js 的 resolveTheme 等价（内联脚本无法 import），
+        改决策规则时两处同步。 -->
+    <script is:inline>
+      (function () {
+        var t = 'light';
+        try {
+          var s = localStorage.getItem('theme');
+          t =
+            s === 'dark' || s === 'light'
+              ? s
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+        } catch (e) {}
+        document.documentElement.dataset.theme = t;
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
@@ -71,6 +89,109 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
+    <!-- 主题切换章：可拖动悬浮章（2026-09-12 用户裁定，固定位置会挡组件），
+         默认右上角，拖过的位置记 localStorage。圆形章形态（rotate ≤14° 用户裁定）。
+         亮色显示「夜」（点了去夜览），暗色显示「昼」。 -->
+    <button class="theme-toggle" type="button" aria-pressed="false" title="切换日 / 夜览（可拖动到任意角落）">
+      <span class="t-night" aria-hidden="true">夜</span>
+      <span class="t-day" aria-hidden="true">昼</span>
+      <span class="sr-only">切换日间 / 夜间模式</span>
+    </button>
+    <script>
+      import { THEME_KEY, currentTheme } from '../lib/theme.js';
+      const btn = document.querySelector('.theme-toggle');
+      const root = document.documentElement;
+      const sync = () =>
+        btn?.setAttribute('aria-pressed', String(currentTheme(root) === 'dark'));
+      sync();
+
+      /* ── 可拖动悬浮章 ──
+         契约：位移 ≤5px 视为点击（照常切换主题），>5px 视为拖拽
+         （pointerup 后吞掉紧随的 click）。位置存 localStorage，
+         载入与 resize 时都夹回视口内（换设备/旋转屏不丢出界）。 */
+      const POS_KEY = 'theme-toggle-pos';
+      const EDGE = 8; // 视口安全边距 px
+      const DRAG_TH = 5;
+      let suppressClick = false;
+
+      const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+      function placeAt(x, y) {
+        if (!btn) return;
+        btn.style.left = clamp(x, EDGE, innerWidth - btn.offsetWidth - EDGE) + 'px';
+        btn.style.top = clamp(y, EDGE, innerHeight - btn.offsetHeight - EDGE) + 'px';
+        btn.classList.add('theme-toggle--free');
+      }
+
+      try {
+        const saved = JSON.parse(localStorage.getItem(POS_KEY) ?? 'null');
+        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) placeAt(saved.x, saved.y);
+      } catch {}
+
+      window.addEventListener('resize', () => {
+        if (!btn?.classList.contains('theme-toggle--free')) return;
+        placeAt(parseFloat(btn.style.left), parseFloat(btn.style.top));
+      });
+
+      let dragging = false;
+      let moved = false;
+      let startX = 0;
+      let startY = 0;
+      let origX = 0;
+      let origY = 0;
+
+      btn?.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        dragging = true;
+        moved = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        const r = btn.getBoundingClientRect();
+        origX = r.left;
+        origY = r.top;
+        btn.setPointerCapture(e.pointerId);
+      });
+      btn?.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (!moved && Math.hypot(dx, dy) > DRAG_TH) {
+          moved = true;
+          btn.classList.add('theme-toggle--drag');
+        }
+        if (moved) placeAt(origX + dx, origY + dy);
+      });
+      /* pointerup 后必有 click 跟随（需吞）；pointercancel 不跟随（吞键会误伤下一次点击） */
+      const endDrag = (followedByClick) => {
+        if (!dragging || !btn) return;
+        dragging = false;
+        btn.classList.remove('theme-toggle--drag');
+        if (moved) {
+          if (followedByClick) suppressClick = true;
+          try {
+            localStorage.setItem(
+              POS_KEY,
+              JSON.stringify({ x: parseFloat(btn.style.left), y: parseFloat(btn.style.top) })
+            );
+          } catch {}
+        }
+      };
+      btn?.addEventListener('pointerup', () => endDrag(true));
+      btn?.addEventListener('pointercancel', () => endDrag(false));
+
+      btn?.addEventListener('click', () => {
+        if (suppressClick) {
+          suppressClick = false;
+          return;
+        }
+        const next = currentTheme(root) === 'dark' ? 'light' : 'dark';
+        root.dataset.theme = next;
+        try {
+          localStorage.setItem(THEME_KEY, next);
+        } catch {}
+        sync();
+      });
+    </script>
     <slot />
   </body>
 </html>
