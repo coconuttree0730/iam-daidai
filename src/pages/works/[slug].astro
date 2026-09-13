@@ -4,6 +4,7 @@
 // 状态 / 年份全部收进本页——用户裁定「点击进去才是详情」。
 // 数据源同列表页 = profile.json 的 works 节；slug 用条目编号（01…07）。
 import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
 import profile from '../../data/profile.json';
 
 const works = profile.works.items;
@@ -23,11 +24,11 @@ const next = works[(idx + 1) % works.length];
 ---
 <Base title={`${w.title} · 作品集 · Daidai档案馆`} description={w.desc}>
   <main class="sheet">
-    <header class="head">
-      <span class="tag">NO.02</span>
-      <span class="tag tag--red">{w.no}</span>
-      <a class="back" href="/works/">← 返回作品集</a>
-    </header>
+    <PageHead
+      no="NO.02"
+      chips={[{ label: w.no, variant: 'red' }]}
+      back={{ label: '← 返回作品集', href: '/works/' }}
+    />
 
     <section class="hero">
       <p class="en" aria-hidden="true">{w.en}</p>
@@ -44,7 +45,9 @@ const next = works[(idx + 1) % works.length];
         {w.tags.map((t) => <li>{t}</li>)}
       </ul>
       {w.href ? (
-        <a class="go" href={w.href}>{w.href === '/' ? '回到首页体验 →' : '访问项目 →'}</a>
+        <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+          {w.href === '/' ? '回到首页体验 →' : w.href.includes('github.com') ? 'GitHub 仓库 →' : '访问项目 →'}
+        </a>
       ) : (
         <span class="go go--none">尚未归档 · 敬请期待</span>
       )}
@@ -54,6 +57,12 @@ const next = works[(idx + 1) % works.length];
       <a class="pn-link" href={`/works/${prev.no}/`}><small>上一件</small>{prev.title}</a>
       <a class="pn-link pn-link--r" href={`/works/${next.no}/`}><small>下一件</small>{next.title}</a>
     </nav>
+
+    <!-- 收尾导航（2026-09-13 第三轮，用户裁定）：只在 ≤640px 显示。理由同文章页
+         的 .postback —— 手机档页头隐藏 .back 后，本页失去唯一的「回作品集」站内
+         路径（上面的 .pn 只给兄弟条目，不含列表）。桌面档不显示：页头 .head 是
+         sticky 的，返回链全程可见，正文再放一条就是重复入口。两者严格互斥。 -->
+    <a class="backhome" href="/works/">← 返回作品集</a>
 
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
@@ -72,35 +81,6 @@ const next = works[(idx + 1) % works.length];
     font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
       "Microsoft YaHei", sans-serif;
   }
-
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 18px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .tag {
-    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    padding: 4px 10px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-  }
-  .tag--red {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-  .back {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    padding-bottom: 2px;
-  }
-  .back:hover { color: var(--c-red); border-color: var(--c-red); }
 
   .hero {
     padding: clamp(28px, 6vh, 64px) clamp(20px, 4vw, 48px) 0;
@@ -219,6 +199,36 @@ const next = works[(idx + 1) % works.length];
   }
   .pn-link:hover { color: var(--c-red); }
   .pn-link--r { text-align: right; }
+
+  /* ── 收尾导航（手机档专用，2026-09-13 第三轮）────────────────────
+     .sheet 是 flex column，本元素是 flex item：必须 align-self: flex-start
+     才能收缩到文字宽 —— 否则交叉轴默认 stretch 会把它拉成整行宽，下划线
+     跟着变长。基类 display:none 让桌面档不生成盒子，版面与改动前一致。
+     左右外边距与 .pn 用同一组 clamp，保证与「上一件」的左缘对齐。
+     不改 .pn 的 padding：它是上下对称的 22px，动了反而不对称。 */
+  .backhome {
+    display: none;
+    align-self: flex-start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 0 clamp(20px, 4vw, 48px) 44px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .backhome:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .backhome {
+      display: flex;
+    }
+  }
 
   .foot {
     display: flex;

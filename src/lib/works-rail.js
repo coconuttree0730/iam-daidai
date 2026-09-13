@@ -28,6 +28,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
   let pos = 0;        // 渲染进度
   let raf = 0;
   let lastT = 0;
+  let locked = false; // 弹层（分类卷宗）打开时置 true，暂停全部轨道输入
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
@@ -79,6 +80,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
 
   // ── 滚轮：竖向为主，横向为辅（触控板双指横扫直接给 deltaX）──
   function onWheel(e) {
+    if (locked) return; // 弹层打开时不抢输入（滚轮留给弹层内滚动）
     if (e.ctrlKey) return; // 捏合缩放放行
     if (document.documentElement.scrollHeight > window.innerHeight + 2) return;
     let d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
@@ -93,28 +95,39 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
   // ── 拖拽（鼠标 + 触摸同一套 pointer 事件）──
   let dragging = false;
   let moved = false; // 本次手势是否够格算「拖拽」（吞 click 用）
+  let pointerId = -1; // 当前手势的指针，惰性捕获用
   let lastX = 0;
   let accX = 0;
   let lastVX = 0; // px/ms
   let lastVT = 0;
 
+  // 捕获时机是关键：pointerdown 就 setPointerCapture 会让浏览器把合成
+  // click 派发给捕获元素（轨道容器）而不是卡片 <a>，桌面端点击永远
+  // 进不了详情（2026-09-12 实测）。故捕获惰性化——只有位移超过 6px
+  // 判定为拖拽后才捕获；纯点击全程无捕获，click 正常落在链接上。
   function onDown(e) {
+    if (locked) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     dragging = true;
     moved = false;
+    pointerId = e.pointerId;
     lastX = e.clientX;
     accX = 0;
     lastVX = 0;
     lastVT = performance.now();
-    viewport.setPointerCapture(e.pointerId);
   }
 
   function onMove(e) {
-    if (!dragging) return;
+    if (!dragging || e.pointerId !== pointerId) return;
     const dx = e.clientX - lastX;
     lastX = e.clientX;
     accX += dx;
-    if (!moved && Math.abs(accX) > 6) moved = true;
+    if (!moved && Math.abs(accX) > 6) {
+      moved = true;
+      try {
+        viewport.setPointerCapture(pointerId);
+      } catch {}
+    }
     if (moved) {
       target = clamp(target - dx, 0, max);
       pos = target; // 拖拽期 1:1 跟手，松手后才进缓动
@@ -129,7 +142,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
   }
 
   function onUp(e) {
-    if (!dragging) return;
+    if (!dragging || e.pointerId !== pointerId) return;
     dragging = false;
     if (viewport.hasPointerCapture?.(e.pointerId)) {
       viewport.releasePointerCapture(e.pointerId);
@@ -154,6 +167,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
 
   // ── 键盘（页面无输入框，window 级监听安全）──
   function onKey(e) {
+    if (locked) return;
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     let next = null;
     if (e.key === 'ArrowRight') next = target + viewport.clientWidth * 0.35;
@@ -182,6 +196,10 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
 
   return {
     measure,
+    /** 弹层开关同步：true = 暂停滚轮/拖拽/键盘，false = 恢复 */
+    setLocked(v) {
+      locked = v;
+    },
     destroy() {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKey);
