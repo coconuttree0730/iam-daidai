@@ -124,9 +124,12 @@ const iso = post.data.publishDate.toISOString();
          把一个不存在的 script 块一路吞到下一个 </script>，干扰产物校验。）
          外层的 .comments-grid 只为「跟正文同一列」——≥1101px 时正文列被右栏
          挤到视口中心之左，附录若继续按 820px 居中就会明显错位。 -->
+    <!-- 评论区已注释掉（2026-09-13）：博客板块不使用评论，规避监管风险。
+         保留结构以便未来按需启用。
     <div class="comments-grid">
       <section class="comments" aria-label="评论区">
         <header class="comments-head">
+          <span class="tag">NO.04</span>
           <span class="tag tag--red">读者来信</span>
           <span class="comments-note">由 GitHub Issues 托管 · 登录 GitHub 后方可评论</span>
         </header>
@@ -138,6 +141,7 @@ const iso = post.data.publishDate.toISOString();
         ></div>
       </section>
     </div>
+    -->
   </main>
 </Base>
 
@@ -146,10 +150,8 @@ const iso = post.data.publishDate.toISOString();
      · 代码块复制按钮由 astro-expressive-code 内置提供（见 astro.config.mjs），
        此处不再重复实现，避免与内置图标按钮叠加成双入口。 -->
 
-<!-- Utterances 加载器：is:inline 原样输出，避免 Astro 打包外部脚本。
-     ① repo / issue-term 读自 #utterances 的 data-*（Astro 模板可插值属性）；
-     ② theme 初始值按当前 data-theme 取，随后用 MutationObserver 跟随站点暗色开关
-        向 utteranc.es 的 iframe postMessage set-theme（B 档：跟站点而非跟系统）。 -->
+<!-- Utterances 加载器已注释掉（2026-09-13）：博客板块不使用评论，规避监管风险。
+     保留脚本以便未来按需启用。
 <script is:inline>
   (function () {
     var host = document.getElementById('utterances');
@@ -194,6 +196,7 @@ const iso = post.data.publishDate.toISOString();
     });
   })();
 </script>
+-->
 
 <style>
   .sheet {
@@ -510,7 +513,8 @@ const iso = post.data.publishDate.toISOString();
     );
   }
 
-  /* ── 评论区（Utterances，弱化为档案附录一栏）── */
+  /* ── 评论区样式已注释掉（2026-09-13）：博客板块不使用评论，规避监管风险。
+       保留样式以便未来按需启用。──
   .comments {
     grid-column: 1;
     padding: 4px 0 44px;
@@ -527,7 +531,6 @@ const iso = post.data.publishDate.toISOString();
     letter-spacing: 0.04em;
     color: var(--c-muted);
   }
-  /* 虚线边框 + 浅底，把 GitHub 原生灰块收进档案纸面语境，避免风格跳脱 */
   .comments-host {
     border: 1px dashed rgba(var(--c-ink-rgb), 0.3);
     border-radius: 8px;
@@ -535,4 +538,5 @@ const iso = post.data.publishDate.toISOString();
     background: rgba(var(--c-paper-rgb), 0.35);
     min-height: 140px;
   }
+  */
 </style>
