@@ -1,0 +1,201 @@
+---
+// ── 联系表单（2026-09-13 从 HeroStage 抽出为共享组件）──────────────────
+//
+// 唯一归属：首页收尾区 —— HeroStage 把它渲染在 <main class="stage"> 内，hero.css 的
+//     `.stage .outro-contact` 给它绝对定位 + 升起动画（皮肤不带定位）。
+//   触发方式（2026-09-13 用户裁定）：抽屉里的「邮箱」图标不再跳独立页（该页已撤销），
+//   改为派发 'scrub:outro' 让 scroll-scrub.js 把 --sc 推到 1，本表单随收尾区块升起。
+// 因此**不需要传 class**——定位完全由"是否身处 .stage"决定，组件自身保持中性。
+//
+// 皮肤在 src/styles/contact-form.css（本组件 import，两处共用，只有一份）。
+// 文案只改 profile.json 的 outro.contact 节。
+//
+// 投递链路（2026-09-12 接线，未变）：fetch POST /api/contact（同源相对路径）
+//   → Cloudflare Workers Route iam.daidai.click/api/* → worker/ 的 Worker
+//   → send_email binding 直发收件邮箱。真实邮箱只在 Worker secret，**网页零邮箱明文**。
+import profile from '../data/profile.json';
+import '../styles/contact-form.css';
+
+const contact = profile.outro.contact;
+---
+
+<form
+  class="outro-contact"
+  id="contact"
+  data-endpoint="/api/contact"
+  aria-labelledby="outro-contact-title"
+>
+  <h2 class="outro-contact-title" id="outro-contact-title">{contact.heading}</h2>
+  <p class="outro-contact-note">{contact.note}</p>
+
+  {contact.fields.map((field) => (
+    <label class="field">
+      <span class="field-label">{field.label}</span>
+      {field.type === 'textarea' ? (
+        <textarea name={field.name} rows="4" placeholder={field.placeholder} required />
+      ) : (
+        <input name={field.name} type={field.type} placeholder={field.placeholder} required />
+      )}
+    </label>
+  ))}
+
+  <!-- 个人信息告知 + 同意勾选（2026-09-12 用户裁定）：默认不勾选。
+       校验分层——name/email/message 走原生 required 气泡；consent 不用
+       required（原生气泡是浏览器内部 UI，CSS 无法定制），改由脚本拦截 +
+       站点风格行内红字提示（is-error 态 + 一次性抖动），勾选即清除。
+       Worker 端保留 consent === true 校验拦 API 直刷。 -->
+  <label class="outro-consent">
+    <input type="checkbox" name="consent" value="yes" />
+    <span>{contact.consent}</span>
+  </label>
+
+  <div class="outro-contact-actions">
+    <button type="submit" class="outro-submit">
+      {contact.submit}
+      <em>{contact.submitZh}</em>
+    </button>
+  </div>
+
+  <!-- 反垃圾三件套之一：honeypot 陷阱字段（.hp-field 把它扔出视口）。
+       人类不可见不可填，脚本提交时字段非空 → Worker 假成功不投递。
+       （原 _subject hidden 是 Formspree 字段惯例，方案已定为自建 Worker，
+       subject 移入 wrangler.jsonc 的 vars，故移除。） -->
+  <input
+    class="hp-field"
+    type="text"
+    name="_gotcha"
+    tabindex="-1"
+    autocomplete="off"
+    aria-hidden="true"
+  />
+</form>
+
+<script>
+  /* ── 联系表单提交（2026-09-12 接线，2026-09-13 随组件迁移）──────────
+   *
+   * 分工：Worker 端做校验（Origin 白名单 + honeypot + 最短停留），
+   * 这里只负责采集、防连点、渲染顶部 toast 消息。
+   *
+   * _elapsed 从本脚本初始化（页面加载）计到提交：真实人类从打开页面到
+   * 读/填/勾选并提交必然 >3s，秒提交视为脚本行为，Worker 假成功不投递。
+   *
+   * 降级：fetch 失败（网络断 / 超时）时 toast 提示稍后重试。
+   * 对外不展示任何邮箱地址（2026-09-12 用户裁定），写信入口收敛为这一个表单
+   * —— 全站唯一入口就是这个表单（首页收尾区）。
+   *
+   * 为什么用原生 JS 而不是 Astro 的 actions：actions 需要 SSR，
+   * 本项目是静态输出，引入 SSR 会连带整套 Node adapter 部署成本。 */
+
+  /* ── toast：顶部弹出的系统消息 ──────────────────────────────────────
+   * 容器挂在 <body>（不在任何页面容器内）——滚动到任何位置都能看到。
+   * 生命周期：滑入（.is-in）→ 停留 autoMs → 淡出（.is-out）→ 移除 DOM。
+   * pending 态不自动消失，由请求回调显式关掉再补最终结果；
+   * 点击任意 toast 可提前关闭。role=status + aria-live=polite 保读屏播报。 */
+  const toastStack = document.createElement('div');
+  toastStack.className = 'toast-stack';
+  toastStack.setAttribute('role', 'status');
+  toastStack.setAttribute('aria-live', 'polite');
+  document.body.appendChild(toastStack);
+
+  const showToast = (kind, text, autoMs = 0) => {
+    const el = document.createElement('div');
+    el.className = `toast toast--${kind}`;
+    el.textContent = text;
+    toastStack.appendChild(el);
+    const dismiss = () => {
+      if (!el.isConnected || el.classList.contains('is-out')) return;
+      el.classList.add('is-out');
+      el.addEventListener('transitionend', () => el.remove(), { once: true });
+      setTimeout(() => el.remove(), 600); /* 兜底：transitionend 可能不触发 */
+    };
+    el.addEventListener('click', dismiss);
+    /* 双 rAF：确保「未挂 .is-in 的初始态」先完成一次绘制，过渡才稳定触发 */
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => el.classList.add('is-in')),
+    );
+    if (autoMs > 0) setTimeout(dismiss, autoMs);
+    return dismiss;
+  };
+
+  const contactForm = document.querySelector('.outro-contact');
+  if (contactForm) {
+    const submitBtn = contactForm.querySelector('.outro-submit');
+    const consentBox = contactForm.querySelector('input[name="consent"]');
+    const consentRow = contactForm.querySelector('.outro-consent');
+    const openedAt = performance.now();
+
+    /* 提交中禁用按钮防连点：换文案 SENDING…（与 SEND MESSAGE 同风格大写），
+       结束后按 data-label 还原双层结构（<em> 中文副文案在内）。 */
+    const setBusy = (busy) => {
+      if (!submitBtn) return;
+      submitBtn.disabled = busy;
+      if (busy) {
+        submitBtn.dataset.label = submitBtn.innerHTML;
+        submitBtn.textContent = 'SENDING…';
+      } else if (submitBtn.dataset.label) {
+        submitBtn.innerHTML = submitBtn.dataset.label;
+        delete submitBtn.dataset.label;
+      }
+    };
+
+    /* 未勾选同意：行内错误态 + 一次性抖动（重触发靠移除后强制 reflow）；
+       勾选即清除。替代无法用 CSS 定制的原生气泡。 */
+    const flagConsentError = () => {
+      if (!consentRow || consentBox?.checked) return consentBox?.checked ?? false;
+      consentRow.classList.remove('is-error');
+      void consentRow.offsetWidth;
+      consentRow.classList.add('is-error');
+      return false;
+    };
+    consentBox?.addEventListener('change', () => {
+      if (!consentBox.checked) return;
+      consentRow?.classList.remove('is-error');
+    });
+
+    contactForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!flagConsentError()) return;
+
+      const endpoint = contactForm.dataset.endpoint;
+      if (!endpoint) return; /* data-endpoint 已写死，此分支仅为防御 */
+
+      const data = new FormData(contactForm);
+      const payload = {
+        name: data.get('name'),
+        email: data.get('email'),
+        message: data.get('message'),
+        consent: data.get('consent') === 'yes',
+        _gotcha: data.get('_gotcha') ?? '',
+        _elapsed: Math.round(performance.now() - openedAt),
+        _page: location.href,
+      };
+
+      const closePending = showToast('pending', '正在发送…');
+      setBusy(true);
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const result = await res.json().catch(() => ({ ok: true }));
+          if (!result.ok) throw new Error('rejected');
+          closePending();
+          contactForm.reset();
+          showToast('ok', '已发送，我会尽快回复。', 3600);
+        })
+        .catch((err) => {
+          closePending();
+          showToast(
+            'error',
+            `发送失败（${err?.message ?? '网络异常'}），请稍后再试。`,
+            5200,
+          );
+        })
+        .finally(() => setBusy(false));
+    });
+  }
+</script>

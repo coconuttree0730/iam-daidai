@@ -196,6 +196,48 @@ if (view) {
       animator.setProgress(acc / range);
     }
 
+    /* ── 程序化推进会：站内入口把 scrub 推到收尾态（2026-09-13 用户裁定）──
+     * 用途：基本信息抽屉里的「邮箱」图标不再跳独立页，改为直接露出首页底部的
+     * 联系表单。表单属于收尾区块（--sc→1 才升起），所以这里把行程一次推到满。
+     *
+     * 为什么走自定义事件，而不是导出函数 / 挂 window 全局：
+     *   调用方（BasicDrawer 的 <script>）与本模块是两个独立模块，事件是唯一
+     *   既不污染全局命名空间、又不需要构建期互相 import 的握手方式；
+     *   页面若没有 scrub 舞台，事件自然落空，调用方无须判空。
+     *
+     * 复用与滚轮**完全相同的状态机**（acc / setActive / animator.setProgress），
+     * 人物时间轴与版式飞散因此仍由同一份缓动驱动——不新开第二份进度（单一
+     * 进度是文件头注的硬契约，避免两套累计值漂移）。 */
+    const toOutro = () => {
+      acc = range;
+      if (!active) setActive(true);
+      animator.setProgress(1);
+    };
+    document.addEventListener('scrub:outro', toOutro);
+
+    /* ── 程序化归零：把时间轴与版式送回 home 初态（2026-09-13）──────────
+     * 用途：首页的「回到顶部」——右侧回顶绳（TopRope.astro）与右下悬浮栈的
+     * ▲ 都派发这个事件。**为什么不是 window.scrollTo**：首页根本不滚动，
+     * 纵向输入全被本模块吃成时间轴，所以"回到顶部"在语义上就是"把 acc 归零
+     * 并把画面送回 f0"。
+     *
+     * 与 toOutro 对称：同样复用 acc / setActive / animator.setProgress 这**唯一
+     * 一份状态机**——不新开第二份进度（文件头注的硬契约）。
+     * acc 归零后动画缓动回 f0，归零那一刻 render 回调里的
+     * `active && acc <= 0 && frame === 0` 分支把控制权交还 hero 指针跟随，
+     * setActive(false) 内同时把 --sc 清到 0，飞散的版式因此整体归位。
+     */
+    const toTop = () => {
+      acc = 0;
+      animator.setProgress(0);
+      /* 兜底：render 回调只在**帧号变化**时触发——若人物此刻已在 f0
+       * （刚激活未推进就点了归零），回调永远不会来，状态机会卡在 scroll 模式，
+       * hero 画布再也回不来。setActive(false) 里那句"必须显式归零位移"的注释
+       * 记的是同一类坑。 */
+      if (Math.round(animator.getCurrentFrame()) === 0) setActive(false);
+    };
+    document.addEventListener('scrub:top', toTop);
+
     /* 初始归零：--sc 是挂在 :root 上的内联自定义属性，跨路由导航（首页 →
        作品集 → 返回）时浏览器会保留它，不显式清一次会带着上次的飞散态入场。 */
     setScatter(0);

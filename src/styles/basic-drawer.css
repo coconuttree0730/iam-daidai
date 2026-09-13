@@ -418,7 +418,63 @@
   place-items: center;
   text-align: center;
   rotate: 6deg;
-  pointer-events: none;
+  /* span 改 button（2026-09-13，可点开性格侧写便签）：重置按钮默认样式 */
+  appearance: none;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  transition: rotate 140ms ease, scale 140ms ease;
+}
+.file-sticker:hover {
+  rotate: 2deg;
+  scale: 1.05;
+}
+.file-sticker[aria-expanded="true"] {
+  rotate: -4deg;
+}
+
+/* 性格侧写便签：贴纸点开的暖纸色小卡片（同 .file-note 的语汇），
+   挂在贴纸正上方；hidden 切换会重放入场动画，正好当开合反馈 */
+.file-persona {
+  position: absolute;
+  right: 14px;
+  bottom: 134px;
+  z-index: 3;
+  width: min(252px, calc(100vw - 48px));
+  padding: 12px 14px 14px;
+  background: var(--c-card-warm);
+  border: 1px solid var(--fh);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(var(--c-ink-rgb), 0.14);
+  transform-origin: 100% 100%;
+  animation: persona-in 180ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.file-persona-list {
+  margin: 9px 0 0;
+  display: grid;
+  gap: 11px;
+}
+.file-persona-list dt {
+  font-family: var(--fmono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--fr);
+}
+.file-persona-list dd {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+@keyframes persona-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .file-persona {
+    animation: none;
+  }
 }
 .file-sticker strong {
   display: block;
@@ -494,5 +550,9 @@
   .file-sticker {
     right: 8px;
     bottom: 12px;
+  }
+  .file-persona {
+    right: 10px;
+    bottom: 102px; /* 手机贴纸贴底（12+78），便签在其上方 */
   }
 }

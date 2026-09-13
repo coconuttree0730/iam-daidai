@@ -44,7 +44,7 @@ const links = basic.links ?? [];
   <div class="file-body">
     <figure class="file-photo obj" style="--tilt: -0.8deg">
       <img
-        src="/motion/basic-portrait.webp"
+        src="/motion/0166.png"
         alt="Daidai 的档案照（正面立绘帧）"
         width="340"
         height="420"
@@ -62,12 +62,15 @@ const links = basic.links ?? [];
         <div class="file-id-social">
           {
             links.map((link) => {
-              /* 只有 http(s) 外链开新标签；mailto: / 站内 /rss.xml 当前页处理 */
+              /* 只有 http(s) 外链开新标签；mailto: / 站内（含 #contact）/rss.xml
+                 当前页处理。data-action="contact" 的项由下方脚本接管：
+                 不跳页，改为把首页推到收尾态露出内联表单（2026-09-13）。 */
               const external = link.href.startsWith('http');
               return (
                 <a
                   class:list={["file-social", { "file-social--mono": link.mono }]}
                   href={link.href}
+                  data-action={link.action}
                   title={link.label}
                   aria-label={link.label}
                   target={external ? '_blank' : undefined}
@@ -103,12 +106,32 @@ const links = basic.links ?? [];
   </div>
 
   <span class="file-badge" aria-hidden="true">{basic.status}</span>
-  <span class="file-sticker" aria-hidden="true">
+  <button
+    type="button"
+    class="file-sticker"
+    id="basic-sticker"
+    aria-expanded="false"
+    aria-controls="basic-persona"
+  >
     <span>
       <strong>{basic.mbti}</strong>
       <small>{basic.zodiac}</small>
     </span>
-  </span>
+  </button>
+
+  <div class="file-persona" id="basic-persona" hidden>
+    <p class="obj-label">PERSONA · 性格侧写</p>
+    <dl class="file-persona-list">
+      <div>
+        <dt>{basic.zodiac}</dt>
+        <dd>{basic.zodiacDesc}</dd>
+      </div>
+      <div>
+        <dt>{basic.mbti}</dt>
+        <dd>{basic.mbtiDesc}</dd>
+      </div>
+    </dl>
+  </div>
 
   <footer class="file-foot">
     <span>FILE {basic.fileNo} · ARCHIVED</span>
@@ -122,7 +145,20 @@ const links = basic.links ?? [];
 
   if (dialog instanceof HTMLDialogElement) {
     const closeBtn = dialog.querySelector('[data-file-close]');
+    const sticker = dialog.querySelector('#basic-sticker');
+    const persona = dialog.querySelector('#basic-persona');
     let opener = null;
+
+    /* 贴纸 → 性格侧写便签：点贴纸开合，点便签外/关抽屉收起 */
+    const setPersona = (open) => {
+      if (!(persona instanceof HTMLElement)) return;
+      persona.hidden = !open;
+      sticker?.setAttribute('aria-expanded', String(open));
+    };
+
+    sticker?.addEventListener('click', () => {
+      if (persona instanceof HTMLElement) setPersona(persona.hidden);
+    });
 
     const openFrom = (el) => {
       if (dialog.open) return;
@@ -171,9 +207,33 @@ const links = basic.links ?? [];
       /* 点背板：::backdrop 不接收事件，click 会以 dialog 自身为 target 落下；
          点在卷宗内容上时 target 是内容元素，不会误关 */
       if (dialog.open && event.target === dialog) closeAnimated();
+      /* 点在贴纸和便签之外：顺手收起性格便签（若开着） */
+      if (
+        persona instanceof HTMLElement &&
+        !persona.hidden &&
+        !event.target.closest('#basic-persona, #basic-sticker')
+      ) {
+        setPersona(false);
+      }
     });
 
     closeBtn?.addEventListener('click', closeAnimated);
+
+    /* ── 邮箱图标 → 首页收尾态（2026-09-13 用户裁定）────────────────────
+     * 不跳独立页（/contact/ 已撤销）：点「邮箱」图标时先收抽屉露出首页，再派发
+     * 'scrub:outro' 让 scroll-scrub.js 把版式一次推到收尾（--sc→1），首页底部
+     * 那张联系表单随之升起。真实邮箱仍只存在于 Worker secret，网页零明文——
+     * 这才是本条链路的根本目的。
+     *
+     * 与滚动路径共用同一状态机（派发事件由 scroll-scrub.js 消费），因此不产生
+     * 第二份进度；页面没有 scrub 舞台时事件自然落空，此处无须判空。 */
+    dialog.querySelectorAll('[data-action="contact"]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeAnimated();
+        document.dispatchEvent(new CustomEvent('scrub:outro'));
+      });
+    });
 
     /* Esc 走原生 cancel：拦下默认的瞬时 close，改走带动画的路径 */
     dialog.addEventListener('cancel', (event) => {
@@ -183,6 +243,7 @@ const links = basic.links ?? [];
 
     dialog.addEventListener('close', () => {
       delete root.dataset.fileOpen;
+      setPersona(false);
       opener?.focus();
       opener = null;
     });

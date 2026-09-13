@@ -1,0 +1,284 @@
+/* ── 联系表单皮肤（2026-09-13 从 hero.css 抽出，首页收尾区专用）──
+ *
+ * 分工：
+ *   · 本文件 = 皮肤（排版 / 描边 / 交互态 / toast / honeypot）。**不含定位**。
+ *   · hero.css = 首页专属的绝对定位、升起动画、指针门禁；选择器一律带 `.stage`
+ *     作用域（特异性 0,2,0 > 本文件的 0,1,0），因此两文件的加载顺序无关紧要。
+ *   · 独立的 /contact/ 页已于 2026-09-13 撤销（用户裁定改为内联露出），现仅首页使用。
+ *
+ * 令牌自足：`.outro-contact` 自带 --ink/--paper/--hair/--red 别名，使它脱离 .stage
+ * 也能成立（首页里 .stage 定义了同值别名，此处重复无害）——保留这套中性写法的
+ * 理由是不必因版式变动回改皮肤。
+ * 其余 --c-* / --font-cjk 来自 global.css。
+ *
+ * 视觉语言是「线稿」——透明底 + 描边，实心深色块会压掉纸感；
+ * 唯一例外是提交按钮（反相实心块，作"可点"的强信号）。 */
+
+/* ── 表单骨架 ────────────────────────────────────────────────────── */
+.outro-contact {
+  --paper: var(--c-paper);
+  --ink: var(--c-ink);
+  --red: var(--c-red);
+  --hair: rgba(var(--c-ink-rgb), 0.16);
+
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.05vw, 16px);
+  font-family: var(--font-cjk);
+  color: var(--ink);
+}
+
+.outro-contact-title {
+  margin: 0;
+  font-size: clamp(15px, 1.5vw, 24px);
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.outro-contact-note {
+  margin: 0 0 clamp(2px, 0.4vw, 6px);
+  font-size: clamp(11px, 0.95vw, 14px);
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.015em;
+  color: var(--c-muted);
+}
+
+/* 字段：标签视觉隐藏（表单一律用 placeholder 提示，与截图一致），
+   但保留在无障碍树里——屏幕阅读器仍能读出每个输入框的名称。 */
+.field {
+  display: block;
+  position: relative;
+}
+
+.field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.field input,
+.field textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: clamp(9px, 0.86vw, 13px) clamp(11px, 1vw, 15px);
+  font-family: var(--font-cjk);
+  font-size: clamp(11.5px, 0.98vw, 14px);
+  line-height: 1.5;
+  color: var(--ink);
+  /* 透明底 + 描边：让纸色透上来，与 hero 的线稿语汇一致 */
+  background: rgba(var(--c-card-rgb), 0.5);
+  border: 1px solid var(--hair);
+  border-radius: clamp(4px, 0.42vw, 7px);
+  /* transition 只列颜色类属性：不与 translate/opacity 打架（那两个逐帧即时生效） */
+  transition:
+    border-color 0.24s ease,
+    background-color 0.24s ease;
+}
+.field textarea {
+  resize: vertical;
+  min-height: clamp(72px, 7vw, 104px);
+}
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--c-muted-3);
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  background: rgba(var(--c-card-rgb), 0.86);
+  border-color: var(--ink);
+}
+
+.outro-contact-actions {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1vw, 16px);
+  margin-top: clamp(2px, 0.4vw, 6px);
+}
+
+/* 提交按钮：反相实心块（黑底白字），是"可点"的唯一强信号；
+   hero 其余元素都是线稿，这里用实心形成明确的操作点。 */
+.outro-submit {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  padding: clamp(9px, 0.86vw, 13px) clamp(18px, 1.8vw, 28px);
+  font-family: var(--font-cjk);
+  font-size: clamp(11.5px, 0.98vw, 14px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: clamp(4px, 0.42vw, 7px);
+  cursor: pointer;
+  transition: background-color 0.24s ease, border-color 0.24s ease;
+}
+.outro-submit em {
+  font-style: normal;
+  font-size: 0.86em;
+  font-weight: 400;
+  opacity: 0.68;
+}
+.outro-submit:hover {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+/* 同意勾选：告知文案与勾选一体，整行可点。默认不勾选（合规要求），
+   未勾选提交由脚本拦截并出红字错误态（不用原生 required——原生气泡
+   是浏览器内部 UI，CSS 无法定制）。配色沿用角标小字灰，勾选态反相黑。 */
+.outro-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: clamp(10px, 1vw, 14px);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--c-muted-2);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.outro-consent input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  accent-color: var(--ink);
+  width: 12px;
+  height: 12px;
+}
+.outro-consent span {
+  flex: 1;
+}
+
+/* 出错态（未勾选就提交）：文字与勾选框转红、左侧红线呼应信息条分隔线，
+   整行一次性横向抖动吸引视线。 */
+@keyframes outro-consent-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  55% { transform: translateX(3px); }
+  80% { transform: translateX(-2px); }
+}
+.outro-consent.is-error {
+  color: var(--red);
+  animation: outro-consent-shake 0.32s ease-out;
+}
+.outro-consent.is-error input {
+  accent-color: var(--red);
+  outline: 1px solid var(--red);
+  outline-offset: 2px;
+}
+.outro-consent.is-error span {
+  border-left: 2px solid var(--red);
+  padding-left: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .outro-consent.is-error {
+    animation: none;
+  }
+}
+
+/* honeypot：视觉上移出视口的陷阱字段。不用 display:none——部分 bot 会
+   检测它，绝对定位扔出屏外更稳。tabindex=-1 不可聚焦，aria-hidden 对
+   读屏隐藏，填充即判定为脚本（Worker 端假成功不投递）。 */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── 顶部系统消息（toast，2026-09-12）────────────────────────────────
+ * 由表单脚本动态挂到 <body>，不在 .stage 里——不能消费 --paper/--ink 等
+ * 作用域在 .stage 的变量，颜色按调色板字面写（var(--c-ink) 即 --ink，
+ * 红取 --red var(--c-red) 的提亮版、绿取旧状态行 ok 色 var(--c-ok) 的提亮版
+ * ——深色底上原色不够亮，读不清）。
+ * 三态：pending 灰点 / ok 绿点 / error 红点。滑入 → 停留 → 淡出，
+ * 点击可提前关闭；容器 pointer-events:none，不挡页面点击。 */
+.toast-stack {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: clamp(14px, 2.5svh, 28px);
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  max-width: min(calc(100vw - 48px), 420px);
+  padding: 10px 18px;
+  border-radius: 3px;
+  /* toast 恒深底浅字（主题不变量）：浮层自带的黑章底，不随主题翻转 */
+  background: #131211;
+  color: #f4f3f1;
+  font-size: clamp(11px, 1.4vw, 13px);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 28px rgba(19, 18, 17, 0.28);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-14px);
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+/* 状态圆点：pending 灰（旧状态行同款 var(--c-muted-2)） */
+.toast::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 9px;
+  vertical-align: 1px;
+  background: var(--c-muted-2);
+}
+.toast--ok::before {
+  background: #6abf40; /* 旧 ok 色 var(--c-ok) 的提亮版（深底可读） */
+}
+.toast--error::before {
+  background: #ff5449; /* --red var(--c-red) 的提亮版（深底可读） */
+}
+.toast.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast.is-out {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* ── ≤640：手机档收紧行距与控件内距（通用，两页都生效）──────────────
+ * 首页的定位调参（gap / 宽度锚定等）留在 hero.css 的 .stage 作用域里。 */
+@media (max-width: 640px) {
+  .field input,
+  .field textarea {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .field textarea {
+    min-height: 62px;
+  }
+  .outro-submit {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+  .outro-consent {
+    font-size: 10px;
+  }
+}
