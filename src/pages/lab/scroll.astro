@@ -1,63 +1,597 @@
 ---
 // 实验室 · 滚动帧随动（/lab/scroll/）——独立演示页
 //
-// 舞台本体已抽成 src/components/ScrollStage.astro（与首页融合版共用），
-// 本页只是给它套上实验室的页头与说明面板。首页融合方式见 index.astro。
+// 布局：页面不滚动。手机框（iframe）内部独立滚动驱动帧播放，
+//        右侧固定显示实时参数。原理说明通过按钮弹窗展示。
+// iframe 内 scroll-demo.html 自带完整的 scroll→frame 逻辑，
+// 通过 postMessage 将 progress/frame 回传给外层参数面板。
 import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
-import ScrollStage from '../../components/ScrollStage.astro';
 ---
 
-<Base title="Daidai档案馆">
-  <!-- 页头行（2026-09-13 第二轮）：本页是历史演示页、不属四板块导航，
-       但仍要出这条行 —— 昼夜章与公告现在由 PageHead 承载（不再由 Base 壳层
-       fixed 渲染），漏挂本页会没有主题切换入口。 -->
+<Base title="滚动帧随动 · 实验室">
   <PageHead no="LAB-01" back={{ label: '← 返回实验室', href: '/lab/' }} />
 
-  <header class="page-head">
-    <h1>SCROLL / 滚动帧随动</h1>
-    <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING</span>
-  </header>
+  <main class="demo-page">
+    <header class="page-head">
+      <h1>SCROLL / 滚动帧随动</h1>
+      <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING</span>
+    </header>
 
-  <ScrollStage />
-
-  <section class="outro">
-    <div class="panel">
-      <div class="panel-head">
-        <h2>实现要点</h2>
-        <span class="badge badge--win">BUILD PASS</span>
+    <div class="demo-layout">
+      <!-- 左：手机框（iframe 滚动隔离） -->
+      <div class="demo-left">
+        <div class="phone">
+          <div class="phone__notch" aria-hidden="true"></div>
+          <div class="phone__viewport">
+            <iframe
+              class="phone__iframe"
+              src="/lab/scroll-demo.html"
+              scrolling="yes"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            ></iframe>
+            <div class="phone__swipe-hint" aria-hidden="true">
+              ↑ 在手机内滚动 ↓
+            </div>
+          </div>
+          <div class="phone__bar" aria-hidden="true"></div>
+        </div>
       </div>
-      <div class="readout">
-        <span>时间轴拓扑 <b>线性钳制（wrap:false）</b></span>
+
+      <!-- 右：固定参数面板 -->
+      <aside class="demo-right">
+        <div class="params">
+          <h2 class="params__title">实时参数</h2>
+
+          <div class="params__group">
+            <span class="params__label">滚动进度</span>
+            <div class="params__bar">
+              <div class="params__bar-fill" data-param="progress-bar"></div>
+            </div>
+            <span class="params__value"><span data-param="progress">0.0</span>%</span>
+          </div>
+
+          <div class="params__group">
+            <span class="params__label">当前帧</span>
+            <span class="params__value params__value--big">
+              <span data-param="frame">0</span>
+              <span class="params__value-sub">/ 192</span>
+            </span>
+          </div>
+
+          <div class="params__group">
+            <span class="params__label">段索引</span>
+            <span class="params__value">seg <span data-param="segment">0</span></span>
+          </div>
+
+          <div class="params__divider"></div>
+
+          <div class="params__group">
+            <span class="params__label">时间轴拓扑</span>
+            <span class="params__value">线性钳制</span>
+          </div>
+          <div class="params__group">
+            <span class="params__label">渲染方式</span>
+            <span class="params__value">Canvas 2D 切格</span>
+          </div>
+          <div class="params__group">
+            <span class="params__label">wrap</span>
+            <span class="params__value">false</span>
+          </div>
+          <div class="params__group">
+            <span class="params__label">帧缓动</span>
+            <span class="params__value"><span data-param="easing">smoothDamp</span></span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 底部：原理说明按钮 -->
+    <div class="principle-trigger">
+      <button class="principle-btn" data-modal-open="principle">
+        查看原理说明
+        <span class="principle-btn__icon" aria-hidden="true">→</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- 原理说明弹窗 -->
+  <dialog class="modal" data-modal="principle">
+    <div class="modal__sheet">
+      <div class="modal__head">
+        <h2>原理说明</h2>
+        <span class="badge badge--win">BUILD PASS</span>
+        <button class="modal__close" data-modal-close aria-label="关闭">✕</button>
+      </div>
+
+      <div class="principle__grid">
+        <article class="principle__card">
+          <h3>滚动 → 进度</h3>
+          <p>
+            iframe 内部页面高420vh，sticky 视口钉在屏上。纵向滚动距离
+            <code>scrollY</code> 经线性映射归一化为 <code>[0, 1]</code> 进度值。
+            420vh 行程 ≈ 3.2 屏扫完 193 帧（≈15 帧/百 px）。
+            两端钳制：顶停 f0，底停 f192。
+          </p>
+        </article>
+
+        <article class="principle__card">
+          <h3>进度 → 帧号</h3>
+          <p>
+            <code>round(p × 192)</code> 将归一化进度映射为帧序号。
+            时间轴拓扑 = 线性钳制（wrap:false），首尾不相接。
+            smoothDamp 缓动平滑帧间跳变，避免逐帧硬切的机械感。
+          </p>
+        </article>
+
+        <article class="principle__card">
+          <h3>帧号 → 画面</h3>
+          <p>
+            帧号拆解为段号 + 段内偏移，从对应 WebP 图集中裁切单格绘制到 Canvas。
+            20 段 × 10 格（2×5 网格），按需解码 + LRU 驻留当前段 ± 邻段，
+            远段 <code>close()</code> 真释放——峰值位图 2–3 段。
+          </p>
+        </article>
+
+        <article class="principle__card">
+          <h3>两层缓存</h3>
+          <p>
+            压缩态 <code>ArrayBuffer</code> 全段常驻（≈3.9MB），
+            解码态 <code>ImageBitmap</code> 只驻留活跃段（53–80MB）。
+            跨段只触发 createImageBitmap 解码（几十 ms），运行期零网络依赖。
+          </p>
+        </article>
+      </div>
+
+      <div class="principle__specs">
+        <span>时间轴 <b>线性钳制（wrap:false）</b></span>
         <span>统一窗口 <b>966×720 · 零缩放</b></span>
         <span>分段 <b>20 段 × 10 格（2×5）</b></span>
         <span>抠图 <b>RVM resnet50 + despill</b></span>
         <span>体积 <b>20 × WebP ≈ 11MB 按需加载</b></span>
       </div>
     </div>
-    <p class="backline"><a href="/">← 返回首页（已融合此交互）</a></p>
-  </section>
+  </dialog>
 
   <script>
-    import '../../lib/scroll-driver.js';
+    /* ── iframe postMessage 监听：接收 scroll-demo.html 的实时状态 ── */
+    const params = {
+      progress: document.querySelector('[data-param="progress"]'),
+      progressBar: document.querySelector('[data-param="progress-bar"]'),
+      frame: document.querySelector('[data-param="frame"]'),
+      segment: document.querySelector('[data-param="segment"]'),
+      easing: document.querySelector('[data-param="easing"]'),
+    };
+
+    let rafPending = false;
+    let pending = null;
+
+    window.addEventListener('message', (e) => {
+      if (e.data?.type !== 'scroll-demo') return;
+      pending = e.data;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(flush);
+      }
+    });
+
+    function flush() {
+      rafPending = false;
+      if (!pending) return;
+      const d = pending;
+      pending = null;
+
+      const pct = (d.progress * 100).toFixed(1);
+      const seg = Math.min(19, Math.floor(d.frame / 10));
+
+      if (params.progress) params.progress.textContent = pct;
+      if (params.progressBar) params.progressBar.style.width = `${pct}%`;
+      if (params.frame) params.frame.textContent = String(d.frame);
+      if (params.segment) params.segment.textContent = String(seg);
+      if (params.easing) {
+        params.easing.textContent = d.progress < 0.01 || d.progress > 0.99 ? 'clamp' : 'smoothDamp';
+      }
+    }
+
+    /* ── 弹窗控制 ── */
+    document.querySelectorAll('[data-modal-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.modalOpen;
+        const dialog = document.querySelector(`[data-modal="${name}"]`);
+        if (dialog instanceof HTMLDialogElement) {
+          dialog.showModal();
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-modal-close]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const dialog = btn.closest('[data-modal]');
+        if (dialog instanceof HTMLDialogElement) {
+          dialog.close();
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-modal]').forEach((dialog) => {
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close();
+      });
+    });
   </script>
 </Base>
 
 <style>
-  .outro {
-    padding: 40px 32px 48px;
-    max-width: 1080px;
+  /* ── 页面：不滚动，全屏撑满 ─────────────────────────────────────── */
+  .demo-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  .page-head {
+    flex-shrink: 0;
+    padding: clamp(16px, 3vw, 28px) clamp(20px, 4vw, 48px) 0;
+  }
+  .page-head h1 {
+    margin: 0;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: clamp(18px, 2.6vw, 26px);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+  }
+  .page-head .sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--c-muted);
+  }
+
+  /* ── 主布局：手机 + 参数 并排居中 ────────────────────────────────── */
+  .demo-layout {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(20px, 3vw, 40px);
+    padding: 0 clamp(16px, 3vw, 40px);
+    min-height: 0;
+  }
+
+  .demo-left {
+    flex-shrink: 0;
+  }
+
+  .demo-right {
+    flex-shrink: 0;
+  }
+
+  /* ── 手机外壳 ──────────────────────────────────────────────────────
+     高度优先约束（max-height），宽度由 aspect-ratio 自动算出。
+     这样手机永远不会超出视口，且保持 375:667 的真实比例。 */
+  .phone {
+    position: relative;
+    max-height: min(62vh, 520px);
+    aspect-ratio: 375 / 667;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .phone__notch {
+    flex-shrink: 0;
+    width: min(140px, 40%);
+    height: 16px;
     margin: 0 auto;
+    background: var(--c-ink, #131211);
+    border-radius: 0 0 10px 10px;
+    z-index: 2;
   }
 
-  .backline {
-    margin: 18px 4px 0;
+  .phone__viewport {
+    flex: 1;
+    position: relative;
+    border: 3px solid var(--c-ink, #131211);
+    border-top: none;
+    border-radius: 0 0 22px 22px;
+    overflow: hidden;
+    background: #eeedeb;
+    min-height: 0;
+  }
+
+  .phone__iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  .phone__swipe-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--c-muted, #6f6f6f);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .phone__bar {
+    flex-shrink: 0;
+    width: min(72px, 22%);
+    height: 4px;
+    margin: 4px auto 0;
+    background: var(--c-ink, #131211);
+    border-radius: 2px;
+    opacity: 0.22;
+  }
+
+  /* ── 参数面板 ────────────────────────────────────────────────────── */
+  .params {
+    width: clamp(190px, 17vw, 240px);
+    padding: clamp(14px, 1.5vw, 20px);
+    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.14);
+    border-radius: 8px;
+    background: var(--c-card, #fdfdfc);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
+  .params__title {
+    margin: 0 0 14px;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: var(--c-muted, #6f6f6f);
+  }
+
+  .params__group {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.06);
+  }
+
+  .params__label {
+    font-size: 12px;
+    color: var(--c-muted, #6f6f6f);
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .params__value {
     font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-ink, #131211);
+    text-align: right;
   }
 
-  .backline a {
-    color: var(--ink);
-    text-decoration: none;
-    border-bottom: 1px solid var(--line);
+  .params__value--big {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .params__value-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--c-muted, #6f6f6f);
+  }
+
+  .params__bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 50px;
+  }
+
+  .params__bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--c-red, #cf0a1a);
+    border-radius: 2px;
+    transition: width 0.06s linear;
+  }
+
+  .params__divider {
+    height: 1px;
+    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.12);
+    margin: 6px 0;
+  }
+
+  /* ── 原理按钮 ────────────────────────────────────────────────────── */
+  .principle-trigger {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    padding: clamp(10px, 2vw, 18px) 20px clamp(14px, 2.4vw, 22px);
+  }
+
+  .principle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.22);
+    border-radius: 6px;
+    background: var(--c-card, #fdfdfc);
+    color: var(--c-ink, #131211);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s;
+  }
+  .principle-btn:hover {
+    border-color: var(--c-red, #cf0a1a);
+    background: rgba(var(--c-red-rgb, 207, 10, 26), 0.04);
+  }
+  .principle-btn:focus-visible {
+    outline: 2px solid var(--c-red, #cf0a1a);
+    outline-offset: 2px;
+  }
+  .principle-btn__icon {
+    transition: transform 0.18s;
+  }
+  .principle-btn:hover .principle-btn__icon {
+    transform: translateX(3px);
+  }
+
+  /* ── 弹窗 ────────────────────────────────────────────────────────── */
+  .modal {
+    max-width: min(860px, 92vw);
+    max-height: 85vh;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: var(--c-card, #fdfdfc);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+  }
+  .modal::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .modal[open] {
+    animation: modal-in 0.22s ease-out;
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal__sheet {
+    padding: clamp(20px, 3vw, 32px);
+    overflow-y: auto;
+    max-height: 85vh;
+  }
+
+  .modal__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: clamp(16px, 2vw, 24px);
+  }
+  .modal__head h2 {
+    margin: 0;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+  }
+
+  .modal__close {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.16);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--c-ink, #131211);
+    font-size: 14px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s;
+  }
+  .modal__close:hover {
+    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.06);
+  }
+
+  .badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .badge--win {
+    background: rgba(var(--c-ok-rgb, 59, 109, 17), 0.12);
+    color: var(--c-ok, #3b6d11);
+    border: 1px solid rgba(var(--c-ok-rgb, 59, 109, 17), 0.28);
+  }
+
+  .principle__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: clamp(10px, 1.4vw, 16px);
+    margin-bottom: clamp(14px, 2vw, 20px);
+  }
+
+  .principle__card {
+    padding: clamp(12px, 1.4vw, 18px);
+    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.1);
+    border-radius: 6px;
+    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.02);
+  }
+  .principle__card h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .principle__card p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--c-ink-2, #55524e);
+  }
+  .principle__card code {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--c-code-bg, rgba(0, 0, 0, 0.06));
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.92em;
+  }
+
+  .principle__specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.1);
+    font-size: 12px;
+    color: var(--c-muted, #6f6f6f);
+    letter-spacing: 0.02em;
+  }
+  .principle__specs b {
+    color: var(--c-ink, #131211);
+    font-weight: 600;
+  }
+
+  /* ── 手机档 ──────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .demo-page {
+      height: auto;
+      overflow: auto;
+    }
+    .demo-layout {
+      flex-direction: column;
+      gap: 16px;
+      padding: 0 16px;
+    }
+    .phone {
+      max-height: min(48vh, 380px);
+    }
+    .params {
+      width: 100%;
+      max-width: 280px;
+      padding: 14px;
+    }
+    .principle__grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

@@ -1,0 +1,141 @@
+---
+// 手机框嵌入式滚动演示（/lab/scroll/ 实验室专用）
+//
+// 复用 scroll-driver.js 的 [data-scroll-sprite] 契约：phone__viewport 内的
+// canvas 带 data-sprite，外层 .scroll-demo 带 data-scroll-sprite + data-* 参数。
+// scroll-driver.js 用 window.scrollY 映射帧序号，因此手机框只是视觉壳，
+// 滚动行程由外层 420vh 容器驱动。
+import meta from '../data/scroll-meta.json';
+
+const segments = JSON.stringify(meta.segments);
+---
+
+<div class="scroll-demo"
+  data-scroll-sprite
+  data-segments={segments}
+  data-frame-count={meta.frameCount}
+  data-cell-width={meta.cellWidth}
+  data-cell-height={meta.cellHeight}
+>
+  <div class="phone">
+    <div class="phone__notch" aria-hidden="true"></div>
+    <div class="phone__viewport">
+      <canvas
+        class="phone__canvas"
+        data-sprite
+        width={meta.cellWidth}
+        height={meta.cellHeight}
+        role="img"
+        aria-label={`滚动驱动的动态立绘，共 ${meta.frameCount} 帧`}
+      ></canvas>
+      <div class="phone__hint" aria-hidden="true">
+        <span class="phone__hint-text">↓ 滚动驱动帧播放</span>
+        <span class="phone__frame">F<b data-frame>000</b>/192</span>
+      </div>
+    </div>
+    <div class="phone__bar" aria-hidden="true"></div>
+  </div>
+</div>
+
+<style>
+  .scroll-demo {
+    position: relative;
+    height: 420vh;
+  }
+
+  /* ── 手机外壳 ────────────────────────────────────────────────────── */
+  .phone {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100svh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .phone__notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(220px, 40%);
+    height: 28px;
+    background: var(--c-ink, #131211);
+    border-radius: 0 0 18px 18px;
+    z-index: 2;
+  }
+
+  .phone__viewport {
+    position: relative;
+    width: min(375px, 80vw);
+    aspect-ratio: 375 / 667;
+    border: 3px solid var(--c-ink, #131211);
+    border-radius: 36px;
+    overflow: hidden;
+    background: #eeedeb;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  .phone__canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .phone__hint {
+    position: absolute;
+    bottom: 14px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    pointer-events: none;
+  }
+
+  .phone__hint-text {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted, #6f6f6f);
+    opacity: 0.7;
+  }
+
+  .phone__frame {
+    font-size: 10px;
+    color: var(--muted, #6f6f6f);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+  }
+
+  .phone__frame b {
+    color: var(--ink, #131211);
+    font-weight: 600;
+  }
+
+  .phone__bar {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(120px, 30%);
+    height: 4px;
+    background: var(--c-ink, #131211);
+    border-radius: 2px;
+    opacity: 0.35;
+  }
+
+  @media (max-width: 640px) {
+    .phone__viewport {
+      width: min(300px, 85vw);
+    }
+    .phone__notch {
+      height: 22px;
+    }
+  }
+</style>

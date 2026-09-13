@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>滚动帧演示</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { overscroll-behavior: none; }
+  body {
+    height: 420vh;
+    background: #eeedeb;
+    font-family: -apple-system, sans-serif;
+  }
+  .viewport {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .hud {
+    position: absolute;
+    bottom: 14px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #6f6f6f;
+    letter-spacing: 0.06em;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .hud b { color: #131211; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="viewport">
+    <canvas id="c" width="966" height="720"></canvas>
+    <div class="hud">
+      <span>↓ 滚动驱动帧播放</span>
+      <span>F<b id="f">0</b>/192</span>
+    </div>
+  </div>
+<script>
+(function() {
+  var FRAME_COUNT = 193;
+  var CELL_W = 966;
+  var CELL_H = 720;
+  var COLS = 2;
+  var ROWS = 5;
+  var SEGMENTS = [
+    { asset: '/motion/scroll/segments/seg00.webp', first: 0,  count: 10 },
+    { asset: '/motion/scroll/segments/seg01.webp', first: 10, count: 10 },
+    { asset: '/motion/scroll/segments/seg02.webp', first: 20, count: 10 },
+    { asset: '/motion/scroll/segments/seg03.webp', first: 30, count: 10 },
+    { asset: '/motion/scroll/segments/seg04.webp', first: 40, count: 10 },
+    { asset: '/motion/scroll/segments/seg05.webp', first: 50, count: 10 },
+    { asset: '/motion/scroll/segments/seg06.webp', first: 60, count: 10 },
+    { asset: '/motion/scroll/segments/seg07.webp', first: 70, count: 10 },
+    { asset: '/motion/scroll/segments/seg08.webp', first: 80, count: 10 },
+    { asset: '/motion/scroll/segments/seg09.webp', first: 90, count: 10 },
+    { asset: '/motion/scroll/segments/seg10.webp', first: 100, count: 10 },
+    { asset: '/motion/scroll/segments/seg11.webp', first: 110, count: 10 },
+    { asset: '/motion/scroll/segments/seg12.webp', first: 120, count: 10 },
+    { asset: '/motion/scroll/segments/seg13.webp', first: 130, count: 10 },
+    { asset: '/motion/scroll/segments/seg14.webp', first: 140, count: 10 },
+    { asset: '/motion/scroll/segments/seg15.webp', first: 150, count: 10 },
+    { asset: '/motion/scroll/segments/seg16.webp', first: 160, count: 10 },
+    { asset: '/motion/scroll/segments/seg17.webp', first: 170, count: 10 },
+    { asset: '/motion/scroll/segments/seg18.webp', first: 180, count: 10 },
+    { asset: '/motion/scroll/segments/seg19.webp', first: 190, count: 3 }
+  ];
+
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var frameLabel = document.getElementById('f');
+  var images = new Array(SEGMENTS.length);
+  var loaded = 0;
+  var currentFrame = 0;
+  var trackLen = 1;
+
+  function measure() {
+    trackLen = Math.max(1, document.body.scrollHeight - window.innerHeight);
+  }
+
+  function segOf(f) {
+    for (var i = 0; i < SEGMENTS.length; i++) {
+      var g = SEGMENTS[i];
+      if (f >= g.first && f < g.first + g.count) return i;
+    }
+    return SEGMENTS.length - 1;
+  }
+
+  function drawFrame(f) {
+    f = Math.max(0, Math.min(FRAME_COUNT - 1, Math.round(f)));
+    if (f === currentFrame && images[segOf(f)]) return;
+    currentFrame = f;
+    var s = segOf(f);
+    if (!images[s]) return;
+    var g = SEGMENTS[s];
+    var k = f - g.first;
+    ctx.clearRect(0, 0, CELL_W, CELL_H);
+    ctx.drawImage(
+      images[s],
+      (k % COLS) * CELL_W,
+      Math.floor(k / COLS) * CELL_H,
+      CELL_W, CELL_H,
+      0, 0, CELL_W, CELL_H
+    );
+    frameLabel.textContent = String(f);
+    try {
+      var p = FRAME_COUNT > 1 ? f / (FRAME_COUNT - 1) : 0;
+      parent.postMessage({ type: 'scroll-demo', progress: p, frame: f }, '*');
+    } catch(e) {}
+  }
+
+  SEGMENTS.forEach(function(seg, i) {
+    var img = new Image();
+    img.onload = function() {
+      images[i] = img;
+      loaded++;
+      if (loaded === 1) { measure(); apply(); }
+      if (loaded === SEGMENTS.length) measure();
+    };
+    img.src = seg.asset;
+  });
+
+  function apply() {
+    var y = window.scrollY || 0;
+    var p = Math.max(0, Math.min(1, y / trackLen));
+    drawFrame(p * (FRAME_COUNT - 1));
+  }
+
+  window.addEventListener('scroll', apply, { passive: true });
+  window.addEventListener('resize', function() { measure(); apply(); });
+  measure();
+  apply();
+})();
+</script>
+</body>
+</html>
