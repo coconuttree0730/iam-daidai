@@ -1,25 +1,85 @@
 ---
-// 占位页模板（2026-09-11）：实验室板块。
-// 统一档案风格：纸感底色 + 编号头 + 大字标题 + 「档案整理中」红色印章。
-// 板块建成后直接替换本文件内容，页头编号与导航结构可复用。
+// 实验室板块（/lab/）：2026-09-13 第八轮从「档案整理中」占位页改建为**条目卡片墙**。
+//
+// 定位：把做过的东西拆开讲——每个条目都带可交互的原始演示，卡片是它的封面与
+// 内容提要。条目数据在 src/data/lab.json（构建时静态 import，运行时零 fetch），
+// 加一个新实验/教材只需往 entries 追加对象，本文件不用动。
+//
+// 弹性布局：网格用 auto-fit + minmax(min(100%, 320px), 1fr)，窄屏自然退化为
+// 单列；卡片本体是 flex-wrap，封面与文字各有 flex-basis，容器一窄就自动堆叠
+// ——不需要为「单列 / 双列 / 并排」分别写断点。
 import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
+import lab from '../data/lab.json';
+
+const entries = lab.entries;
+const pad2 = (n: number) => String(n).padStart(2, '0');
 ---
-<Base title="Daidai档案馆" description="实验室板块 · 档案整理中">
+<Base
+  title="实验室 · Daidai档案馆"
+  description="实验室板块 · 交互实验与教材，每个条目都附可运行的原始演示"
+>
   <main class="sheet">
-    <header class="head">
-      <span class="tag">NO.04</span>
-      <span class="tag tag--red">密级 公开</span>
-      <a class="back" href="/">← 返回档案馆</a>
-    </header>
+    <PageHead no="NO.04" back={{ label: '← 返回档案馆', href: '/' }} />
 
     <section class="hero">
       <p class="en" aria-hidden="true">LAB</p>
       <h1>实验室</h1>
+      <p class="hero__note">把做过的东西拆开讲 · 每个条目都附可交互的原始演示</p>
     </section>
 
-    <section class="stamp" aria-label="档案整理中">
-      <strong>实验进行中</strong>
-      <small>IN PROGRESS · 该板块即将开放</small>
+    <section class="entries" aria-label="实验与教材">
+      <header class="sec-head">
+        <h2 class="sec-title">实验与教材</h2>
+        <span class="sec-count">收录 {pad2(entries.length)} 项</span>
+      </header>
+
+      <ul class="grid" role="list">
+        {
+          entries.map((e) => (
+            <li>
+              {/* 整张卡片是一个链接：不嵌套可交互元素，读屏只报一个链接，
+                  accessible name 由 aria-label 收短（否则会把提要正文全念一遍）。 */}
+              <a class="card" href={e.href} aria-label={`${e.no} · ${e.title}（${e.kind}）`}>
+                <span class="card__media">
+                  <img
+                    src={e.poster}
+                    alt=""
+                    width={e.posterW}
+                    height={e.posterH}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span class="card__no" aria-hidden="true">{e.no}</span>
+                </span>
+
+                <span class="card__body">
+                  <span class="card__kind">{e.kind}</span>
+                  <h2 class="card__title">{e.title}</h2>
+                  <span class="card__en" aria-hidden="true">{e.en}</span>
+                  <p class="card__desc">{e.desc}</p>
+                  <span class="card__meta">
+                    {e.meta.map((m) => (
+                      <span class="card__chip">{m}</span>
+                    ))}
+                  </span>
+                  <span class="card__cta">
+                    {e.cta}
+                    <span class="card__go" aria-hidden="true">
+                      →
+                    </span>
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="stamp" aria-label="板块持续扩建中">
+      <strong>持续扩建中</strong>
+      <small>IN PROGRESS · 新条目陆续归档</small>
     </section>
 
     <footer class="foot" aria-hidden="true">
@@ -36,52 +96,24 @@ import Base from '../layouts/Base.astro';
     flex-direction: column;
     background: var(--c-paper);
     color: var(--c-ink);
-    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
-      "Microsoft YaHei", sans-serif;
+    font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
+      'Microsoft YaHei', sans-serif;
   }
 
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .tag {
-    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    padding: 4px 10px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-  }
-  .tag--red {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-  .back {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    padding-bottom: 2px;
-  }
-  .back:hover { color: var(--c-red); border-color: var(--c-red); }
-
+  /* ── 页头横幅 ────────────────────────────────────────────────────────
+     2026-09-13 第八轮：原先 .hero 带 flex:1 作整屏垂直居中（占位页形态），
+     有内容后改为普通横幅——垂直空间让给卡片网格。 */
   .hero {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     gap: 6px;
-    padding: 48px 20px;
+    padding: clamp(30px, 5vw, 58px) 20px clamp(16px, 2.4vw, 28px);
     text-align: center;
   }
   .hero .en {
     margin: 0;
-    font-family: "Anton", Impact, sans-serif;
+    font-family: 'Anton', Impact, sans-serif;
     font-size: clamp(28px, 6vw, 72px);
     line-height: 1;
     letter-spacing: 0.04em;
@@ -96,10 +128,207 @@ import Base from '../layouts/Base.astro';
     line-height: 1;
     letter-spacing: 0.02em;
   }
+  .hero__note {
+    margin: 12px 0 0;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--c-muted);
+  }
+
+  /* ── 条目区 ──────────────────────────────────────────────────────────
+     flex:1 把页脚推到视口底（.sheet 是 column flex，min-height 100vh）。 */
+  .entries {
+    flex: 1;
+    padding: 0 clamp(20px, 4vw, 48px);
+  }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    /* 内容列上限 960px（居中）：auto-fit 会把空轨道折叠掉，只有一条目时那张
+       卡片会撑满整个视口——1440px 屏上封面宽约 620px，比首页 hero 的人物
+       （--stage-width 386px）还大，喧宾夺主。这条上限同时约束下面的网格，
+       保证卡片比例稳定。/lab/scroll/ 的 .outro 用 1080px 居中，同一套做法。 */
+    width: 100%;
+    max-width: 960px;
+    margin-inline: auto;
+    padding-bottom: 10px;
+    margin-bottom: clamp(16px, 2.2vw, 24px);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .sec-title {
+    margin: 0;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+  }
+  .sec-count {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* auto-fit（而非 auto-fill）：空轨道会被折叠，所以只有一条目时那张卡片
+     会撑满整行——加第二条起自动变双列，不需要改任何规则。
+     min(100%, 320px) 保证极窄视口下 minmax 的上界不超过容器宽（不横向溢出）。 */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: clamp(16px, 2.4vw, 26px);
+    /* 与 .sec-head 同一条内容轴（上限见上）。margin-inline:auto 写在 margin:0
+       之后——长手属性后置才生效，否则会被 margin:0 抹掉。 */
+    max-width: 960px;
+    margin: 0;
+    margin-inline: auto;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* ── 卡片 ────────────────────────────────────────────────────────────
+     flex-wrap + 两侧 flex-basis：容器够宽就封面与文字并排，一窄就自动堆叠，
+     不用写断点。align-items:center 让文字块在封面较高时垂直居中。 */
+  .card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(14px, 2vw, 26px);
+    padding: clamp(12px, 1.6vw, 20px);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    border-radius: 6px;
+    background: var(--c-card);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.18s ease;
+  }
+  .card:hover {
+    border-color: var(--c-red);
+  }
+  .card:focus-visible {
+    outline: 2px solid var(--c-red);
+    outline-offset: 2px;
+  }
+  .card:hover .card__title {
+    text-decoration: underline;
+    text-decoration-color: var(--c-red);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .card:hover .card__cta {
+    color: var(--c-red);
+  }
+  .card:hover .card__go {
+    transform: translateX(4px);
+  }
+
+  .card__media {
+    position: relative;
+    flex: 1 1 300px;
+    min-width: 0;
+    /* 主题不变量纸底（--c-band）：封面是 RVM 抠出的透明人物（深发深衣），
+       深色主题下若跟着翻成深底会糊成一团剪影。与 /tags/ 页头纸带同一裁定：
+       这条纸带两种主题都保住浅纸底，不消费会翻转的 --c-ink/--c-ghost。 */
+    background: var(--c-band);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .card__media img {
+    display: block;
+    /* 不设 height：由 width/height 属性给出的固有比例决定高度——无裁切、
+       无信箱边，且因为属性齐备不会产生布局位移。 */
+    width: 100%;
+    height: auto;
+  }
+  .card__no {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 3px 8px;
+    border: 1px solid var(--c-red);
+    border-radius: 3px;
+    background: var(--c-band);
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--c-red);
+  }
+
+  .card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1 1 340px;
+    min-width: 0;
+  }
+  .card__kind {
+    padding: 3px 8px;
+    border: 1px solid var(--c-red);
+    border-radius: 3px;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--c-red);
+  }
+  .card__title {
+    margin: 0;
+    font-size: clamp(21px, 2.4vw, 28px);
+    font-weight: 900;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+  }
+  .card__en {
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: transparent;
+    -webkit-text-stroke: 0.8px var(--c-ghost);
+    user-select: none;
+  }
+  .card__desc {
+    margin: 2px 0 0;
+    /* 用 em 而非 ch：ch 以「0」字宽为准（约 0.5em），对中文会把行宽压到
+       二十来字一行，读起来很碎。34em ≈ 34 个中文字，接近正文的舒适行宽。 */
+    max-width: 34em;
+    font-size: 14.5px;
+    line-height: 1.75;
+    color: var(--c-ink-2);
+  }
+  .card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .card__chip {
+    padding: 3px 8px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.18);
+    border-radius: 3px;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-ink);
+    transition: color 0.18s ease;
+  }
+  .card__go {
+    transition: transform 0.18s ease;
+  }
 
   .stamp {
     align-self: center;
-    margin-bottom: 40px;
+    margin: clamp(28px, 4vw, 44px) auto 40px;
     padding: 14px 26px;
     border: 2px solid var(--c-red);
     border-radius: 6px;
@@ -143,5 +372,27 @@ import Base from '../layouts/Base.astro';
       var(--c-ink) 5.4px 6.4px,
       transparent 6.4px 8.4px
     );
+  }
+
+  /* 手机档：内缩收到 20px，卡片内距与间距收紧；封面与文字强制各占整行
+     （flex:1 1 100%），保证封面在上、提要在下的阅读顺序。 */
+  @media (max-width: 640px) {
+    .hero {
+      padding: 26px 20px 14px;
+    }
+    .entries {
+      padding: 0 20px;
+    }
+    .card {
+      gap: 14px;
+      padding: 12px;
+    }
+    .card__media,
+    .card__body {
+      flex: 1 1 100%;
+    }
+    .card__desc {
+      font-size: 14px;
+    }
   }
 </style>

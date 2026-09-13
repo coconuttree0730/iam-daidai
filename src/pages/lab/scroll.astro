@@ -4,10 +4,16 @@
 // 舞台本体已抽成 src/components/ScrollStage.astro（与首页融合版共用），
 // 本页只是给它套上实验室的页头与说明面板。首页融合方式见 index.astro。
 import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
 import ScrollStage from '../../components/ScrollStage.astro';
 ---
 
 <Base title="Daidai档案馆">
+  <!-- 页头行（2026-09-13 第二轮）：本页是历史演示页、不属四板块导航，
+       但仍要出这条行 —— 昼夜章与公告现在由 PageHead 承载（不再由 Base 壳层
+       fixed 渲染），漏挂本页会没有主题切换入口。 -->
+  <PageHead no="LAB-01" back={{ label: '← 返回实验室', href: '/lab/' }} />
+
   <header class="page-head">
     <h1>SCROLL / 滚动帧随动</h1>
     <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING</span>

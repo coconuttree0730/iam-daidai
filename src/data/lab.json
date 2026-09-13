@@ -1,0 +1,18 @@
+{
+  "_comment": "实验室板块条目（2026-09-13 建）。这是 /lab/ 卡片墙的唯一数据源，构建时静态 import（运行时零 fetch，见 MEMORY 的全局契约）。加一个实验/教材只需往 entries 里追加一个对象：no 是实验室编号（LAB-0x，与页面 PageHead 的 NO.04 是两套编号，前者标条目、后者标板块）；kind 是条目性质（如「交互教材」「原型」）；poster 必须带前导斜杠、指向 public/ 下的静态资源；href 是站内路径。**改文案只改这里，不要改 lab.astro。**",
+  "entries": [
+    {
+      "no": "LAB-01",
+      "kind": "交互教材",
+      "title": "滚动帧随动",
+      "en": "SCROLL / FRAME FOLLOW",
+      "desc": "把滚动量当作时间轴：193 帧绿幕素材逐帧抠成透明序列后分段打包，滚动进度直接驱动帧序号，到底停帧。带动画时间轴的钳制取舍、分段按需加载与内存驻留的完整讲解。",
+      "meta": ["193 帧 · 24fps", "RVM 抠图 + 去溢色", "20 段按需加载"],
+      "poster": "/motion/scroll/poster.webp",
+      "posterW": 600,
+      "posterH": 448,
+      "href": "/lab/scroll/",
+      "cta": "进入演示"
+    }
+  ]
+}
