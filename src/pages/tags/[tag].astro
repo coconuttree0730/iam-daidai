@@ -2,6 +2,7 @@
 // 单标签文章列表页（2026-09-12）：/tags/<tag>/ —— 复用 PostCard 行式条目。
 // 文章按发布时间倒序，编号 01 起每页独立；空标签不生成页面（无文章即无路由）。
 import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
 import PostCard from '../../components/PostCard.astro';
 import { getSortedPosts } from '../../data/posts';
 
@@ -27,13 +28,15 @@ const { tag, posts } = Astro.props;
 
 <Base title={`#${tag} · Daidai档案馆`} description={`标签「${tag}」下的全部文章`}>
   <main class="sheet">
-    <header class="head">
-      <span class="tag">NO.03</span>
-      <span class="tag tag--red">{posts.length} 篇</span>
-      <a class="tag tag--link" href="/tags/">全部标签</a>
-      <a class="tag tag--link" href="/blog/">博客</a>
-      <a class="back" href="/tags/">← 返回标签索引</a>
-    </header>
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: `${posts.length} 篇`, variant: 'red' },
+        { label: '全部标签', href: '/tags/' },
+        { label: '博客', href: '/blog/' },
+      ]}
+      back={{ label: '← 返回标签索引', href: '/tags/' }}
+    />
 
     <section class="hero">
       <p class="en" aria-hidden="true">TAG</p>
@@ -66,48 +69,6 @@ const { tag, posts } = Astro.props;
     color: var(--c-ink);
     font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
       'Microsoft YaHei', sans-serif;
-  }
-
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .tag {
-    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    padding: 4px 10px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-  }
-  .tag--red {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-  .tag--link {
-    color: var(--c-muted);
-    border-color: rgba(var(--c-ink-rgb), 0.3);
-    text-decoration: none;
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-  .tag--link:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-  .back {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    padding-bottom: 2px;
-  }
-  .back:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
   }
 
   .hero {

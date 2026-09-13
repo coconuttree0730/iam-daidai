@@ -1,0 +1,189 @@
+---
+/*
+  全站页头（2026-09-13 抽出，替代原先在 8 个页面里逐字复制的 .head/.tag/.back）
+  ────────────────────────────────────────────────────────────────────────
+  结构：左 = 站名徽标 + 细分隔 + 编号 + chips（可折行）  ／  右 = 返回链 + 公告 + 昼夜章
+  ≤640px 隐藏两件：编号 chip（给公告让宽度，第二轮）与返回链（第三轮，见文末注释）。
+  右端三件是「跨页恒定」的那组控件。本轮把它们放进页头行内（入流），因此页头
+  不需要给固定章让位 —— 这是 2026-09-13 裁定 Q10(b) 的落点，也是用户报的
+  「顶部控件互相挤压覆盖」的修法（旧版章 fixed 在 top20/right20，390px 视口下
+  内边距降到 20px，整条「← 返回…」都压在章底下，点它实际点到章上）。
+  裁定 Q5(a)：「密级 公开」chip 从三个板块页头移除（首页黑条那一项保留）。
+  样式集中在本组件的 scoped <style>：Astro 只给「本组件渲染的元素」加 cid，
+  这里所有元素都出自本组件，故安全（注入型 DOM 才需要 :global —— 见 MEMORY 的坑）。
+*/
+import Announce from './Announce.astro';
+import SiteMark from './SiteMark.astro';
+import ThemeToggle from './ThemeToggle.astro';
+
+interface Chip {
+  label: string;
+  /** 有 href 即渲染成可点 chip（tag--link） */
+  href?: string;
+  /** 无 href 时的强调色：red = 红边红字（原 .tag--red） */
+  variant?: 'red';
+}
+
+interface Props {
+  /** 编号 chip，如 "NO.02"；不传则不渲染 */
+  no?: string;
+  chips?: Chip[];
+  /** 右端返回链 */
+  back?: { label: string; href: string };
+}
+
+const { no, chips = [], back } = Astro.props;
+---
+
+<header class="head">
+  <div class="head__lead">
+    <!-- 站名徽标（2026-09-13 建）：全站页头最左，内页渲染成链接点回首页。
+         与编号 chip 之间用一条细竖线分层——否则「Daidai NO.02 文章」会读成
+         一串同级标签，编号的「定位符」身份被稀释。 -->
+    <SiteMark href="/" />
+    <span class="head__div" aria-hidden="true"></span>
+    {no && <span class="tag head__no">{no}</span>}
+    {
+      chips.map((c) =>
+        c.href ? (
+          <a class="tag tag--link" href={c.href}>
+            {c.label}
+          </a>
+        ) : (
+          <span class:list={['tag', c.variant === 'red' && 'tag--red']}>{c.label}</span>
+        ),
+      )
+    }
+  </div>
+
+  <div class="head__end">
+    {back && <a class="back" href={back.href}>{back.label}</a>}
+    <Announce />
+    <ThemeToggle />
+  </div>
+</header>
+
+<style>
+  /* 行高由昼夜章（40px）决定：12 + 40 + 12 = 64px，与旧版各页 60–68px 相当。
+     三个右端控件（返回 / 公告 / 章）共用一条 flex 基线，章心落在 y=32px。
+     滚动时钉在视口顶部，背景铺实色避免正文透上来。 */
+  .head {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    background: var(--c-paper);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px clamp(20px, 4vw, 48px);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .head__lead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .head__end {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-left: auto;
+    flex: none;
+  }
+
+  /* 站名与编号 chip 之间的细竖线（站名自身的下划线已占视觉，这条负责分层） */
+  .head__div {
+    width: 1px;
+    height: 18px;
+    flex: none;
+    background: rgba(var(--c-ink-rgb), 0.18);
+  }
+
+  .tag {
+    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border: 1px solid var(--c-ink);
+    border-radius: 4px;
+  }
+  .tag--red {
+    border-color: var(--c-red);
+    color: var(--c-red);
+  }
+  .tag--link {
+    color: var(--c-muted);
+    border-color: rgba(var(--c-ink-rgb), 0.3);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tag--link:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  .back {
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    padding-bottom: 2px;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .back:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+
+  /* 手机档：内缩 20px、chip 与右簇收紧。
+     竖线在折行时可能孤零零留在行尾，手机档直接去掉（站名与编号的 gap 足够分层）。
+
+     · NO.0x 编号 chip 在这一档不显示（2026-09-13 第二轮，用户裁定「去掉
+       NO.0x 就不拥挤了」）：顶栏宽度优先给可交互控件——公告按钮在手机上
+       不再隐藏（见 global.css 的 .announce 手机档规则），腾出来的正是这枚
+       chip 的位置。编号是四卡导航的定位符，桌面与平板照常显示。
+       ⚠️ 第三轮曾评估「返回链一去、chip 就请回来」，用户裁定不请回：
+       手机档就保持「站名 + 公告 + 章」三件，与首页 .top-bar 完全同构。
+     · 返回链在这一档不显示（2026-09-13 第三轮，用户裁定）：移动端有系统
+       返回手势（iOS 边缘右滑 / Android 返回键），页内文字链是冗余的，且
+       它是手机顶栏里最大的单件（约 66px + 间距）。代价是详情页失去唯一的
+       「回列表」站内路径 —— 由正文末尾的收尾导航补上，两者严格互斥：
+         · 文章页   src/pages/blog/[...id].astro  的 .postback（← 返回博客）
+         · 作品详情 src/pages/works/[slug].astro  的 .backhome（← 返回作品集）
+       它们都只在 ≤640px 显示；桌面档顶栏 .head 是 sticky 的，返回链全程
+       可见，正文再放一条就是重复入口。
+       ⚠️ 已知边界（2026-09-13 复核更正）：
+         · /tags/ —— 手机档**真的断链**：本条把 .back 藏掉，而该页唯一等价的
+           「博客」chip 已在同日因"与返回链重复"删除，两条决策叠加＝归零。
+           只剩 站名 → 首页 → 03 卡 三跳（从 /blog/ 进入时系统返回等价）。
+         · /lab/scroll/ —— **不失**：scroll.astro 的 .outro > .backline
+           （← 返回首页）未包 media、全断点常显，兜底始终在；只失回
+           /lab/（占位页）。此前"没有正文末梢可挂"的说法有误。
+         · /tags/<tag>/、/404 —— 不失，chips 里保留「全部标签」「博客」等价入口。
+     · 右簇 gap 回到 10px：12px 是第二轮专为「公告按钮的点击区用
+       margin: 0 -12px 外扩、会反压返回链右缘 2px」而设的。返回链一旦隐藏，
+       该理由不再成立（桌面档的 14px 不受影响）。 */
+  @media (max-width: 640px) {
+    .head {
+      padding: 10px 20px;
+      gap: 8px;
+    }
+    .head__lead {
+      gap: 8px;
+    }
+    .head__div,
+    .head__no,
+    .back {
+      display: none;
+    }
+    .head__end {
+      gap: 10px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 3px 8px;
+    }
+  }
+</style>

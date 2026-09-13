@@ -1,0 +1,54 @@
+---
+/*
+  昼夜切换章（2026-09-13 第二轮改版，用户裁定 Q3 / Q10(b) / Q14）
+  ─────────────────────────────────────────────────────────────
+  形态：40px 圆钮，亮色态 = 白底 + 1px 细红描边 + 红色线性图标；
+        暗色态 = 去描边、改半透明深底 + backdrop-blur（参考图那套，深色底上更贴）。
+        **无旋转**——9-12 的 -8° 倾斜在本轮撤销（圆形章旋转 ≤14° 的天花板仍在）。
+  定位：不再是 fixed。首页由 hero.css 的 .top-bar 排布（栏最右），内页由
+        PageHead 的 .head__end 排布（入流）。旧版 fixed top20/right20 在
+        390px 视口下会把内页返回链整条压在章底下，这正是本轮修的 bug。
+  图标改为**内联 SVG**：此前用 <img src="/icons/sun.svg">，而 SVG 里的
+        stroke="currentColor" 在 <img> 的独立文档里解析为 UA 默认色（黑），
+        父级 color 传不进子文档 → 章面图标恒黑、不随主题与 hover 变色。
+        内联后 currentColor 生效，两主题各取自己的 --c-red。
+  样式全在 global.css 的 .theme-toggle 节；行为脚本全站只一份，留在 Base.astro
+  （组件复用也不会重复绑定监听）。
+*/
+---
+
+<button class="theme-toggle" type="button" aria-pressed="false" title="切换日 / 夜览">
+  <svg
+    class="t-night"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="5"></circle>
+    <line x1="12" y1="1" x2="12" y2="3"></line>
+    <line x1="12" y1="21" x2="12" y2="23"></line>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+    <line x1="1" y1="12" x2="3" y2="12"></line>
+    <line x1="21" y1="12" x2="23" y2="12"></line>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+  </svg>
+  <svg
+    class="t-day"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+  </svg>
+  <span class="sr-only">切换日间 / 夜间模式</span>
+</button>

@@ -1,5 +1,10 @@
 {
   "_comment": "首页 hero 的唯一数据源。改文案只改这里，不要改组件。cards[].theta 是卡片在扇形里的径向角（度），同时也是卡片自身的旋转角——见 src/styles/hero.css 的 .card 说明。theta 的取值还有一个约束：内圈两卡（±22°）必须移到人物头部轮廓之外,否则人物层置顶后会把「作品集/博客」的字吃掉——改动前请先跑 qa/check.sh 看『标题被人物覆盖』。桌面板式当前采用 ±46°/±22°（2026-09-10,内圈从 ±18° 外推到 ±22° 离开面部鬓角,外圈同步从 ±42° 扩到 ±46° 保持视觉间距,02/03 不再贴头,01/04 也更靠近屏外角）。注意 ≤640px 时本字段被 hero.css 手机档用 !important 覆盖为 ±8/±3（那里 θ 只表示卡面倾斜，位置由槽位平移决定），改这里的值只影响桌面与平板。infoBar 的 value 为 null 时组件渲染 label 作为占位。cards 即全站导航：01 基本信息 = 本页详档区块（#basic 锚点待建），02/03/04 跳独立页面（/works/ /blog/ /lab/，占位页已建）。",
+  "_siteComment": "站名徽标（2026-09-13 建）。SiteMark.astro 的**唯一文案源**：首页顶栏左上角标（.mark-tl）右侧、内页 PageHead 的 .head__lead 最左（内页渲染成 <a href=\"/\">，点击回首页；首页是 span——已在首页再套链接只会白刷一次）。字形与红色手绘下划线在组件里，改名字只改 name。aria 是给读屏的全称（视觉上只印 name）。",
+  "site": {
+    "name": "Daidai",
+    "aria": "Daidai 档案馆"
+  },
   "hero": {
     "ghostEn": "PERSONAL ARCHIVE",
     "solidLeft": "PERSONAL",
@@ -8,6 +13,7 @@
     "script": "About Me",
     "indexLabel": "SIDE INDEX"
   },
+  "_announceComment": "公告的数据源已迁至 src/data/announcements.json（2026-09-13 第二轮改版：单条 inline 文案 → 常驻「公告」按钮 + 下拉面板，可容纳多条）。原文案一字未改地迁入该文件 items[0]。**不要在本文件重建 announce 节**：公告是全站共享数据（首页 + 8 个内页），与「首页 hero 专属」的 profile.json 分开维护，Announce.astro 只读 announcements.json。",
   "cards": [
     { "no": "01", "title": "关于我...", "theta": -46, "href": "#basic", "lookFrame": 20 },
     { "no": "02", "title": "作品集", "theta": -22, "href": "/works/", "lookFrame": 48 },
@@ -31,35 +37,45 @@
     "skills": ["Java后端开发", "AI-Agent", "小程序开发", "UI 设计", "手绘"],
     "links": [
       { "label": "GitHub", "href": "https://github.com/coconuttree0730", "icon": "/icons/github.svg", "mono": true },
-      { "label": "小红书", "href": "https://www.xiaohongshu.com/user/profile/5de89db60000000001004414", "icon": "/icons/xiaohongshu.svg" },
-      { "label": "邮箱", "href": "mailto:3540820032@qq.com", "icon": "/icons/mail.svg" },
+      { "label": "邮箱", "href": "#contact", "action": "contact", "icon": "/icons/mail.svg" },
       { "label": "RSS", "href": "/rss.xml", "icon": "/icons/rss.svg" }
     ],
     "mbti": "INFP",
     "zodiac": "狮子座",
-    "_todo": ["identity", "now", "skills", "mbti", "zodiac", "links[].href（小红书仍是占位主页地址，待填真实主页链接）"]
+    "zodiacDesc": "外放的热源。认定的舞台就站上去发光，对在意的人尤其慷慨——顺带自带 BGM。",
+    "mbtiDesc": "安静的理想主义者。外壳柔软、内核有主见；靠感受导航，靠把喜欢的事做成日常落地。",
+    "_todo": ["identity", "now", "skills", "mbti", "zodiac", "zodiacDesc", "mbtiDesc", "links[].href（其余链接地址待核）"]
   },
   "works": {
-    "_comment": "作品集页（/works/，2026-09-12 建，当晚精简改版）唯一数据源。改文案只改这里，不动组件。列表卡面只显示「编号 + 标题」小标签和大封面（用户裁定：卡面信息精简，点击进详情）；desc / tags / status / year 由详情页 /works/<no>/ 消费。cover 是封面纹样变体名（grid / stripes / rings / dots / bars / cross），只决定 CSS 生成的档案纹样；有真实截图就填 img 字段（站点根相对路径），组件会优先渲染图片、纹样退居底纹。href 是详情页「访问项目」按钮的外链（无则显示「尚未归档」）。status 为「上线」时红章、其余墨色。01 是本站（真实条目），其余均为占位内容。",
+    "_comment": "作品集页（/works/，2026-09-12 建，当晚两轮改版：精简卡面 → 分类卷宗夹）唯一数据源。列表页 = 卷宗夹轨道：cats 每项一个侧开口文件夹，点击弹窗展示该分类卡片（弹层内卡片仍是「编号+标题+大封面」，链 /works/<no>/ 详情页）。item.cat 对应 cats[].id；item 的 desc/tags/status/year 由详情页消费；href 是详情页「访问项目」按钮外链。cover 是纹样变体（grid/stripes/rings/dots/bars/cross），有真图填 img。letter 是文件夹侧签的卷宗字母。status「上线」红章。01 为本站真实条目，其余占位。",
     "_todo": [
       "02–07 的 title / desc / tags / href 均为占位，待填真实项目",
-      "07「未命名项目」是刻意留的空档案袋，正式项目就位后替换"
+      "cat 分类归属是拍的，正式项目就位后重新归类即可"
+    ],
+    "cats": [
+      { "id": "site", "letter": "A", "name": "站点", "en": "SITES", "cover": "grid" },
+      { "id": "engine", "letter": "B", "name": "工程", "en": "ENGINE", "cover": "bars" },
+      { "id": "app", "letter": "C", "name": "应用", "en": "APPS", "cover": "dots" },
+      { "id": "craft", "letter": "D", "name": "设计手绘", "en": "CRAFT", "cover": "stripes" },
+      { "id": "inbox", "letter": "E", "name": "待归档", "en": "INBOX", "cover": "cross" }
     ],
     "items": [
       {
         "no": "01",
+        "cat": "site",
         "title": "个人档案馆",
         "en": "PERSONAL ARCHIVE SITE",
         "desc": "你正在看的这个网站。绿幕视频抽帧、抠图、打包成雪碧图，指针方向驱动人物转头帧序；全站纸感档案视觉，Astro 纯静态构建。",
         "year": "2026",
         "status": "上线",
-        "tags": ["Astro", "Canvas", "交互设计"],
-        "href": "/",
+        "tags": ["Astro", "Pagefind", "Canvas / WebP", "Cloudflare Pages"],
+        "href": "https://github.com/coconuttree0730/iam-daidai",
         "cover": "grid",
-        "img": ""
+        "img": "/works/01.png"
       },
       {
         "no": "02",
+        "cat": "engine",
         "title": "AI Agent 实验台",
         "en": "AGENT WORKBENCH",
         "desc": "把日常重复劳动交给智能体编排：任务拆解、工具调用、结果回收的一条龙小实验。",
@@ -72,6 +88,7 @@
       },
       {
         "no": "03",
+        "cat": "app",
         "title": "小程序 · 随手记",
         "en": "POCKET NOTES",
         "desc": "一个克制到只有三屏的记账小程序，练手也是练心。",
@@ -84,6 +101,7 @@
       },
       {
         "no": "04",
+        "cat": "engine",
         "title": "后端服务骨架",
         "en": "SERVICE SCAFFOLD",
         "desc": "Java 后端的起步脚手架：鉴权、日志、部署流水线一次配齐，开新项目直接抄家。",
@@ -96,6 +114,7 @@
       },
       {
         "no": "05",
+        "cat": "craft",
         "title": "界面习作集",
         "en": "UI STUDIES",
         "desc": "临摹与再设计：把每天看到的好界面拆开重装，存档在此。",
@@ -108,6 +127,7 @@
       },
       {
         "no": "06",
+        "cat": "craft",
         "title": "纸上小画",
         "en": "SKETCHBOOK",
         "desc": "铅笔与马克笔的日常涂鸦扫描件，不成体系，但都在场。",
@@ -120,6 +140,7 @@
       },
       {
         "no": "07",
+        "cat": "inbox",
         "title": "未命名项目",
         "en": "UNTITLED",
         "desc": "空档案袋一枚——下一个想做的事还没定名字。",

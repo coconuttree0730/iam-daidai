@@ -1,3 +1,33 @@
+/* ── 字体（2026-09-13 从 hero.css 上提到这里）─────────────────────────
+   三套自托管字重此前只声明在 hero.css，而 hero.css **只有首页加载** ——
+   于是内页（PageHead 的编号 chip、works 的描边大字）引用的 "Archivo Black"
+   从来拿不到实体，一直静默 fallback 到 Helvetica/Arial；works.astro 因此
+   自己抄了一份重复声明。字体是站点级资源，声明应当全站唯一、跟页面无关，
+   故上提至此，hero.css 与 works.astro 的重复块一并删除。
+   ⚠️ @font-face 只声明不下载：浏览器仅在实际用到该 family 时取 woff2，
+   所以内页不会因为这段多花一个字节的流量（用到才取）。 */
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/anton.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Archivo Black";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/archivo-black.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Great Vibes";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/great-vibes.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light;
 
@@ -28,6 +58,9 @@
   --c-glow: #ffffff;                 /* 纸面径向提亮 */
   /* 信息条黑条：两种主题都保持深底（用户裁定「黑条在人物之下」，黑是其身份） */
   --c-bar: #131211;
+  /* 纸带：两种主题都保持浅纸底（主题不变量），与博客横幅烘焙纸色 #eeedeb 同源。
+     消费方：/tags/ 页头纸带（2026-09-12 晚，深色下插画区保白底） */
+  --c-band: #eeedeb;
   --c-ok: #3b6d11;
   --c-badge-ink: #0f6e56;
   --c-badge-bg: rgba(29, 158, 117, 0.14);
@@ -40,6 +73,21 @@
   --muted: var(--c-muted);
   --line: var(--c-line);
   --panel: rgba(var(--c-card-rgb), 0.72);
+
+  /* ── 右侧固定 Chrome 的对齐轴（2026-09-13 建）─────────────────────────
+     一条轴、多个消费方（.dock / .rope），**唯一基准是昼夜章的圆心**。
+       --chrome-axis   视口右缘 → 章圆心
+       --chrome-bottom 视口上缘 → 章底边（只有回顶绳消费：绳子要挂在章下方）
+     下面两个值是「首页顶栏」这一档的静态解（right 20 + 章半径 20 /
+     top 20 + 章高 40），同时充当 JS 缺席时的回退。
+     ⚠️ Base.astro 会实测章的 getBoundingClientRect 覆写它们——**必须实测**：
+     内页页头内缩是 clamp(20px, 4vw, 48px)，章心随视口宽漂移（1440px 时
+     右缘 48 + 半径 20 = 68px），写死会在宽屏上与章错开。
+     消费方补偿：容器是 44px 触摸目标、章是 40px，所以
+     `right: calc(var(--chrome-axis) - 容器宽/2)` 才是圆心对齐（多出的 4px
+     一半分到外侧，否则圆钮中线会偏 2px）。 */
+  --chrome-axis: 40px;
+  --chrome-bottom: 60px;
 
   /* 主体显示宽度（CSS px）。这是唯一的尺寸旋钮：
      482 × 602 px 单格 ÷ DPR 2 = 241 × 301，即 DPR 2 下的 1:1 像素对齐尺寸。
@@ -295,57 +343,726 @@ table.facts tr:last-child td { border-bottom: 0; }
   border: 0;
 }
 
-/* ── 主题切换章（2026-09-12 暗色模式）─────────────────────────────
-   固定定位悬浮章；可拖动换位（2026-09-12 用户裁定：
-   固定位置有时挡住其他组件）。z-index 900 = 压过 hero 全部层（≤6）、低于 toast(9999)。
-   位置（2026-09-12 用户裁定）：默认 top 46px / right 10px。
-   配色（2026-09-12 用户裁定截图规格）：
-   默认态 = 红描边 + 红字（两主题各取自己的 --c-red）；
-   悬停 = 浅色转墨黑描边墨黑字，暗色转灰描边（红字不变）。 */
+/* ── 昼夜切换章（2026-09-13 第二轮改版，用户裁定 Q3 / Q10(b) / Q14）──────
+   形态：40px 圆钮。亮色态 = 白底（--c-card）+ 1px 细红描边 + 红色线性图标；
+        暗色态 = 去描边、改半透明深底 + backdrop-blur（参考图那套，深色底上
+        半透明白底会糊，故两态各自取色）。
+   **无旋转**：9-12 的 -8° 倾斜本轮撤销（圆形章旋转 ≤14° 的天花板仍在）。
+   定位：**已不是 fixed**——首页在 hero.css 的 .top-bar 最右（栏内 flex 子件，
+        右缘天然落在 right:20px），内页在 PageHead 的 .head__end 最右（入流）。
+        旧版 fixed top20/right20 在 390px 视口下会把内页的「← 返回…」整条压在
+        章底下，且那块是可点区域 → 本轮修掉的正是这个。
+   ⚠️ 改尺寸时 hero.css 的 .top-bar min-height（40px）要同步。
+   配色沿革：9-12 是「红描边红字、悬停转墨黑」；本轮保留同色逻辑，
+   只是描边从 2px 收到 1px、去掉旋转、暗色态换半透明底。 */
 .theme-toggle {
-  position: fixed;
-  top: 46px;
-  right: 10px;
-  z-index: 900;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  padding: 0;
   border-radius: 50%;
-  border: 2px solid var(--c-red);
+  border: 1px solid var(--c-red);
   background: var(--c-card);
   color: var(--c-red);
-  font: 900 15px/1 -apple-system, BlinkMacSystemFont, "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  /* 圆形章旋转封顶 ≤14°（用户裁定） */
-  rotate: -8deg;
-  cursor: grab;
   display: grid;
   place-items: center;
+  cursor: pointer;
   user-select: none;
-  transition: border-color 0.2s ease, color 0.2s ease;
-  /* 触摸端：手指按在章上拖动 = 移动章，不滚页面 */
-  touch-action: none;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
-/* 拖动换位后由 JS 的 left/top 接管，right 让位（否则 left/right 同时生效互相拉扯） */
-.theme-toggle--free {
-  right: auto;
-}
-.theme-toggle--drag {
-  cursor: grabbing;
+[data-theme="dark"] .theme-toggle {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
 }
 .theme-toggle:hover {
   border-color: var(--c-ink);
   color: var(--c-ink);
 }
+/* 暗色态悬停：底加亮一档，红图标不变（沿 9-12「暗色下红字不变」的裁定） */
 [data-theme="dark"] .theme-toggle:hover {
-  border-color: var(--c-muted);
+  background: rgba(255, 255, 255, 0.16);
   color: var(--c-red);
 }
 .theme-toggle:focus-visible {
   outline: 2px solid var(--c-red);
   outline-offset: 2px;
 }
-/* 章面字：亮色显「夜」（点了去夜览），暗色显「昼」 */
+/* 章面图标：亮色显太阳（点了去夜览），暗色显月亮；内联 SVG 走 currentColor */
 .theme-toggle .t-night,
-.theme-toggle .t-day { display: none; }
-:root:not([data-theme="dark"]) .theme-toggle .t-night { display: block; }
-[data-theme="dark"] .theme-toggle .t-day { display: block; }
+.theme-toggle .t-day {
+  display: none;
+  width: 20px;
+  height: 20px;
+}
+:root:not([data-theme="dark"]) .theme-toggle .t-night {
+  display: block;
+}
+[data-theme="dark"] .theme-toggle .t-day {
+  display: block;
+}
+
+/* ── 顶栏公告（2026-09-13 第二轮改版：常驻「公告」按钮 + 下拉公告栏）──────
+   旧形态 = 红方块 + 单行截断文案 + × 关闭（点 × 后 30 天不再显示）。新形态把
+   触发器换成常驻按钮（铃铛 + 「公告」，对齐用户给的参考图），文案搬进面板，
+   因此截断与「关闭整条」都不再需要——未读由红点表达，见 Announce.astro 的
+   已读水位机制（打开面板即记下最新公告 id）。原来的 `:root[data-announce-off]`
+   隐藏规则随预涂脚本一并退役（按钮必须常驻，留着会让整族凭空消失）。
+   位置：首页在固定顶栏 .top-bar 右簇（章左侧），内页在 .head__end（返回链与
+   章之间）。两处都是流内元素，面板靠绝对定位弹出，不参与流式布局。
+   层级：首页 .top-bar 是 z-index 100 的独立层叠上下文（> .chrome 6 / 人物 5 /
+   收尾块 6），内页 .head 是 900；面板在这两个上下文内部，压过各自页面内容。
+   隐藏条件只剩一条：≤640px 整族隐藏（手机顶栏拥挤，公告优先级最低，
+   2026-09-13 裁定）。
+   样式刻意留在这里而不是组件 <style>：面板与按钮都要写 [data-theme="dark"]
+   这类「祖先来自 html」的选择器，组件级 scoped 会给第一段追加 cid → 规则整条
+   永不匹配（与 .theme-toggle 同理，见本文件下方说明）。 */
+.announce {
+  /* 面板的定位基准。容器不吃指针，只有按钮与面板吃——首页 .top-bar 本身是
+     pointer-events:none，子元素必须显式恢复，否则按钮点不到。 */
+  position: relative;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+/* 触发器：铃铛 + 「公告」。水平方向用负 margin 与 padding 等量互抵——视觉起点
+   与旧版文案一致（不撑开 .top-bar__end / .head__end 的 gap）。**垂直方向不能
+   抵消**：flex 的 align-items:center 是按外边距盒居中的，上下各负值会让按钮
+   相对昼夜章的圆心整体上移。所以 padding 竖向留着、margin 竖向为 0。
+   尺寸档（2026-09-13 第三轮上调，用户反馈「公告字体小、看不清；响铃 icon
+   也调大一点」）：字号 12.5 → 14px、图标 18 → 20px（stroke-width 同步
+   1.7 → 1.8 以保持笔重比例）。盒高 = 图标 20px + 上下 padding 16px = 36px，
+   仍低于昼夜章 40px —— 「比切换主题按钮小一档」的裁定不受影响，也不会撑高
+   .top-bar（其 min-height 由 40px 的章决定）。 */
+.announce__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  margin: 0 -12px;
+  border: 0;
+  background: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--c-muted);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.15s ease;
+}
+.announce__btn:hover,
+.announce__btn[aria-expanded="true"] {
+  color: var(--c-red);
+}
+.announce__btn:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 1px;
+}
+.announce__bell,
+.announce__bell svg {
+  display: block;
+  flex: none;
+}
+.announce__label {
+  white-space: nowrap;
+}
+/* 未读红点：压在铃铛右上角（坐标依据 = 按钮 padding 12/8 + 铃铛 20px；
+   铃铛从 18 → 20px 时 left 同步 25 → 27px，保持红点中心相对铃铛右缘的偏移
+   不变。改 padding 或图标尺寸必须一起改这里）。markup 里默认 hidden，由组件
+   脚本按已读水位点亮——反过来做（默认亮、脚本熄灭）会让已读读者每次访问都
+   闪一下红点。 */
+.announce__dot {
+  position: absolute;
+  top: 5px;
+  left: 27px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-red);
+  /* 描一圈纸色，保证压在任何底色（首页 hero 渐变 / 内页纸底）上都读得出 */
+  box-shadow: 0 0 0 2px var(--c-paper);
+}
+.announce__dot[hidden] {
+  display: none !important;
+}
+
+/* ── 下拉公告栏 ────────────────────────────────────────────────────── */
+.announce__panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: -12px; /* 与按钮边框盒右缘对齐（负 margin 见上） */
+  z-index: 10;
+  width: min(360px, calc(100vw - 40px));
+  max-height: min(62vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--c-card);
+  border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+  color: var(--c-ink);
+  pointer-events: auto;
+}
+[data-theme="dark"] .announce__panel {
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
+}
+.announce__panel[hidden] {
+  display: none !important;
+}
+/* 面板头部 sticky 常驻：列表滚到中段时仍看得出这是「公告」而不是随机正文 */
+.announce__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--c-paper);
+  border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.14);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.announce__head-title {
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--c-ink);
+}
+.announce__head-en {
+  flex: 1;
+  min-width: 0;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--c-muted-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.announce__head-count {
+  flex: none;
+  font-size: 10px;
+  color: var(--c-muted-2);
+}
+
+.announce__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.announce__item {
+  padding: 13px 14px 14px;
+  border-bottom: 1px dashed rgba(var(--c-ink-rgb), 0.14);
+}
+.announce__item:last-child {
+  border-bottom: 0;
+}
+
+.announce__meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+}
+.announce__date {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--c-muted-2);
+}
+.announce__tag {
+  padding: 1px 5px;
+  border: 1px solid var(--c-red);
+  border-radius: 2px;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: var(--c-red);
+}
+.announce__tag.is-info {
+  border-color: rgba(var(--c-ink-rgb), 0.28);
+  color: var(--c-muted);
+}
+.announce__tag.is-warn {
+  border-color: var(--c-warn-line);
+  background: var(--c-warn-bg);
+  color: var(--c-warn-ink);
+}
+.announce__pin {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--c-red);
+}
+
+.announce__title {
+  margin: 0 0 5px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+.announce__para {
+  margin: 0 0 5px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--c-ink-2);
+}
+.announce__para:last-child {
+  margin-bottom: 0;
+}
+.announce__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-bottom: 1px;
+  font-size: 11.5px;
+  color: var(--c-red);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  transition: opacity 0.15s ease;
+}
+.announce__link:hover {
+  opacity: 0.72;
+}
+
+/* ── 手机档：公告不再隐藏（2026-09-13 第二轮改口）────────────────────
+   原判「手机顶栏拥挤」改了解法：不砍功能，改砍页头那枚 NO.0x 编号 chip
+   （见 PageHead.astro 的手机档规则），腾出的宽度正好装下这个按钮。
+   面板必须改 fixed 贴视口左右各 20px：按钮右缘离视口只剩约 64px，若仍按
+   「面板右缘对齐按钮右缘」向右展开，350px 宽的面板会从屏幕左侧漏出去。
+   顶距 72px = 顶栏结构高 60px（首页 top 20 + 章 40；内页页头 10 + 40 + 10，
+   两档恰好同高）+ 12px 间隙。改顶栏内缩或章尺寸时，这里要跟着改。 */
+@media (max-width: 640px) {
+  .announce__panel {
+    position: fixed;
+    top: 72px;
+    left: 20px;
+    right: 20px;
+    width: auto;
+  }
+}
+
+/* ── 右下悬浮栈（2026-09-13 第二批，用户裁定 Q8(a) / Q12(a)）──────────────
+   标记与行为在 src/components/ScrollDock.astro（由 Base.astro 按 dock 属性
+   渲染，首页传 dock=false）；**样式刻意留在这里**，理由是一条实测约束：
+   组件里的 `<style>` 会被 Astro 加 scoped 后缀，而我需要 [data-theme="dark"]
+   这种「后代来自 html」的选择器——它的第一段 [data-theme=dark] 会被追加
+   cid，编译成 `[data-theme=dark][data-astro-cid-x] .dock__btn[cid]`，
+   而 <html> 上没有组件的 cid，规则整条永不匹配（构建产物可复核）。
+   global.css 是普通 CSS 导入、不参与 scoped，所以 site-wide 固定控件的
+   主题变体一律放这里（.theme-toggle / .announce 同理）。
+
+   层级 850：压过固定 Chrome（800），低于 toast（9999）；移动端大纲 sheet
+   走 <dialog> 的 top-layer，不参与这个层级竞争。 */
+.dock {
+  --dock-btn: 44px; /* 圆钮直径；右缘补偿靠它算，别在别处硬编码 44 */
+
+  position: fixed;
+  /* 右缘对齐昼夜章圆心（2026-09-13）：容器 44px、章 40px，
+     故 left-shift 2px = (44 − 40) / 2。别再写死 20px —— 那会让圆钮与章
+     差 2px（桌面）/ 6px（旧手机档 14px），这正是用户报的"没对齐"。 */
+  right: calc(var(--chrome-axis) - var(--dock-btn) / 2);
+  bottom: 24px;
+  z-index: 850;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  /* 容器不吃指针，只有按钮吃 —— 否则会在右下角截走版面点击 */
+  pointer-events: none;
+}
+
+.dock__btn {
+  width: var(--dock-btn);
+  height: var(--dock-btn);
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--c-ink-rgb), 0.14);
+  background: var(--c-card);
+  color: var(--c-red);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 0.18s ease, color 0.18s ease,
+    background-color 0.18s ease, opacity 0.18s ease;
+}
+.dock__btn:hover {
+  border-color: var(--c-red);
+}
+.dock__btn:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 2px;
+}
+.dock__btn:disabled {
+  opacity: 0.34;
+  cursor: default;
+}
+.dock__btn:disabled:hover {
+  border-color: rgba(var(--c-ink-rgb), 0.14);
+}
+/* 暗色态：与昼夜章同款处理（去描边、半透明底 + 背板模糊） */
+[data-theme='dark'] .dock__btn {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  box-shadow: none;
+}
+[data-theme='dark'] .dock__btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+[data-theme='dark'] .dock__btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 「目录」钮：只在 ≤1100px（桌面右栏缺席的那一档）出现。
+   markup 上带 hidden 防手机端闪现，找到 #toc-sheet 才由脚本放行；
+   这里再补一条强规则防作者样式压过 UA 的 [hidden]。 */
+.dock__toc[hidden] {
+  display: none !important;
+}
+@media (min-width: 1101px) {
+  .dock__toc {
+    display: none;
+  }
+}
+
+/* 淡入组（音乐 / 到顶 / 到底）：滚动过 240px 才出现，
+   [data-scrolled] 由 ScrollDock 的脚本打在 :root 上；
+   不滚的页面（首页 hero、/works/ 的 100dvh 锁滚版式）永远不淡入。 */
+.dock__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.22s ease, transform 0.22s ease,
+    visibility 0s linear 0.22s;
+}
+:root[data-scrolled='on'] .dock__group {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s;
+}
+/* 已按压的音乐钮：红底反白，一眼看出是「开着」 */
+.dock__music[aria-pressed='true'] {
+  background: var(--c-red);
+  border-color: var(--c-red);
+  color: var(--c-card);
+}
+[data-theme='dark'] .dock__music[aria-pressed='true'] {
+  background: var(--c-red);
+  border-color: transparent;
+  color: var(--c-paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock__btn,
+  .dock__group {
+    transition: none;
+  }
+}
+
+/* 手机档：垂直内缩收到 16px（左右不再单独内缩 —— 横向由 --chrome-axis 接管，
+   写死 14px 会让圆钮偏到章的左侧 6px）。按钮仍保持 44px 触摸目标。 */
+@media (max-width: 640px) {
+  .dock {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  .dock__group {
+    gap: 8px;
+  }
+}
+
+/* ── 回顶绳（TopRope.astro，仅首页；2026-09-13 建）────────────────────────
+   与 .dock 同构、理由逐字相同：**markup + 行为在组件，样式刻意全留在这里**。
+   组件 <style> 会被 Astro 追加 cid 后缀，带来两个死结：
+     1. `[data-theme="dark"] .rope__tag` 这类「祖先来自 html」的选择器整条失效
+        （<html> 上没有组件的 cid）；
+     2. scoped 规则特异性天然比全局高 1（多一个属性选择器），全局写的暗色态 /
+        armed 态覆盖会被反压。
+   两条都只能靠"样式放全局、顺序可控"解决。
+   层级 860：高于 top-bar（100）与固定 Chrome（800），低于 toast（9999）。
+
+   ── 几何：挂在昼夜章**正下方**，与章共用一条轴（2026-09-13 第二轮）──────
+   横向不再是写死的 22px、纵向也不再是写死的 74px，而是从章推出来：
+     right = --chrome-axis − 44/2   （44 = 触摸目标宽；章是 40，补偿 2px）
+     top   = --chrome-bottom + 14px
+   桌面与手机共用这一套公式。旧版是桌面 right22/top74、手机 right14/top70 两个
+   手抄值 —— 横向差 8px、纵向差 4px，正是用户报的「两端位置没对齐」根因。
+   ⚠️ 绳子只能挂在章的**底边之下**：章那 40px 见方是可点区域，压上去会截走点击。 */
+.rope {
+  --pull: 0;
+  --cord-base: 86px;     /* 静止段长 */
+  /* 拉满行程 —— **必须与脚本 MAX_PULL 同值**（132）。若各档改小（旧手机档
+     写的 108），手指位移与圆扣位移就不再 1:1，松手前会感到圆扣"跟不上手"。
+     窄屏要短，缩 --cord-base 即可，别动这里。 */
+  --cord-travel: 132px;
+  --rope-hand-w: 44px;   /* 触摸目标宽；多出章的 4px 用于圆心补偿 */
+
+  position: fixed;
+  right: calc(var(--chrome-axis) - var(--rope-hand-w) / 2);
+  top: calc(var(--chrome-bottom) + 14px);
+  z-index: 860;
+  width: var(--rope-hand-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 容器不吃指针，只有手可点 —— 否则会在右侧截走版面点击 */
+  pointer-events: none;
+  /* 未到底部时整条淡出；visibility 延迟切，出场等淡出走完 */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: opacity 0.28s ease, transform 0.28s ease,
+    visibility 0s linear 0.28s;
+}
+.rope[data-on='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.28s ease, transform 0.28s ease, visibility 0s;
+}
+
+.rope__hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--rope-hand-w);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-red);
+  cursor: grab;
+  pointer-events: auto;
+  /* 手势所有权：不声明这条，浏览器会拿纵向拖动去滚页面（首页矮视口有滚动条） */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  /* 静止摆动：绕顶端固定点转。振幅按"看得见"标定 —— 旧版 ±0.7° 在 116px
+     长的绳上只有 ±1.4px 末端位移，等于没动（评"呆板"的主因之一）。
+     ±1.3°（末端 ≈ ±2.6px）仍是轻晃，不抢注意力；关键帧刻意不等分
+     （38 / 62 / 78 而非 50），比对称正弦更像被气流推着晃。
+     圆扣的下移由 flex 布局跟随绳长，不走 transform。 */
+  transform-origin: 50% 0;
+  animation: rope-sway 7.6s ease-in-out infinite;
+}
+.rope__hand:active {
+  cursor: grabbing;
+}
+/* 拖拽期间停摆：手上正在拉，绳子就不该自己晃 */
+.rope.is-dragging .rope__hand {
+  animation: none;
+  cursor: grabbing;
+}
+.rope__hand:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+@keyframes rope-sway {
+  0% {
+    transform: rotate(-1.3deg);
+  }
+  38% {
+    transform: rotate(1.15deg);
+  }
+  62% {
+    transform: rotate(-0.6deg);
+  }
+  78% {
+    transform: rotate(0.95deg);
+  }
+  100% {
+    transform: rotate(-1.3deg);
+  }
+}
+
+/* ── 顶端固定件：墨黑锚板 + 穿绳眼扣（2026-09-13 第二轮新增眼扣）────────
+   锚板与左上角标的黑块同族（说明这条绳"挂"在顶栏上）；眼扣在它下面，
+   **环内不填色** —— 绳从环孔里穿出来，透视上能看到绳本身，比单纯一根
+   直条"接"在铁片上更像实物。z 轴顺序：mount 在上（z 1），绳在下（z 0），
+   绳顶探进环孔 3px 被环盖住 → 读作"穿过去了"。 */
+.rope__mount {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+}
+.rope__plate {
+  width: 16px;
+  height: 5px;
+  flex: none;
+  background: var(--c-ink);
+  border-radius: 1.5px;
+}
+.rope__eye {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-top: -1px;
+  border-radius: 50%;
+  border: 1.6px solid rgba(var(--c-ink-rgb), 0.7);
+  background: none;
+}
+
+/* ── 绳身：三股麻绳 ────────────────────────────────────────────────────
+   旧版是"深色条 + 单向斜纹"，读起来像一根划了斜线的塑料杆。现在分三层：
+     底色   rgba(ink, .30)  = 股与股之间的沟槽
+     亮股   +38° 斜纹 .62   ┐ 两组反向斜纹交织 → 拧股的交叉感
+     暗股   −38° 斜纹 .14   ┘（错开相位，不叠成一根直线纹）
+     柱面   ::after 横向渐变 = 左右压暗、中段提亮（圆柱反光）
+   全部用 --c-ink-rgb 的 alpha 派生，暗色下自动跟着换肤（暗色里 ink 是浅色，
+   纹理反相但"两股交织"的读法不变）。**不要在这里设 background-size**：
+   斜纹靠 box 内自重复，一设 size 就成固定贴片，接缝会露出断股。 */
+.rope__cord {
+  position: relative;
+  z-index: 0;
+  width: 4px;
+  flex: none;
+  /* 顶端探入眼扣 3px（见 .rope__mount 的说明） */
+  margin-top: -3px;
+  height: calc(var(--cord-base) + var(--pull) * var(--cord-travel));
+  border-radius: 2px;
+  overflow: hidden;
+  background-color: rgba(var(--c-ink-rgb), 0.3);
+  background-image: repeating-linear-gradient(
+      38deg,
+      rgba(var(--c-ink-rgb), 0.62) 0 1.7px,
+      transparent 1.7px 5.4px
+    ),
+    repeating-linear-gradient(
+      -38deg,
+      rgba(var(--c-ink-rgb), 0.14) 0 1.7px,
+      transparent 1.7px 5.4px
+    );
+  /* 绷紧变细：拉得越满绳越细（手感上的"勒紧了"）。
+     scaleX 是合成器属性，拖拽期逐帧改不触发布局。 */
+  transform: scaleX(calc(1 - var(--pull) * 0.22));
+  transition: height 0.34s cubic-bezier(0.34, 1.46, 0.64, 1),
+    transform 0.34s cubic-bezier(0.34, 1.46, 0.64, 1);
+  /* 松手回弹：二次阻尼震荡（先过冲、再回、再极轻微过冲后稳住），
+     比单次过冲更"有重量"。linear() 不被支持时上面那行 cubic-bezier 生效
+     （值声明在 shorthand 里 = 天然回退，不需要 @supports）。 */
+  transition-timing-function: linear(
+    0,
+    0.36 20%,
+    0.72 38%,
+    0.94 52%,
+    1.026 63%,
+    0.994 74%,
+    1.008 84%,
+    1 100%
+  );
+}
+.rope__cord::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--c-ink-rgb), 0.3),
+    rgba(var(--c-ink-rgb), 0) 52%,
+    rgba(var(--c-ink-rgb), 0.18)
+  );
+}
+.rope.is-dragging .rope__cord {
+  transition: none;
+}
+
+/* ── 末端红环圆扣：与昼夜章同语言（1px 红描边 + 红线性图标）──────────────
+   ::before 是"缠绳"（whipping）：绳与扣之间那道 3px 缝隙由它填上，
+   否则绳尾会像悬空地插在圆扣上方。 */
+.rope__tag {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 1px solid var(--c-red);
+  background: var(--c-card);
+  color: var(--c-red);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.rope__tag::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  translate: -50% 0;
+  width: 7px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(var(--c-ink-rgb), 0.5);
+}
+/* 拉过阈值：圆扣填红反白，给一声"到位了"的确认 */
+.rope[data-armed='true'] .rope__tag {
+  background: var(--c-red);
+  color: var(--c-card);
+  border-color: transparent;
+}
+/* 已触发：闪一下 */
+.rope.is-firing .rope__tag {
+  animation: rope-flash 0.6s ease-out;
+}
+@keyframes rope-flash {
+  0% {
+    background: var(--c-red);
+    color: var(--c-card);
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 暗色：与昼夜章 / 悬浮栈同款处理（去描边、半透明底 + 背板模糊）。
+   armed 与闪动仍用印红——深底上辨识度最高。
+   绳身/眼扣/缠绳不用单列：它们全部由 --c-ink-rgb 派生，已随主题翻转。 */
+[data-theme='dark'] .rope__tag {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  color: var(--c-red);
+}
+[data-theme='dark'] .rope[data-armed='true'] .rope__tag,
+[data-theme='dark'] .rope.is-firing .rope__tag {
+  background: var(--c-red);
+  color: var(--c-paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rope__hand,
+  .rope.is-firing .rope__tag {
+    animation: none;
+  }
+  .rope,
+  .rope__cord,
+  .rope__tag {
+    transition: none;
+  }
+}
+
+/* 窄屏：只缩静止段长与横轴之外的东西 —— 拉满行程保持 132px（跟手 1:1 的
+   硬约束），横向由 --chrome-axis 统一，故这里没有任何位置覆盖。
+   ⚠️ 若将来要动 --cord-travel，必须同步 TopRope.astro 的 MAX_PULL。 */
+@media (max-width: 640px) {
+  .rope {
+    --cord-base: 66px;
+  }
+}

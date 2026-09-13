@@ -1,0 +1,106 @@
+---
+/*
+  站名徽标（2026-09-13 建）
+  ─────────────────────────────────────────────────────────────
+  用途：全站统一的「网站名」——首页顶栏左上（.mark-tl 右侧）、内页 PageHead
+  的 .head__lead 最左。参考图给的是「粗斜体名字 + 手绘下划线」，本项目按自己
+  的美学落地为：**Archivo Black（项目主显示字体，页头 chip / 描边大字同源）
+  + 墨黑字 + 红色手绘弧线**（红与下划线都是参考图里被保留下来的两个元素，
+  倾斜与粉色调不采用——本项目是档案纸 + 印红的语汇，斜体在这个语境里发飘）。
+
+  为什么下划线用 SVG 而不是 border-bottom：
+  border 是一条数学直线，与「手写署名」的意图不符；SVG 路径可以画出参考图
+  那种两端收细、带轻微起伏的笔迹。non-scaling-stroke 保证横向拉伸（两端出血
+  到字宽之外）时线宽不变粗——preserveAspectRatio="none" 会非均匀缩放路径，
+  不锁 stroke 的话线宽会随宽度漂移。
+
+  两种宿主形态：
+    · 传 href → 渲染 <a>（内页页头，点回首页）
+    · 不传   → 渲染 <span>（首页；已在首页再套一次链接只会白刷一帧）
+  文案唯一来源 = src/data/profile.json 的 site 节，本组件不含硬编码名字。
+  样式全在本组件 scoped <style>：所有元素都由本组件渲染（cid 齐全），
+  且不含「祖先来自 html/body」的选择器（那类必须写 global.css）。
+*/
+import profile from '../data/profile.json';
+
+interface Props {
+  /** 传则渲染成 <a>，点击回该地址（内页传 "/"） */
+  href?: string;
+}
+
+const { href } = Astro.props;
+const { name, aria } = profile.site;
+
+/* 动态标签：传 href → <a>（内页，点回首页），否则 <span>（首页，已在此页）。
+   ⚠️ 不要在 frontmatter 里写 JSX 字面量存进变量——Astro 的 frontmatter 是
+   纯 JS，没有 JSX 语法，那样会直接编译失败。 */
+const Tag = href ? 'a' : 'span';
+---
+
+<Tag class="site-mark" href={href} aria-label={href ? `${aria}（返回首页）` : aria}>
+  <span class="site-mark__text" aria-hidden="true">{name}</span>
+  <svg
+    class="site-mark__rule"
+    viewBox="0 0 100 6"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M1.6 4.4C17 1.9 33 1.5 49 2.3c14 .7 30 1.8 49.4 .1"
+      vector-effect="non-scaling-stroke"></path>
+  </svg>
+</Tag>
+
+<style>
+  .site-mark {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    /* 下划线占地：字基线之下再留 4px，避免压到邻座控件 */
+    padding-bottom: 4px;
+    color: var(--c-ink);
+    text-decoration: none;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.18s ease;
+  }
+  .site-mark__text {
+    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 17px;
+    letter-spacing: 0.012em;
+    line-height: 1;
+  }
+  .site-mark__rule {
+    position: absolute;
+    left: -2px;
+    bottom: 0;
+    /* SVG 是 replaced element，width:auto 不会吃 left/right，必须显式给宽 */
+    width: calc(100% + 5px);
+    height: 5px;
+    fill: none;
+    stroke: var(--c-red);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    opacity: 0.9;
+  }
+
+  /* 只有链接态才有点击反馈 */
+  a.site-mark:hover {
+    color: var(--c-red);
+  }
+  a.site-mark:hover .site-mark__rule {
+    opacity: 1;
+  }
+  a.site-mark:focus-visible {
+    outline: 2px solid var(--c-red);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  @media (max-width: 640px) {
+    .site-mark__text {
+      font-size: 15px;
+    }
+  }
+</style>

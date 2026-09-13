@@ -1,0 +1,183 @@
+---
+/*
+  右侧回顶绳（2026-09-13 建，与右下圆钮两种形态**并存**，供用户取舍）
+  ─────────────────────────────────────────────────────────────
+  形态：顶栏下缘挂一根麻绳，末端一枚红环圆扣（与昼夜章、悬浮栈同语言）。
+  交互：按住下拉 → 绳子被拉长、圆扣跟着走 → 松手回弹；拉过阈值即派发
+        'scrub:top' 把时间轴归零（= 回到 home 初态：人物回正面待机、飞散
+        版式归位、收尾区块落回）。短按（tap）等价于"拉到底"。
+
+  几何：**挂在昼夜章正下方，与章共用一条轴**（2026-09-13 第二轮）。
+    不再自带固定坐标，而是由 global.css 的 .rope 消费两个全站 token：
+      --chrome-axis   视口右缘 → 章圆心（横向）
+      --chrome-bottom 视口上缘 → 章底边（纵向，绳子再让 14px）
+    这两个值由 Base.astro 实测章的 rect 写入 :root；组件侧一个字都不用改。
+
+  为什么这是首页专属、且必须挂在 .stage **外面**：
+    · 首页不滚动（滚动被 scroll-scrub 吃成 193 帧时间轴），所以"回顶"不是
+      window.scrollTo，而是把 scrub 的 acc 归零 —— 走 'scrub:top' 事件，
+      与 'scrub:outro' 对称，复用同一份状态机（单一进度契约）。
+    · .stage 带 touch-action:none，且 scroll-scrub 在 window 上监听
+      touchstart/touchmove 抢手势。绳子若在 .stage 内，触摸它会被当成
+      "推进时间轴"；挂在外面 + 自己声明 touch-action:none + 阻断冒泡，
+      才能拿到干净的纵向手势。**这三条缺一不可。**
+
+  抓取用 pointer 事件（一套代码覆盖鼠标/触摸/笔），并惰性 setPointerCapture：
+  只有判定为拖拽（位移 > 6px）才捕获 —— 直接捕获会吞掉合成 click，
+  这个坑在 /works/ 卡片上已经踩过一次（见 MEMORY）。
+
+  ⚠️ MAX_PULL 与 CSS 的 --cord-travel 是同一个 132：手指位移与圆扣位移
+  1:1 对得上全靠这两处同值，改一处必须改另一处。
+*/
+---
+
+<div class="rope" data-rope data-on="false">
+  <button
+    class="rope__hand"
+    type="button"
+    data-rope-hand
+    aria-label="按住下拉，回到页面顶部"
+    title="按住下拉 · 回到顶部"
+  >
+    <span class="rope__mount" aria-hidden="true">
+      <span class="rope__plate"></span>
+      <span class="rope__eye"></span>
+    </span>
+    <span class="rope__cord" aria-hidden="true"></span>
+    <span class="rope__tag" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        width="15"
+        height="15"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M5 15l7-7 7 7"></path>
+      </svg>
+    </span>
+  </button>
+</div>
+
+<!-- 样式**全部**在 global.css 的「回顶绳」节，本组件只留 markup + 脚本。
+     理由与 ScrollDock 逐字相同：组件 <style> 会被 Astro 追加 cid，导致
+     `[data-theme="dark"] .rope__tag` 这类「祖先来自 html」的选择器整条失效，
+     且 scoped 规则特异性天然 +1、会压住全局的暗色与状态覆盖。
+     想改绳子的外观去 global.css 搜「回顶绳」。 -->
+
+<script>
+  /* ── 绳子行为 ─────────────────────────────────────────────────────────
+     可见性：跟 --sc 走（收尾态附近出现）。--sc 是 scroll-scrub.js 每帧写的
+     :root 内联属性，所以观察 style 属性即事件驱动的、频率天然与 scrub 同拍；
+     **不要用 rAF 轮询**（不滚也每帧跑，白耗电）。
+     阈值带滞回：0.70 进 / 0.62 出 —— 终点附近来回微抖不会让绳子闪。 */
+  const rope = document.querySelector('[data-rope]');
+  const hand = document.querySelector('[data-rope-hand]');
+
+  if (rope instanceof HTMLElement && hand instanceof HTMLButtonElement) {
+    const root = document.documentElement;
+    const MAX_PULL = 132;
+    const FIRE_AT = 78;
+    const DRAG_MIN = 6; // 超过它才算拖拽（否则按 tap 处理）
+
+    let dragging = false;
+    let captured = false;
+    let startY = 0;
+    let pull = 0;
+
+    const setPull = (v) => {
+      pull = v;
+      rope.style.setProperty('--pull', v.toFixed(3));
+      if (v * MAX_PULL >= FIRE_AT) rope.dataset.armed = 'true';
+      else delete rope.dataset.armed;
+    };
+
+    const fire = () => {
+      /* 首页有 scrub 舞台时由它把 acc 归零（人物回正面 + 版式归位）；
+         万一将来这条路被挪到可滚动页面上，退回原生平滑滚动。 */
+      if (document.querySelector('[data-scrub-view]')) {
+        document.dispatchEvent(new CustomEvent('scrub:top'));
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      rope.classList.add('is-firing');
+      window.setTimeout(() => rope.classList.remove('is-firing'), 640);
+    };
+
+    const endDrag = () => {
+      if (!dragging) return;
+      const travelled = pull * MAX_PULL;
+      dragging = false;
+      captured = false;
+      rope.classList.remove('is-dragging');
+      delete root.dataset.ropePull;
+      setPull(0); // 回弹（过渡由 .is-dragging 移除后重新生效）
+      if (travelled >= FIRE_AT || travelled < DRAG_MIN) fire();
+    };
+
+    hand.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      dragging = true;
+      captured = false;
+      startY = event.clientY;
+      /* 输入锁：拉绳期间让 demo-driver / scroll-scrub 让位（与 #basic 抽屉
+         同一套标记语义，两边都读 :root[data-rope-pull]）。 */
+      root.dataset.ropePull = 'on';
+      setPull(0);
+    });
+
+    hand.addEventListener('pointermove', (event) => {
+      if (!dragging) return;
+      const dy = event.clientY - startY;
+      if (!captured && Math.abs(dy) >= DRAG_MIN) {
+        /* 惰性捕获：先判拖拽再捕获 —— 无条件 setPointerCapture 会吞掉
+           合成 click，这个坑 /works/ 卡片上踩过。 */
+        try {
+          hand.setPointerCapture(event.pointerId);
+        } catch {}
+        captured = true;
+        rope.classList.add('is-dragging');
+      }
+      /* 越程阻尼：拉到 MAX 之后仍跟手，但增速降到 1/4 */
+      const over = Math.max(0, -dy); // 反向（向上）不产生拉力
+      const down = Math.max(0, dy);
+      const eased = down <= MAX_PULL ? down : MAX_PULL + (down - MAX_PULL) / 4;
+      setPull(Math.min(1.6, (eased - over) / MAX_PULL));
+    });
+
+    hand.addEventListener('pointerup', endDrag);
+    hand.addEventListener('pointercancel', endDrag);
+    /* 键盘 Enter/Space 触发的 click（detail === 0）；鼠标 click 已被
+       pointerdown 的默认抑制挡掉，不会重复触发。 */
+    hand.addEventListener('click', (event) => {
+      if (event.detail === 0) fire();
+    });
+
+    /* 触摸：scroll-scrub 在 window 上监听这两个事件抢手势，必须在绳子上
+       截断冒泡（只 stopPropagation，不 preventDefault —— pointer 路径已经在
+       处理位移，这里只是不让 scrub 收到）。 */
+    hand.addEventListener('touchstart', (event) => event.stopPropagation(), {
+      passive: true,
+    });
+    hand.addEventListener('touchmove', (event) => event.stopPropagation(), {
+      passive: true,
+    });
+
+    /* 可见性：0.70 淡入 / 0.62 淡出（滞回） */
+    const syncOn = () => {
+      const raw = getComputedStyle(root).getPropertyValue('--sc');
+      const n = Number.parseFloat(raw);
+      const sc = Number.isFinite(n) ? n : 0;
+      const on = rope.dataset.on === 'true';
+      if (!on && sc >= 0.7) rope.dataset.on = 'true';
+      else if (on && sc <= 0.62) rope.dataset.on = 'false';
+    };
+    syncOn();
+    new MutationObserver(syncOn).observe(root, {
+      attributes: true,
+      attributeFilter: ['style'],
+    });
+  }
+</script>

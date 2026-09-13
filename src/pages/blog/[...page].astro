@@ -3,6 +3,7 @@
 // 由原 blog.astro 重命名迁移而来（路由升级为 paginate，12 篇/页，与 Cactus 一致）。
 // 档案风骨架沿用：NO.03 编号头 + NOTES 描边大字 + 页脚条码；head 增加标签/RSS 入口。
 import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
 import Paginator from '../../components/Paginator.astro';
 import PostCard from '../../components/PostCard.astro';
 import { getSortedPosts, groupPostsByYear } from '../../data/posts';
@@ -26,13 +27,14 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
 ---
 <Base title="Daidai档案馆" description="博客板块 · 文章归档">
   <main class="sheet">
-    <header class="head">
-      <span class="tag">NO.03</span>
-      <span class="tag tag--red">密级 公开</span>
-      <a class="tag tag--link" href="/tags/">标签</a>
-      <a class="tag tag--link" href="/rss.xml">RSS</a>
-      <a class="back" href="/">← 返回档案馆</a>
-    </header>
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: '标签', href: '/tags/' },
+        { label: 'RSS', href: '/rss.xml' },
+      ]}
+      back={{ label: '← 返回档案馆', href: '/' }}
+    />
 
     {/* 页头横幅三件套（2026-09-12 晚升级）：横幅底 + 独立地面阴影 + Q版人物层。
         横幅底：纸色重映射为站纸 var(--c-paper)、内嵌人物与地面阴影已剥离（.tmp/prep_blog_header.py）；
@@ -133,9 +135,12 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
         load_more: '加载更多',
         search_label: '站内全文检索',
         filters_label: '过滤',
-        zero_results: '没有与「[QUERY]」匹配的结果',
-        one_result: '[COUNT] 个结果 ·「[QUERY]」',
-        many_results: '[COUNT] 个结果 ·「[QUERY]」',
+        /* 占位符必须是 default-ui 的令牌：它只做
+           `.replace(/\[SEARCH_TERM\]/)` 与 `.replace(/\[COUNT\]/)`，
+           旧文案写的 [QUERY] 原样印在页面上（2026-09-13 用户截图暴露）。 */
+        zero_results: '没有与「[SEARCH_TERM]」匹配的结果',
+        one_result: '[COUNT] 个结果 ·「[SEARCH_TERM]」',
+        many_results: '[COUNT] 个结果 ·「[SEARCH_TERM]」',
         searching: '检索中…',
         error_searching: '检索出错，请重试',
       },
@@ -146,24 +151,34 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     const nativeClear = mountEl.querySelector('.pagefind-ui__search-clear');
     if (!input) return;
 
+    /* 圆圈 × 挂进 default-ui 的 <form> 而不是 .search-mount：form 是
+       position:relative 且顶边 == 输入框顶边，绝对定位才能钉在输入框行内；
+       .search-mount 把结果抽屉也包在内（结果区在 form 里），随结果长高会把
+       绝对定位的按钮一路带下去——2026-09-13 用户截图里的「下方方块 ×」
+       就是这个按钮既没拿到样式、又落在了结果区之下。 */
+    const anchor = mountEl.querySelector('.pagefind-ui__form') ?? mountEl;
+
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'search-clear';
+    clearBtn.title = '清空检索';
     clearBtn.setAttribute('aria-label', '清空检索');
     clearBtn.innerHTML =
       '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">' +
       '<path d="M1 1l10 10M11 1L1 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>' +
       '</svg>';
-    mountEl.appendChild(clearBtn);
+    anchor.appendChild(clearBtn);
 
     const sync = () => {
       clearBtn.hidden = !input.value;
     };
     input.addEventListener('input', sync);
     clearBtn.addEventListener('click', () => {
-      /* 优先走 default-ui 自己的清除逻辑；若不存在则手动清空并触发 input */
-      if (nativeClear) nativeClear.click();
-      else {
+      /* 优先走 default-ui 自己的清除逻辑（清 val + 收起结果抽屉，节点常驻
+         DOM 只是被 suppressed 透明化，故引用长期有效）；失败则手动清空 +
+         派发 input 让 UI 走同一条响应链。 */
+      if (nativeClear?.isConnected) nativeClear.click();
+      if (input.value) {
         input.value = '';
         input.dispatchEvent(new Event('input', { bubbles: true }));
       }
@@ -200,45 +215,6 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
       "Microsoft YaHei", sans-serif;
   }
-
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .tag {
-    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    padding: 4px 10px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-  }
-  .tag--red {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-  .tag--link {
-    color: var(--c-muted);
-    border-color: rgba(var(--c-ink-rgb), 0.3);
-    text-decoration: none;
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-  .tag--link:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-  .back {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    padding-bottom: 2px;
-  }
-  .back:hover { color: var(--c-red); border-color: var(--c-red); }
 
   /* ── 页头横幅（2026-09-12 两件套分层）──
      横幅底（文字 + 基线 + 地面阴影）与人物层是两张独立图，按精配准落点
@@ -335,42 +311,54 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
 		letter-spacing: 0.06em;
 		color: var(--c-muted);
 	}
-	/* 自定义圆圈 × 清除按钮：替代 default-ui 的文本「清空」按钮 */
-	.search-clear {
+	/* 自定义圆圈 × 清除按钮：替代 default-ui 的文本「清空」按钮。
+	   ⚠️ 本按钮与 default-ui 的节点都是**脚本运行时注入**的，DOM 上没有
+	   Astro 的 data-astro-cid-* 属性 → 普通 scoped 选择器被编译成
+	   `.search-clear[data-astro-cid-xxx]`，永远匹配不上。症状（2026-09-13
+	   用户截图）：圆圈裸奔成默认方块按钮掉在结果区下方、原生「清空」按钮
+	   照常显示。**给注入元素写样式必须包 :global()**，改完去
+	   dist/_astro/*.css 核对后缀确实没了。 */
+	:global(.search-clear) {
 		position: absolute;
-		top: 50%;
-		right: 13px;
-		transform: translateY(-50%);
+		/* 纵向锚在输入框行内：输入框高 64px×scale、圆直径 30px，上下各留半间隙。
+		   不写 top:50%——绝对定位的参照是 form（结果抽屉也在 form 里），
+		   50% 会落到整个结果区的中段。scale 变量声明在 .search-mount 上，form 继承得到。 */
+		top: calc((64px * var(--pagefind-ui-scale) - 30px) / 2);
+		right: 14px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 26px;
-		height: 26px;
+		width: 30px;
+		height: 30px;
 		padding: 0;
 		border: 1.5px solid rgba(var(--c-ink-rgb), 0.3);
 		border-radius: 50%;
 		background: transparent;
 		color: var(--c-muted);
 		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease, transform 0.25s ease;
-		z-index: 1;
+		/* 悬停旋转用独立 rotate 属性，不往 transform 里塞（定位不依赖 transform） */
+		transition: color 0.15s ease, border-color 0.15s ease, rotate 0.25s ease;
+		z-index: 10;
 	}
-	.search-clear:hover {
+	:global(.search-clear):hover,
+	:global(.search-clear):focus-visible {
 		color: var(--c-red);
 		border-color: var(--c-red);
-		transform: translateY(-50%) rotate(90deg);
-	}
-	.search-clear:focus-visible {
 		outline: none;
-		color: var(--c-red);
-		border-color: var(--c-red);
+	}
+	:global(.search-clear):hover {
+		rotate: 90deg;
 	}
 	/* 用 hidden 切换设了 display 的元素必须配强规则（作者样式压过 UA 的 [hidden]） */
-	.search-clear[hidden] {
+	:global(.search-clear)[hidden] {
 		display: none !important;
 	}
-	/* 隐藏 default-ui 自带的文本「清空」按钮，统一使用自定义圆圈 × */
-	.search-mount .pagefind-ui__search-clear {
+	/* 隐藏 default-ui 自带的文本「清空」按钮：节点保留在 DOM 里，
+	   脚本的清除逻辑仍借它执行（display:none 不影响程序化 .click()）。
+	   ⚠️ :global() 必须包住**整条选择器**——写成 `.search-mount :global(.x)`
+	   时 Astro 仍会给 :global 内那一段补 data-astro-cid 后缀，规则等于没写
+	   （2026-09-13 构建产物实测）。 */
+	:global(.search-mount .pagefind-ui__search-clear) {
 		display: none !important;
 	}
 

@@ -1,0 +1,562 @@
+---
+/*
+  文章大纲（2026-09-13 第二批，用户裁定 Q6(a) / Q7(a) / Q12(a)）
+  ────────────────────────────────────────────────────────────────────────
+  · ≥1101px：正文右侧 sticky 栏 —— 细阅读进度条 + 章节列表 + 当前章节高亮。
+    栏内独立滚动但**滚动条隐形**（`scrollbar-width:none` + `::-webkit-scrollbar`
+    归零）：216px 宽的栏里滚动条槽位会在文字右侧切一条竖线并压住末字。
+  · ≤1100px：右下悬浮栈（ScrollDock.astro）的「目录」钮弹出底部 sheet，
+    载体是原生 <dialog>，复用 BasicDrawer 的关闭契约：Esc（cancel）/ 点背板 /
+    × 按钮，统一走 180ms 退场动画再 close()。
+    **≤640px 全出血**：左右与屏幕严丝合缝（撤定宽/居中/圆角/左右描边）；
+    641–1100px（窄窗口、平板）仍是居中定宽卡片。
+  · 断点不新造值：1100 / 640 都是项目既有档位（900 归其余页面）。
+  · **两处列表在构建时渲染**（取 astro:content 的 render() 返回的 headings），
+    不是运行时扫 DOM —— 因此不存在「注入 DOM 拿不到 Astro scoped cid」的问题，
+    本组件不需要任何 :global；没有 JS 时列表照样可点（原生锚点跳转），
+    只是少了高亮与进度条。
+  · <2 个标题时整组件不渲染（栏与 sheet 都不出）→ ScrollDock 里那枚「目录」钮
+    也因为找不到 #toc-sheet 而自动隐藏。
+
+  ⛔ 已删（2026-09-13，用户裁定「去掉冗余的按钮」）：sheet 底部那组
+    「回到顶部 / 滚到底部」（原 .sheet__foot）。它和右下悬浮栈的 ▲/▼ 完全重复，
+    却常驻占掉 60px 高度（上限 74dvh），在长大纲下把可视条目又压掉两三条。
+    连带删掉的还有它的 `[data-jump]` 处理器与两条 CSS。
+    已知代价：sheet 打开时背板盖住悬浮栈，▲/▼ 在这一刻不可点——要跳首尾需先
+    收起面板；面板自身列表可滚，且没有 JS 时也能用，故接受。
+
+  与正文 ids 的一致性：headings[].slug 就是 Astro 写进 <h*> 的 id（同一套
+  github-slugger），所以 href 与锚点天然对齐；这也是不自己扫 h2/h3 的原因。
+*/
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+interface Props {
+  /** 直接传 render(post) 的 headings（depth 2/3 会被收进大纲） */
+  headings?: Heading[];
+}
+
+const { headings = [] } = Astro.props;
+const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const ok = items.length >= 2;
+---
+
+{
+  ok && (
+    <aside class="rail">
+      <div class="rail__inner">
+        <div class="rail__bar" aria-hidden="true">
+          <span data-progress />
+        </div>
+        <p class="rail__label">目录 / INDEX</p>
+        <nav class="rail__nav" aria-label="文章目录">
+          <ul>
+            {items.map((h) => (
+              <li data-depth={`H${h.depth}`}>
+                <a href={`#${h.slug}`} data-toc-link data-target={h.slug}>
+                  {h.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </aside>
+  )
+}
+
+<dialog
+  class="sheet"
+  id="toc-sheet"
+  aria-labelledby="toc-sheet-title"
+  data-toc-sheet
+  hidden={!ok}
+>
+  <header class="sheet__head">
+    <h2 class="sheet__title" id="toc-sheet-title">目录 / INDEX</h2>
+    <button type="button" class="sheet__x" data-sheet-close aria-label="关闭目录">
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.7"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M6 6l12 12M18 6L6 18"></path>
+      </svg>
+    </button>
+  </header>
+
+  <div class="sheet__body">
+    <nav class="sheet__nav" aria-label="文章目录">
+      <ul>
+        {
+          items.map((h) => (
+            <li data-depth={`H${h.depth}`}>
+              <a href={`#${h.slug}`} data-toc-link data-target={h.slug}>
+                {h.text}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</dialog>
+
+<script>
+  /* ── 文章大纲行为（渐进增强）────────────────────────────────────────────
+     ① 桌面栏：细进度条（顶到文末的 scrollY 归一化）+ 当前章节高亮。
+        高亮用「已越过哪条标题线」判定（scrollY + 100 为判定线），不是
+        IntersectionObserver —— 后者在「滚到首个标题之前」无法表达「无当前项」，
+        且多标题同时入带时要额外推导，这里用缓存好的文档内偏移量更直接。
+        偏移量只在 resize / 字体就绪 / 正文尺寸变化时重算，滚动帧里零布局读取
+        （除 scrollHeight，它在无 DOM 写入时是缓存值）。
+     ② 移动 sheet：开合（Esc / 点背板 / ×）、点条目先关再平滑滚。
+        入流的 hash 用 replaceState 补上（不产生历史条目，链到某节仍可用）。
+     ③ 面板本身由服务端渲染，这里只加行为，不改结构。 */
+  const sheet = document.querySelector('[data-toc-sheet]');
+  const progress = document.querySelector('[data-progress]');
+  const allLinks = Array.from(document.querySelectorAll('[data-toc-link]'));
+
+  /* 目标 = 大纲条目对应的真实锚点（去重后保持文档顺序 = 大纲顺序） */
+  const targets = [];
+  {
+    const seen = new Set();
+    for (const a of allLinks) {
+      const id = a.dataset.target;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const el = document.getElementById(id);
+      if (el) targets.push({ id, el, top: 0 });
+    }
+  }
+
+  const byId = new Map();
+  for (const a of allLinks) {
+    const id = a.dataset.target;
+    if (!id) continue;
+    const list = byId.get(id);
+    if (list) list.push(a);
+    else byId.set(id, [a]);
+  }
+
+  let activeId = '\u0000'; // 哨兵：确保首帧一定写一次（空串也要能清掉高亮）
+  const setActive = (id) => {
+    if (id === activeId) return;
+    activeId = id;
+    for (const [key, els] of byId) {
+      const on = key === id;
+      for (const el of els) {
+        if (on) el.setAttribute('aria-current', 'true');
+        else el.removeAttribute('aria-current');
+      }
+    }
+  };
+
+  /* 点条目的瞬间先把高亮钉在它身上：平滑滚动途中 scroll 帧会一路把高亮推给
+     经过的章节（滚到终点才轮到目标），观感像「点了没反应」。hold 期间跳过
+     滚动帧的高亮推导，进度条照常走。 */
+  let holdActiveUntil = 0;
+  const setActiveNow = (id) => {
+    activeId = '\u0000';
+    setActive(id);
+    holdActiveUntil = performance.now() + 700;
+  };
+
+  let measured = false;
+  const measure = () => {
+    for (const t of targets) {
+      t.top = t.el.getBoundingClientRect().top + window.scrollY;
+    }
+    measured = true;
+  };
+
+  const scrollToId = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  /* ── 条目点击：平滑跳 + 补 hash（两个容器共用一套）──
+     sheet 内的点击先把抽屉退场、等 200ms 再滚：退场动画期间背板仍是 inert，
+     与滚动叠在一起容易互相抢帧；分先后反而更像「收起目录 → 落到那一节」。 */
+  for (const a of allLinks) {
+    a.addEventListener('click', (event) => {
+      const id = a.dataset.target;
+      if (!id || !document.getElementById(id)) return;
+      event.preventDefault();
+      const fromSheet =
+        sheet instanceof HTMLDialogElement && sheet.open && sheet.contains(a);
+      setActiveNow(id);
+      if (fromSheet) {
+        closeSheet();
+        window.setTimeout(() => scrollToId(id), 200);
+      } else {
+        scrollToId(id);
+      }
+      try {
+        history.replaceState(null, '', `#${id}`);
+      } catch {}
+    });
+  }
+
+  /* ── 移动 sheet 开合（契约同 BasicDrawer：Esc / 点背板 / × + 退场动画）── */
+  const openBtn = document.querySelector('[data-toc-open]');
+  let openedBy = null;
+
+  function closeSheet() {
+    if (!(sheet instanceof HTMLDialogElement) || !sheet.open) return;
+    if (sheet.classList.contains('is-closing')) return;
+    sheet.classList.add('is-closing');
+    window.setTimeout(() => {
+      sheet.classList.remove('is-closing');
+      sheet.close();
+    }, 190); // > CSS 的 180ms，动画播完才撤出顶层
+  }
+
+  if (sheet instanceof HTMLDialogElement && !sheet.hasAttribute('hidden')) {
+    openBtn?.removeAttribute('hidden');
+    /* 目录钮 DOM 里带 hidden（防手机端闪现）；真有大纲才由脚本放出来 */
+
+    openBtn?.addEventListener('click', () => {
+      if (sheet.open) return;
+      openedBy = openBtn instanceof HTMLElement ? openBtn : null;
+      sheet.showModal();
+      openBtn.setAttribute('aria-expanded', 'true');
+    });
+
+    sheet.addEventListener('click', (event) => {
+      /* ::backdrop 不接收事件，点背板时 target 落在 dialog 自身 */
+      if (event.target === sheet) closeSheet();
+    });
+    sheet.querySelector('[data-sheet-close]')?.addEventListener('click', closeSheet);
+    sheet.addEventListener('cancel', (event) => {
+      event.preventDefault(); // 拦下原生瞬时 close，改走带动画的路径
+      closeSheet();
+    });
+    sheet.addEventListener('close', () => {
+      openBtn?.setAttribute('aria-expanded', 'false');
+      /* preventScroll：此刻可能正有平滑滚动在跑，焦点回给固定定位的钮不应插一脚 */
+      if (openedBy instanceof HTMLElement) openedBy.focus({ preventScroll: true });
+      openedBy = null;
+    });
+  }
+
+  /* ── 滚动帧：进度条 + 当前章节 ── */
+  let raf = 0;
+  const frame = () => {
+    raf = 0;
+    const y = window.scrollY || 0;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    if (progress instanceof HTMLElement) {
+      const p = max > 4 ? Math.min(1, Math.max(0, y / max)) : 0;
+      progress.style.transform = `scaleX(${p.toFixed(4)})`;
+    }
+    if (!measured) measure();
+    /* 刚从大纲跳转过来：把高亮让给点击项，等平滑滚动落定 */
+    if (performance.now() < holdActiveUntil) return;
+    let hit = '';
+    for (const t of targets) {
+      if (t.top <= y + 100) hit = t.id;
+      else break; // targets 按文档顺序，偏移量单调递增
+    }
+    setActive(hit);
+  };
+  const schedule = () => {
+    if (!raf) raf = requestAnimationFrame(frame);
+  };
+
+  if (targets.length) {
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', () => {
+      measured = false;
+      schedule();
+    });
+    document.fonts?.ready.then(() => {
+      measured = false;
+      schedule();
+    });
+    /* 正文高度变化（图片解码、Utterances 注入）后偏移量失效，重算 */
+    const prose = document.querySelector('.prose');
+    if (prose && 'ResizeObserver' in window) {
+      new ResizeObserver(() => {
+        measured = false;
+        schedule();
+      }).observe(prose);
+    }
+    frame();
+  }
+</script>
+
+<style>
+  /* ── 桌面右栏（≥1101px）─────────────────────────────────────────────
+     只负责「自己怎么摆」：栏宽 216px、列间距 48px 由页面 .post-grid 定义，
+     这里声明 grid-column/grid-row 把它钉在第 2 列、纵向跨满正文区；
+     .rail 自身默认拉伸到整个跨行高度，sticky 交给内层 .rail__inner ——
+     sticky 元素必须有比它更高的包含块，直接给 .rail 加 sticky 会因为没有
+     可移动余量而失效。 */
+  .rail {
+    display: none;
+  }
+
+  @media (min-width: 1101px) {
+    .rail {
+      display: block;
+      grid-column: 2;
+      grid-row: 1 / -1;
+      min-width: 0;
+    }
+    .rail__inner {
+      position: sticky;
+      top: 96px;
+      max-height: calc(100vh - 128px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    /* 大纲可长（最长一篇 50+ 条）：栏内独立滚动，不给页面加高度。
+       滚动条**隐形**（2026-09-13 用户裁定）：栏只有 216px 宽，条目又紧贴左描边
+       排，滚动条槽位会在文字右侧切出一条竖线、压住末字。这里保留滚动能力，
+       只去掉轨道与滑块——滚轮 / 键盘 / 触摸照常可用；页面级阅读位置仍由
+       .rail__bar 那条细进度条指示，所以不会丢失「读到哪里」的反馈。 */
+    .rail__nav {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: none; /* Firefox / 标准属性 */
+      -ms-overflow-style: none;
+    }
+    .rail__nav::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+  }
+
+  .rail__bar {
+    flex: none;
+    height: 2px;
+    background: rgba(var(--c-ink-rgb), 0.14);
+  }
+  .rail__bar span {
+    display: block;
+    height: 100%;
+    background: var(--c-red);
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+  }
+  .rail__label {
+    margin: 0;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: var(--c-red);
+  }
+  .rail__nav ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-left: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .rail__nav li {
+    margin: 0;
+  }
+  .rail__nav a {
+    display: block;
+    margin-left: -1px;
+    padding: 4px 0 4px 12px;
+    border-left: 2px solid transparent;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--c-muted);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .rail__nav li[data-depth='H3'] a {
+    padding-left: 24px;
+    font-size: 12px;
+  }
+  .rail__nav a:hover {
+    color: var(--c-ink);
+  }
+  .rail__nav a[aria-current='true'] {
+    color: var(--c-red);
+    border-left-color: var(--c-red);
+  }
+
+  /* ── 移动底部 sheet（≤1100px）────────────────────────────────────────
+     dialog 在 top-layer，因此不参与 z-index 竞争（悬浮栈 850 / 固定 Chrome 800
+     都压不过它）。inset 打成底部吸附；641–1100px 这一档是「窄窗口 / 平板」，
+     仍保持居中定宽卡片；≤640px 那一档改全出血，见下方媒体查询。 */
+  .sheet {
+    position: fixed;
+    inset: auto 0 0 0;
+    margin: 0 auto;
+    width: min(560px, 100%);
+    /* ⛔ 必须显式归零：Chrome 的 UA 样式表给 dialog:modal 加了
+       `max-width: calc(100% - 6px - 2em)`（默认字号下 = calc(100% - 38px)）。
+       作者样式的 width 压不过 UA 的 max-width，于是在「整宽」档会实打实缺
+       右侧 38px —— 实测 320/390/430/640 四档右缝全是 38px（左缝 0，因为
+       margin:0 把 over-constraint 丢给了 right）。这不是我们的规则写错，
+       是 UA 上限在生效；`2em` 还会随字号漂移，所以不要用 calc 去"对齐"它，
+       直接 none。见 qa/diag-toc-sheet-width.mjs。 */
+    max-width: none;
+    max-height: min(74dvh, 640px);
+    padding: 0;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.18);
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+    background: var(--c-card);
+    color: var(--c-ink);
+    font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
+      'Microsoft YaHei', sans-serif;
+    /* 抽屉内部滚动不穿透到页面 */
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+  .sheet[open] {
+    display: flex;
+    flex-direction: column;
+    animation: sheet-in 260ms cubic-bezier(0.22, 0.9, 0.3, 1);
+  }
+  .sheet:not([open]) {
+    display: none;
+  }
+  .sheet[hidden] {
+    display: none !important;
+  }
+  .sheet::backdrop {
+    background: rgba(var(--c-ink-rgb), 0.38);
+    animation: sheet-scrim-in 260ms ease;
+  }
+  .sheet.is-closing {
+    animation: sheet-out 180ms ease forwards;
+    pointer-events: none;
+  }
+  .sheet.is-closing::backdrop {
+    animation: sheet-scrim-out 180ms ease forwards;
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes sheet-out {
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes sheet-scrim-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sheet-scrim-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet[open],
+    .sheet::backdrop {
+      animation: none;
+    }
+    .sheet.is-closing,
+    .sheet.is-closing::backdrop {
+      animation: none;
+    }
+  }
+
+  /* ≤640px（移动档，2026-09-13 用户裁定）：「三」弹出的大纲栏左右与屏幕
+     严丝合缝。做法是撤掉定宽 + 居中 + 圆角 + 左右描边，只留上沿一条 1px
+     描边做与正文的分界——inset 本来就是 auto 0 0 0，width:auto + margin:0
+     会让 left/right 把宽度直接拉满，不存在亚像素缝（比 width:100vw 稳：
+     后者不含滚动条补偿，在有原生滚动条的机型上会横向溢出）。
+     641–1100px 仍走上面的居中卡片，避免窄桌面窗口出现一条超宽通知栏。 */
+  @media (max-width: 640px) {
+    .sheet {
+      width: auto;
+      margin: 0;
+      border: 0;
+      border-top: 1px solid rgba(var(--c-ink-rgb), 0.18);
+      border-radius: 0;
+    }
+  }
+
+  .sheet__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.12);
+  }
+  .sheet__title {
+    margin: 0;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    color: var(--c-red);
+  }
+  .sheet__x {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--c-muted);
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+  .sheet__x:hover {
+    color: var(--c-red);
+  }
+  .sheet__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* 底距含安全区：条目跳转钮已删（见文末注），页面底部的收尾留白
+       现在由这里承担，全面屏机型不会被 home indicator 压住末条。 */
+    padding: 6px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+  }
+  .sheet__nav ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sheet__nav li {
+    margin: 0;
+  }
+  /* 触摸目标 ≥44px：条目本身即整行可点 */
+  .sheet__nav a {
+    display: block;
+    padding: 11px 2px;
+    border-bottom: 1px dashed rgba(var(--c-ink-rgb), 0.14);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--c-ink);
+    text-decoration: none;
+  }
+  .sheet__nav li[data-depth='H3'] a {
+    padding-left: 20px;
+    font-size: 13px;
+    color: var(--c-muted);
+  }
+  .sheet__nav li:last-child a {
+    border-bottom: 0;
+  }
+  .sheet__nav a[aria-current='true'] {
+    color: var(--c-red);
+  }
+</style>

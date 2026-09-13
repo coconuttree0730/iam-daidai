@@ -5,6 +5,7 @@
 // 说明：未提供 image 时不输出 og:image 的旧注释已失效（2026-09-12 晚：
 // og-image 静态端点已建成，文章详情页会自动传入）。
 import '../styles/global.css';
+import ScrollDock from '../components/ScrollDock.astro';
 
 interface Props {
   title: string;
@@ -17,6 +18,13 @@ interface Props {
   modifiedTime?: Date;
   /** 挡索引：404 等不应被收录的页面传 true */
   noindex?: boolean;
+  /** 右下悬浮栈（音乐 / 到顶 / 到底，见 ScrollDock.astro）。
+      缺省开 = 内页都用它。**首页传 false**（2026-09-13 用户裁定
+      「留右侧回顶绳、去掉右下角」）：首页的回顶交互由 TopRope 的拉绳
+      单独承担，右下角不再挂栈。
+      短页/锁滚页不需要特殊处理：靠可见性阈值淡入，不滚就永不出现。
+      横向位置不自带 20px，而是对齐 --chrome-axis（见上方脚本注释）。 */
+  dock?: boolean;
 }
 
 const {
@@ -27,6 +35,7 @@ const {
   publishedTime,
   modifiedTime,
   noindex = false,
+  dock = true,
 } = Astro.props;
 
 // canonical：Astro 静态构建下 pathname 为生成路由（directory format 带尾斜杠），
@@ -44,11 +53,16 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <!-- 主题初始化：必须在首帧前同步执行（防 FOUC）。此段逻辑与
-        src/lib/theme.js 的 resolveTheme 等价（内联脚本无法 import），
-        改决策规则时两处同步。
-        2026-09-12 用户裁定：默认昼，无合法记忆值一律浅色，
-        系统深色偏好不参与决策；点过「夜」的记忆值仍生效。 -->
+    <!-- 主题初始化：必须在首帧前同步执行（防 FOUC）。
+        主题段与 src/lib/theme.js 的 resolveTheme 等价（内联脚本无法 import），
+        改决策规则时两处同步。2026-09-12 用户裁定：默认昼，无合法记忆值一律
+        浅色，系统深色偏好不参与决策；点过「夜」的记忆值仍生效。
+
+        公告的预涂段已于 2026-09-13 第二轮改版时退役：旧形态点 × 后要整条
+        隐藏 30 天，故必须预涂 data-announce-off 防「先闪现再消失」；新形态的
+        按钮常驻顶栏，未读只用按钮上的红点表达，红点默认隐藏、由
+        Announce.astro 按已读水位点亮，本文件不需要为公告做任何预涂，
+        也不再持有 'announce-dismissed' 这个 key。 -->
     <script is:inline>
       (function () {
         var t = 'light';
@@ -86,14 +100,11 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
-    <!-- 主题切换章：可拖动悬浮章（2026-09-12 用户裁定，固定位置会挡组件），
-         默认右上角，拖过的位置记 localStorage。圆形章形态（rotate ≤14° 用户裁定）。
-         亮色显示「夜」（点了去夜览），暗色显示「昼」。 -->
-    <button class="theme-toggle" type="button" aria-pressed="false" title="切换日 / 夜览（可拖动到任意角落）">
-      <span class="t-night" aria-hidden="true">夜</span>
-      <span class="t-day" aria-hidden="true">昼</span>
-      <span class="sr-only">切换日间 / 夜间模式</span>
-    </button>
+    <!-- 昼夜切换章不再由壳层渲染（2026-09-13 第二轮，用户裁定 Q10(b)）：
+         首页 = HeroStage 的固定顶栏 .top-bar 里；内页 = PageHead 的 .head__end
+         里。标记与样式见 src/components/ThemeToggle.astro。壳层只保留下面这份
+         「全站唯一的行为脚本」——模块脚本默认 defer，DOM 解析完才执行，所以
+         能查到稍后由组件渲染出的那个按钮（组件复用也不会重复绑定）。 -->
     <script>
       import { THEME_KEY, currentTheme } from '../lib/theme.js';
       const btn = document.querySelector('.theme-toggle');
@@ -102,85 +113,31 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
         btn?.setAttribute('aria-pressed', String(currentTheme(root) === 'dark'));
       sync();
 
-      /* ── 可拖动悬浮章 ──
-         契约：位移 ≤5px 视为点击（照常切换主题），>5px 视为拖拽
-         （pointerup 后吞掉紧随的 click）。位置存 localStorage，
-         载入与 resize 时都夹回视口内（换设备/旋转屏不丢出界）。 */
-      const POS_KEY = 'theme-toggle-pos';
-      const EDGE = 8; // 视口安全边距 px
-      const DRAG_TH = 5;
-      let suppressClick = false;
-
-      const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
-
-      function placeAt(x, y) {
+      /* ── 右侧固定 Chrome 的对齐轴（2026-09-13 第二轮建）─────────────────
+         昼夜章的**圆心**是右侧所有浮动控件（回顶绳 .rope、悬浮栈 .dock）的
+         唯一基准轴：把「视口右缘 → 章心」与「视口上缘 → 章底边」写进 :root，
+         消费方只写 calc(null - 自身容器宽/2)。一个量测点，全站共用。
+         ⚠️ 必须实测而不是写死 40px：内页页头左右内缩是
+         clamp(20px, 4vw, 48px)，章心随视口宽漂移（1440px 时右缘
+         48 + 半径 20 = 68px），写死会在宽屏上与章错开近 30px。
+         ⚠️ 用 clientWidth 而不是 innerWidth：fixed 的右缘算的是 initial
+         containing block（不含纵向滚动条），用 innerWidth 会平白多出
+         滚动条那十几个像素。 */
+      const syncAxis = () => {
         if (!btn) return;
-        btn.style.left = clamp(x, EDGE, innerWidth - btn.offsetWidth - EDGE) + 'px';
-        btn.style.top = clamp(y, EDGE, innerHeight - btn.offsetHeight - EDGE) + 'px';
-        btn.classList.add('theme-toggle--free');
-      }
-
-      try {
-        const saved = JSON.parse(localStorage.getItem(POS_KEY) ?? 'null');
-        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) placeAt(saved.x, saved.y);
-      } catch {}
-
-      window.addEventListener('resize', () => {
-        if (!btn?.classList.contains('theme-toggle--free')) return;
-        placeAt(parseFloat(btn.style.left), parseFloat(btn.style.top));
-      });
-
-      let dragging = false;
-      let moved = false;
-      let startX = 0;
-      let startY = 0;
-      let origX = 0;
-      let origY = 0;
-
-      btn?.addEventListener('pointerdown', (e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        dragging = true;
-        moved = false;
-        startX = e.clientX;
-        startY = e.clientY;
         const r = btn.getBoundingClientRect();
-        origX = r.left;
-        origY = r.top;
-        btn.setPointerCapture(e.pointerId);
-      });
-      btn?.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        if (!moved && Math.hypot(dx, dy) > DRAG_TH) {
-          moved = true;
-          btn.classList.add('theme-toggle--drag');
-        }
-        if (moved) placeAt(origX + dx, origY + dy);
-      });
-      /* pointerup 后必有 click 跟随（需吞）；pointercancel 不跟随（吞键会误伤下一次点击） */
-      const endDrag = (followedByClick) => {
-        if (!dragging || !btn) return;
-        dragging = false;
-        btn.classList.remove('theme-toggle--drag');
-        if (moved) {
-          if (followedByClick) suppressClick = true;
-          try {
-            localStorage.setItem(
-              POS_KEY,
-              JSON.stringify({ x: parseFloat(btn.style.left), y: parseFloat(btn.style.top) })
-            );
-          } catch {}
-        }
+        root.style.setProperty(
+          '--chrome-axis',
+          `${(root.clientWidth - r.left - r.width / 2).toFixed(2)}px`
+        );
+        root.style.setProperty('--chrome-bottom', `${r.bottom.toFixed(2)}px`);
       };
-      btn?.addEventListener('pointerup', () => endDrag(true));
-      btn?.addEventListener('pointercancel', () => endDrag(false));
+      syncAxis();
+      window.addEventListener('resize', syncAxis);
+      /* 字体 swap 会改右簇的排版宽度（站名 / chip 换字形），稳下来再量一次 */
+      document.fonts?.ready.then(syncAxis);
 
       btn?.addEventListener('click', () => {
-        if (suppressClick) {
-          suppressClick = false;
-          return;
-        }
         const next = currentTheme(root) === 'dark' ? 'light' : 'dark';
         root.dataset.theme = next;
         try {
@@ -190,5 +147,6 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
       });
     </script>
     <slot />
+    {dock && <ScrollDock />}
   </body>
 </html>

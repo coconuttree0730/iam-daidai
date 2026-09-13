@@ -3,17 +3,20 @@
 // 档案馆风「查无此档」印章空态 + 双返回入口（首页 / 博客）；
 // noindex 挡索引，防软 404 被收录。Cloudflare Pages 按约定文件名自动挂接。
 import Base from '../layouts/Base.astro';
+import PageHead from '../components/PageHead.astro';
 ---
 
 <Base title="查无此档 · Daidai档案馆" description="请求的档案不存在" noindex>
   <main class="sheet">
-    <header class="head">
-      <span class="tag">NO.404</span>
-      <span class="tag tag--red">查无此档</span>
-      <a class="tag tag--link" href="/">首页</a>
-      <a class="tag tag--link" href="/blog/">博客</a>
-      <a class="back" href="/">← 返回档案馆</a>
-    </header>
+    <PageHead
+      no="NO.404"
+      chips={[
+        { label: '查无此档', variant: 'red' },
+        { label: '首页', href: '/' },
+        { label: '博客', href: '/blog/' },
+      ]}
+      back={{ label: '← 返回档案馆', href: '/' }}
+    />
 
     <section class="hero">
       <p class="en" aria-hidden="true">404</p>
@@ -47,48 +50,6 @@ import Base from '../layouts/Base.astro';
     color: var(--c-ink);
     font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
       'Microsoft YaHei', sans-serif;
-  }
-
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .tag {
-    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    padding: 4px 10px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-  }
-  .tag--red {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-  .tag--link {
-    color: var(--c-muted);
-    border-color: rgba(var(--c-ink-rgb), 0.3);
-    text-decoration: none;
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-  .tag--link:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-  .back {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    padding-bottom: 2px;
-  }
-  .back:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
   }
 
   .hero {

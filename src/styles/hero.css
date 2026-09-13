@@ -12,27 +12,9 @@
  * 这里刻意避开该名字，改用 .hero-figure，两个文件互不干扰。
  */
 
-@font-face {
-  font-family: "Anton";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/anton.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Archivo Black";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/archivo-black.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Great Vibes";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/great-vibes.woff2") format("woff2");
-}
+/* 字体（Anton / Archivo Black / Great Vibes）的 @font-face 已于 2026-09-13
+   上提到 global.css —— 原因见那里的注释（声明在只首页加载的 hero.css 里，
+   内页拿不到实体）。本文件仍然只是这三套字体的消费者。 */
 
 .stage {
   /* ── 版式旋钮：本文件所有可调参数都在这里 ───────────────────────── */
@@ -489,10 +471,53 @@
 }
 .chrome > * { position: absolute; }
 
-/* 左上：黑实心块 + 三条红斜杠 */
+/* ── 顶部控件栏（2026-09-13 第二轮改版，用户裁定 Q2 / Q4 / Q10(b)）──────
+ * 首页：这条栏是 fixed 的，直接叠在 hero 上（hero 是全出血 100svh，没有页头行）。
+ * 内页：不出这条栏——同一组控件由 PageHead 的 .head__end 承载（入流），
+ *       所以内页页头不需要给固定章让位。这是「顶部控件互相挤压覆盖」的修法。
+ * 栏内：左 = 左上角标（黑块 + 三道红斜杠），右 = 公告 + 昼夜章。
+ * 右上「刻度线 + 红圈」（旧 .mark-tr）按裁定 Q2(a) 整族删除：新增圆钮之后，
+ * 它是唯一「非圆、非文字」的装饰，且在 40px 带里与章抢位。
+ * min-height 40px = 昼夜章盒高 → align-items:center 让角标中线与章心同高。
+ * ⚠️ 改章尺寸时要同步这里的 min-height（章现在是栏内的 flex 子件，
+ *    右缘天然落在 right:20px，不再需要 padding-right 让位）。
+ * 本栏**不是** .chrome 的子节点（.chrome 是 aria-hidden + pointer-events:none
+ * 的纯装饰层，而栏里有链接和按钮）；故这里自己声明 pointer-events。 */
+.top-bar {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  /* 整条栏透明，不能截走 hero 的指针；只放开可交互子件 */
+  pointer-events: none;
+  user-select: none;
+}
+.top-bar a,
+.top-bar button {
+  pointer-events: auto;
+}
+.top-bar__lead {
+  display: flex;
+  align-items: center;
+  /* 角标到站名的间距：不跟 --ui 缩放——站名字号是固定的 17px（SiteMark），
+     --ui 只服务于角标自身尺寸；用 vw 项保证它在宽屏上不显得过近。 */
+  gap: clamp(10px, 0.8vw, 14px);
+  min-width: 0;
+}
+.top-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* 左上：黑实心块 + 三条红斜杠（位置由 .top-bar__lead 接管，不再自带定位） */
 .mark-tl {
-  top: 5.4%;
-  left: 2.8%;
   display: flex;
   align-items: center;
   gap: calc(var(--ui) * 0.9);
@@ -513,29 +538,9 @@
   transform: skewX(-17deg);
 }
 
-/* 右上：刻度点线 + 红色空心圈 */
-.mark-tr {
-  top: 5.4%;
-  right: 3.2%;
-  display: flex;
-  align-items: center;
-  gap: calc(var(--ui) * 1.2);
-}
-.mark-tr .ticks {
-  width: calc(var(--ui) * 8);
-  height: calc(var(--ui) * 1.1);
-  background-image: repeating-linear-gradient(
-    90deg,
-    var(--ink) 0 calc(var(--ui) * 0.22),
-    transparent calc(var(--ui) * 0.22) calc(var(--ui) * 1.15)
-  );
-}
-.mark-tr .ring {
-  width: calc(var(--ui) * 1.5);
-  height: calc(var(--ui) * 1.5);
-  border: calc(var(--ui) * 0.22) solid var(--red);
-  border-radius: 50%;
-}
+/* 右上「刻度点线 + 红色空心圈」(.mark-tr) 已于 2026-09-13 整族删除
+   （用户裁定 Q2(a)：新增圆钮族之后，它是唯一非圆非文字的装饰且在栏内抢位）。
+   若日后要恢复，规则可从 git 历史里取回。 */
 
 /* 左侧中部：点阵 + 红短横 + 等宽小字 + 刻度
  *
@@ -818,9 +823,10 @@
 .fan .card:nth-child(3) { --sc-x: 32vw; --sc-y: -85vh; }
 .fan .card:nth-child(4) { --sc-x: 70vw; --sc-y: -75vh; }
 
-/* 装饰角标：各自朝最近的屏角退出，避免与人物争视觉 */
-.mark-tl { translate: calc(-60vw * var(--sc-v)) 0; }
-.mark-tr { translate: calc(60vw * var(--sc-v)) 0; }
+/* 顶部装饰角标（.mark-tl / .mark-tr）：定位归 .top-bar 所有，**不要给这两族
+   加 translate**——`--sc-v` 是飞散块的位移契约，写上去会把整条顶栏拽出视口。
+   （原文件这两条是各自 fixed 的空占位规则，2026-09-13 归入顶栏后删除，
+   留本注释防回归。）同层的 side-index / mark-bl / mark-br 仍按 --sc-v 退出。 */
 .side-index { translate: calc(-50vw * var(--sc-v)) 0; }
 .mark-bl { translate: calc(-60vw * var(--sc-v)) 0; }
 .mark-br .underline,
@@ -1008,12 +1014,14 @@
    原来这里是 .outro::before 伪元素（绝对定位在语录上方）。
    整块删掉，不保留死代码；若日后要恢复，从日志里取回原规则即可。 */
 
-/* ── 右侧：联系表单骨架 ────────────────────────────────────────────
+/* ── 右侧：联系表单（首页专属定位）─────────────────────────────────
+ * 皮肤（排版 / 描边 / 交互态 / toast / honeypot）已抽到
+ * src/styles/contact-form.css（首页收尾区是唯一消费者）。
+ * 本处只留 hero 专属的绝对定位与升起动画；选择器一律带 `.stage` 作用域
+ * （特异性 0,2,0），恒高于皮肤文件的 0,1,0 —— 两文件的加载顺序无关紧要。
  * 视觉沿用截图给的暗色输入框语汇，但**改为本页的浅色纸面体系**：
- * 底色透明、仅描边（档案风是"线稿"语言，实心深色块会压掉纸感）。
- * 全部尺寸用 em，挂在 --ui（装饰角标的统一尺度单位）与 clamp 上，
- * 保证与全站同步缩放。 */
-.outro-contact {
+ * 底色透明、仅描边（档案风是"线稿"语言，实心深色块会压掉纸感）。 */
+.stage .outro-contact {
   position: absolute;
   right: clamp(24px, 5.6vw, 96px);
   /* 与 .outro 同口径（stage 百分比），见左侧注释。表单高 ≈326px 大于
@@ -1021,257 +1029,25 @@
   bottom: calc(var(--bar-h) + 34.194%);
   z-index: 6;
   width: min(34vw, 400px);
-  display: flex;
-  flex-direction: column;
-  gap: clamp(10px, 1.05vw, 16px);
   translate: 0 calc(var(--outro-rise) * (1 - var(--outro-r)));
   opacity: var(--outro-r);
   pointer-events: none;
   will-change: translate, opacity;
-  font-family: var(--font-cjk);
-  color: var(--ink);
 }
 
-.outro-contact-title {
-  margin: 0;
-  font-size: clamp(15px, 1.5vw, 24px);
-  font-weight: 900;
-  line-height: 1.2;
-  letter-spacing: 0.02em;
-}
+/* 字段 / 提交按钮 / 同意勾选 / honeypot 的样式已全部移至
+   src/styles/contact-form.css。
+   本文件不再重复定义，避免两份皮肤漂移。 */
 
-.outro-contact-note {
-  margin: 0 0 clamp(2px, 0.4vw, 6px);
-  font-size: clamp(11px, 0.95vw, 14px);
-  font-weight: 400;
-  line-height: 1.6;
-  letter-spacing: 0.015em;
-  color: var(--c-muted);
-}
-
-/* 字段：标签视觉隐藏（表单一律用 placeholder 提示，与截图一致），
-   但保留在无障碍树里——屏幕阅读器仍能读出每个输入框的名称。 */
-.field {
-  display: block;
-  position: relative;
-}
-
-.field-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-
-.field input,
-.field textarea {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: clamp(9px, 0.86vw, 13px) clamp(11px, 1vw, 15px);
-  font-family: var(--font-cjk);
-  font-size: clamp(11.5px, 0.98vw, 14px);
-  line-height: 1.5;
-  color: var(--ink);
-  /* 透明底 + 描边：让纸色透上来，与 hero 的线稿语汇一致 */
-  background: rgba(var(--c-card-rgb),0.5);
-  border: 1px solid var(--hair);
-  border-radius: clamp(4px, 0.42vw, 7px);
-  /* transition 只列颜色类属性：不与 translate/opacity 打架（那两个逐帧即时生效） */
-  transition:
-    border-color 0.24s ease,
-    background-color 0.24s ease;
-}
-.field textarea {
-  resize: vertical;
-  min-height: clamp(72px, 7vw, 104px);
-}
-.field input::placeholder,
-.field textarea::placeholder {
-  color: var(--c-muted-3);
-}
-.field input:focus,
-.field textarea:focus {
-  outline: none;
-  background: rgba(var(--c-card-rgb),0.86);
-  border-color: var(--ink);
-}
-
-.outro-contact-actions {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 1vw, 16px);
-  margin-top: clamp(2px, 0.4vw, 6px);
-}
-
-/* 提交按钮：反相实心块（黑底白字），是"可点"的唯一强信号；
-   hero 其余元素都是线稿，这里用实心形成明确的操作点。 */
-.outro-submit {
-  flex: none;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.5em;
-  padding: clamp(9px, 0.86vw, 13px) clamp(18px, 1.8vw, 28px);
-  font-family: var(--font-cjk);
-  font-size: clamp(11.5px, 0.98vw, 14px);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  color: var(--paper);
-  background: var(--ink);
-  border: 1px solid var(--ink);
-  border-radius: clamp(4px, 0.42vw, 7px);
-  cursor: pointer;
-  transition: background-color 0.24s ease, border-color 0.24s ease;
-}
-.outro-submit em {
-  font-style: normal;
-  font-size: 0.86em;
-  font-weight: 400;
-  opacity: 0.68;
-}
-.outro-submit:hover {
-  background: var(--red);
-  border-color: var(--red);
-}
-
-/* 同意勾选：告知文案与勾选一体，整行可点。默认不勾选（合规要求），
-   未勾选提交由原生 required 拦截；配色沿用角标小字灰，勾选态反相黑。 */
-.outro-consent {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: clamp(10px, 1vw, 14px);
-  font-size: 11px;
-  line-height: 1.7;
-  color: var(--c-muted-2);
-  cursor: pointer;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.outro-consent input {
-  flex: 0 0 auto;
-  margin-top: 3px;
-  accent-color: var(--ink);
-  width: 12px;
-  height: 12px;
-}
-.outro-consent span {
-  flex: 1;
-}
-
-/* 出错态（未勾选就提交）：文字与勾选框转红、左侧红线呼应信息条分隔线，
-   整行一次性横向抖动吸引视线；hint 红字在文案末尾换行浮现。 */
-@keyframes outro-consent-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-4px); }
-  55% { transform: translateX(3px); }
-  80% { transform: translateX(-2px); }
-}
-.outro-consent.is-error {
-  color: var(--red);
-  animation: outro-consent-shake 0.32s ease-out;
-}
-.outro-consent.is-error input {
-  accent-color: var(--red);
-  outline: 1px solid var(--red);
-  outline-offset: 2px;
-}
-.outro-consent.is-error span {
-  border-left: 2px solid var(--red);
-  padding-left: 8px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .outro-consent.is-error {
-    animation: none;
-  }
-}
-
-/* honeypot：视觉上移出视口的陷阱字段。不用 display:none——部分 bot 会
-   检测它，绝对定位扔出屏外更稳。tabindex=-1 不可聚焦，aria-hidden 对
-   读屏隐藏，填充即判定为脚本（Worker 端假成功不投递）。 */
-.hp-field {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ── 顶部系统消息（toast，2026-09-12）────────────────────────────────
- * 由 HeroStage 表单脚本动态挂到 <body>，不在 .stage 里——不能消费
- * --paper/--ink 等作用域在 .stage 的变量，颜色按调色板字面写（var(--c-ink)
- * 即 --ink，红取 --red var(--c-red) 的提亮版、绿取旧状态行 ok 色 var(--c-ok)
- * 的提亮版——深色底上原色不够亮，读不清）。
- * 三态：pending 灰点 / ok 绿点 / error 红点。滑入 → 停留 → 淡出，
- * 点击可提前关闭；容器 pointer-events:none，不挡页面点击。 */
-.toast-stack {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-top: clamp(14px, 2.5svh, 28px);
-  pointer-events: none;
-}
-.toast {
-  pointer-events: auto;
-  max-width: min(calc(100vw - 48px), 420px);
-  padding: 10px 18px;
-  border-radius: 3px;
-  /* toast 恒深底浅字（主题不变量）：浮层自带的黑章底，不随主题翻转 */
-  background: #131211;
-  color: #f4f3f1;
-  font-size: clamp(11px, 1.4vw, 13px);
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-  box-shadow: 0 10px 28px rgba(19, 18, 17, 0.28);
-  cursor: pointer;
-  opacity: 0;
-  transform: translateY(-14px);
-  transition: opacity 0.32s ease, transform 0.32s ease;
-}
-/* 状态圆点：pending 灰（旧状态行同款 var(--c-muted-2)） */
-.toast::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 9px;
-  vertical-align: 1px;
-  background: var(--c-muted-2);
-}
-.toast--ok::before {
-  background: #6abf40; /* 旧 ok 色 var(--c-ok) 的提亮版（深底可读） */
-}
-.toast--error::before {
-  background: #ff5449; /* --red var(--c-red) 的提亮版（深底可读） */
-}
-.toast.is-in {
-  opacity: 1;
-  transform: translateY(0);
-}
-.toast.is-out {
-  opacity: 0;
-  transform: translateY(-10px);
-}
+/* toast（顶部系统消息）也随皮肤移到 contact-form.css —— 它由表单脚本
+   动态挂到 <body>，与表单是同一条链路，放同一文件便于一起维护。 */
 
 /* 到位后开放交互：根标记由脚本按 --sc 写入（见 HeroStage 底部脚本）。
    为什么必须两段式：`--outro-l` 到 1 只表示"动画跑完"，但用户可能已经
    滚回去（--outro-l 回落）；标记法能保证"当前确实在位"才可点，
    否则会在半透明浮起态被点到不可见按钮。 */
 :root[data-outro~="l"] .outro,
-:root[data-outro~="r"] .outro-contact {
+:root[data-outro~="r"] .stage .outro-contact {
   pointer-events: auto;
 }
 
@@ -1279,7 +1055,7 @@
   /* 低动效：不做升起位移，但内容必须可见可操作
      （这两块承载的是联系方式，隐藏等于丢功能）。 */
   .outro,
-  .outro-contact {
+  .stage .outro-contact {
     translate: none;
     opacity: 1;
     pointer-events: auto;
@@ -1293,7 +1069,7 @@
  * 此时表现为"上先下后"，阅读顺序不变）。 */
 @media (max-width: 900px) {
   .outro,
-  .outro-contact {
+  .stage .outro-contact {
     left: clamp(20px, 5.4vw, 48px);
     right: clamp(20px, 5.4vw, 48px);
     width: auto;
@@ -1321,7 +1097,7 @@
    * 不用 translate 做居中——它被收尾升起动画独占（见基础规则
    * translate: 0 calc(var(--outro-rise) * …)），这里写 translate 会把
    * 竖直动画顶掉。 */
-  .outro-contact {
+  .stage .outro-contact {
     /* 纵向下锚（2026-09-12 用户指定）：表单底边距黑条顶恒 30px。 */
     top: auto;
     bottom: calc(var(--bar-h) + 30px);
@@ -1331,10 +1107,10 @@
     width: min(calc(100% - clamp(40px, 10.8vw, 96px)), 420px);
     gap: clamp(8px, 1.8vw, 12px);
   }
-  .outro-contact-note {
+  .stage .outro-contact-note {
     display: none;
   }
-  .outro-contact-title {
+  .stage .outro-contact-title {
     font-size: clamp(14px, 3.6vw, 18px);
   }
 }
@@ -1386,24 +1162,10 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  /* 表单：距黑条 40px 已在 ≤900 档定义（用户指定 40px），此处只收紧行距 */
-  .outro-contact {
+  /* 表单距黑条 40px 已在 ≤900 档定义（用户指定 40px），此处只收紧行距；
+     输入框/按钮/勾选的 ≤640 收紧已随皮肤移到 contact-form.css。 */
+  .stage .outro-contact {
     gap: 8px;
-  }
-  .field input,
-  .field textarea {
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-  .field textarea {
-    min-height: 62px;
-  }
-  .outro-submit {
-    padding: 8px 16px;
-    font-size: 12px;
-  }
-  .outro-consent {
-    font-size: 10px;
   }
 }
 
@@ -1672,7 +1434,6 @@
   .fan .card:nth-child(3) { --theta: 3deg !important; --slot-dx: calc(var(--slot) * 0.5); }
   .fan .card:nth-child(4) { --theta: 8deg !important; --slot-dx: calc(var(--slot) * 1.5); }
 
-  .mark-tr,
   .mark-bl,
   .mark-br .lead { display: none; }
 

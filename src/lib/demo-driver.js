@@ -299,6 +299,10 @@ function applyProgress() {
   /* 档案抽屉（#basic dialog）打开期间同样冻结（2026-09-13）：指针在 overlay
      上移动不该让背板后的人物转头；data-file-open 由 BasicDrawer 开关时维护 */
   if (document.documentElement.dataset.fileOpen !== undefined) return;
+  /* 拉回顶绳期间冻结（2026-09-13）：绳在屏幕右侧、指针会一路贴边下移，
+     照常映射的话人物会跟着狂转，而此刻用户的操作意图是"回顶"不是"看"。
+     data-rope-pull 由 TopRope.astro 在 pointerdown/up 时维护。 */
+  if (document.documentElement.dataset.ropePull !== undefined) return;
   for (const m of mounted) {
     let p;
     if (pinnedFrame != null && m.frameCount > 1) {

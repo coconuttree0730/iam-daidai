@@ -2,6 +2,7 @@
 // 标签索引页（2026-09-12）：/tags/ —— 全部标签 + 文章计数，行式档案风。
 // 计数按已发布文章统计（draft 在生产构建被过滤）；排序：文章数降序，同数按名称。
 import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
 import { getSortedPosts } from '../../data/posts';
 
 const posts = await getSortedPosts();
@@ -19,17 +20,33 @@ const tags = [...counts.entries()].sort(
 
 <Base title="标签索引 · Daidai档案馆" description="博客板块 · 全部标签归档">
   <main class="sheet">
-    <header class="head">
-      <span class="tag">NO.03</span>
-      <span class="tag tag--red">索引</span>
-      <a class="tag tag--link" href="/blog/">博客</a>
-      <a class="tag tag--link" href="/rss.xml">RSS</a>
-      <a class="back" href="/blog/">← 返回博客</a>
-    </header>
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: '索引', variant: 'red' },
+        // 「博客」chip 与右侧的「← 返回博客」同一目的地，2026-09-13 按用户裁定删除
+        { label: 'RSS', href: '/rss.xml' },
+      ]}
+      back={{ label: '← 返回博客', href: '/blog/' }}
+    />
 
+    {/* 页头（2026-09-12 晚参考 temp/标签索引.jpeg 重构）：左侧插画 =
+        从参考图洪泛抠出的 Q版人物+文件柜（文字已擦除，透明底），
+        TAGS/标签索引 是真实文字代码渲染（换主题自适应），不再烘在图里 */}
     <section class="hero">
-      <p class="en" aria-hidden="true">TAGS</p>
-      <h1>标签索引</h1>
+      <img
+        class="hero__art"
+        src="/motion/tags-cabinet-chibi.webp"
+        alt=""
+        width="723"
+        height="680"
+        loading="eager"
+        decoding="async"
+      />
+      <div class="hero__text">
+        <p class="en" aria-hidden="true">TAGS</p>
+        <h1>标签索引</h1>
+      </div>
     </section>
 
     {
@@ -62,6 +79,14 @@ const tags = [...counts.entries()].sort(
       )
     }
 
+    <!-- 收尾导航（手机档专用，2026-09-13 第八轮）：本页在 ≤640px 一度是**唯一
+         断链的页面**——页头 .back（← 返回博客）在本轮被隐藏，而同一目的地的那枚
+         「博客」chip 又已在更早因"与返回链重复"删除：两条决策各自合理，叠加后
+         手机档就没有通往 /blog/ 的站内路径了（只剩 站名 → 首页 → 03 卡 三跳）。
+         这里把那一环补回来。桌面档不显示（页头 .head 是 sticky，返回链全程可见），
+         两条入口严格互斥——与文章页 .postback 同一套机制与命名。 -->
+    <a class="postback" href="/blog/">← 返回博客</a>
+
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
       <span class="barcode"></span>
@@ -80,72 +105,53 @@ const tags = [...counts.entries()].sort(
       'Microsoft YaHei', sans-serif;
   }
 
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 22px clamp(20px, 4vw, 48px);
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .tag {
-    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    padding: 4px 10px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-  }
-  .tag--red {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-  .tag--link {
-    color: var(--c-muted);
-    border-color: rgba(var(--c-ink-rgb), 0.3);
-    text-decoration: none;
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-  .tag--link:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-  .back {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    padding-bottom: 2px;
-  }
-  .back:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-
+  /* 页头构图（参考 temp/标签索引.jpeg）：插画左，文字块右。
+     纸带 = 主题不变量 var(--c-band) 固定浅纸底（2026-09-12 晚用户裁定：深色主题下
+     页头保留白底，同博客横幅做法）；带内文字颜色因此钉死为浅色主题原值，
+     不消费会翻转的 --c-ink/--c-ghost */
   .hero {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 42px 20px 12px;
-    text-align: center;
+    justify-content: center;
+    gap: clamp(10px, 3vw, 44px);
+    width: 100%;
+    background: var(--c-band);
+    padding: clamp(18px, 3.5vw, 44px) 20px 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+  .hero__art {
+    /* 桌面上限 368px（2026-09-12 晚用户裁定：400px 时页头高 ~376px 偏高，矮 30px）；
+       移动端走下限 150px 不受影响 */
+    width: clamp(150px, 36vw, 368px);
+    height: auto;
+    flex-shrink: 0;
+  }
+  .hero__text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(4px, 1vw, 12px);
   }
   .hero .en {
     margin: 0;
     font-family: 'Anton', Impact, sans-serif;
-    font-size: clamp(28px, 6vw, 72px);
+    font-size: clamp(30px, 6vw, 82px);
     line-height: 1;
     letter-spacing: 0.04em;
     color: transparent;
-    -webkit-text-stroke: 1.2px var(--c-ghost);
+    /* 描边色钉死浅色主题值 #c3c1be（纸带不翻转） */
+    -webkit-text-stroke: 1.2px #c3c1be;
     user-select: none;
+    padding-left: clamp(0px, 1.5vw, 22px);
   }
   .hero h1 {
     margin: 0;
     font-weight: 900;
-    font-size: clamp(34px, 7vw, 84px);
+    font-size: clamp(36px, 7.5vw, 104px);
     line-height: 1;
     letter-spacing: 0.02em;
+    /* 墨色钉死浅色主题值 #131211（纸带不翻转） */
+    color: #131211;
   }
 
   .list-section {
@@ -229,6 +235,37 @@ const tags = [...counts.entries()].sort(
     margin-top: 6px;
     font-size: 11px;
     letter-spacing: 0.14em;
+  }
+
+  /* ── 收尾导航（手机档专用，2026-09-13 第八轮）─────────────────────────
+     基类 display:none 让桌面档**字节级零变化**：display:none 的 flex item
+     不生成盒子，也不影响上面 .list-section 的 flex:1 分配。
+     ⚠️ .sheet 是 flex column → 必须 align-self:flex-start（配 width:fit-content）
+     才能收缩到文字宽，否则交叉轴 stretch 会把下划线拉成整行宽——作品页
+     .backhome 踩过同一个坑。左右 margin 取与 .list-section / .foot 相同的
+     水平内缩，保证与列表内容、页脚色块同一条轴。 */
+  .postback {
+    display: none;
+    align-self: flex-start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 6px clamp(20px, 4vw, 48px) 22px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .postback:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .postback {
+      display: flex;
+    }
   }
 
   .foot {

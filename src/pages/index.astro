@@ -11,15 +11,28 @@
 // 本文件只放融合特有的两条：scroll 画布的对齐定位 + 脚本装载。
 import Base from '../layouts/Base.astro';
 import HeroStage from '../components/HeroStage.astro';
+import TopRope from '../components/TopRope.astro';
 import '../styles/hero.css';
 import profile from '../data/profile.json';
 ---
 
+<!-- dock=false：2026-09-13 用户裁定「留右侧回顶绳、去掉右下角」——
+     首页的回顶交互由 TopRope（拉绳）单独承担，不再挂右下悬浮栈。
+     ⚠️ 注释里不写尖括号形式的组件名：按标签配对的解析器会把不存在的块
+     一路吞掉（项目已记录该坑），这里只写词。
+     （内页仍用缺省 true，其横向位置对齐 --chrome-axis。） -->
 <Base
   title="Daidai档案馆"
   description="个人档案馆：鼠标移动驱动人物转身，向下滚动驱动人物动作时间轴。"
+  dock={false}
 >
   <HeroStage />
+
+  <!-- 右侧回顶绳。**必须是 .stage 的兄弟节点**：.stage 带 touch-action:none，
+       且 scroll-scrub 在 window 上监听 touchstart/touchmove 抢纵向手势——
+       绳子若在 .stage 内，摸它会被当成"推进时间轴"。TopRope 自己声明
+       touch-action 并阻断冒泡，站到外面才拿得到干净手势（同 BasicDrawer 的理由）。 -->
+  <TopRope />
 
   <script>
     import '../lib/demo-driver.js';
