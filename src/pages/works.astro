@@ -1,12 +1,6 @@
 ---
-// 作品集页（2026-09-12 建，当晚第三轮改版：分类卷宗夹）。
-// 交互参考 rauno.me 的轨道驱动（src/lib/works-rail.js：滚轮/拖拽/
-// 惯性/键盘四输入共用一份进度，指数缓动，收敛停帧），轨道上的内容
-// 从平铺卡片改为**侧开口卷宗夹**：cats 每项一个文件夹（右侧竖排
-// 侧签 = 侧开口语义），点击弹出弹层，该分类的作品卡片从夹口
-// 错峰弹出（stagger 动画），卡片本身仍是链接 → /works/<no>/ 详情。
-// 弹层打开时驱动 setLocked(true) 暂停轨道输入，Esc / 点背景 / × 关闭。
-// 数据源 = profile.json 的 works 节（cats + items[].cat，改数据不动组件）。
+// 作品集页（2026-09-14 改版：横向卡牌堆叠展开）。
+// 效果：每组居中→卡片依次堆叠→整体左移→下一组进入。
 import Base from '../layouts/Base.astro';
 import PageHead from '../components/PageHead.astro';
 import profile from '../data/profile.json';
@@ -15,734 +9,319 @@ const cats = profile.works.cats;
 const works = profile.works.items;
 const byCat = (id) => works.filter((w) => w.cat === id);
 const pad2 = (n) => String(n).padStart(2, '0');
+
+const sets = cats.filter(c => c.id !== 'inbox').map(cat => {
+  const items = byCat(cat.id);
+  const cards = [
+    ...items.reverse().map(w => ({
+      type: 'work', no: w.no, title: w.title, en: w.en,
+      img: w.img, cover: w.cover, href: `/works/${w.no}/`,
+    })),
+    ...(cat.img ? [{
+      type: 'cover', letter: cat.letter, name: cat.name, en: cat.en,
+      img: cat.img, imgAlt: cat.imgAlt, count: items.length,
+    }] : []),
+  ];
+  return { cat, cards };
+});
 ---
-<Base title="作品集 · Daidai档案馆" description="作品集板块 · 精选项目档案">
+
+<Base title="作品集 · Daidai档案馆" description="作品集板块 · 精选项目档案" dock={false}>
   <main class="sheet">
     <PageHead no="NO.02" back={{ label: '← 返回档案馆', href: '/' }} />
-
     <h1 class="sr-only">作品集</h1>
 
-    {/* 顶部刻度尺：游标随轨道进度横移（rauno.me 同款指示器） */}
-    <section class="ruler-strip" aria-hidden="true">
-      <div class="ruler" data-ruler>
-        <span class="ticks">
-          {Array.from({ length: 29 }).map(() => (
-            <i></i>
-          ))}
-        </span>
-        <span class="frame" data-frame></span>
-      </div>
-    </section>
-
-    {/* 卷宗夹轨道 */}
-    <section class="rail-wrap" data-rail-viewport aria-label="分类卷宗夹轨道" tabindex="-1">
-      <ul class="rail" data-rail data-total={cats.length} role="list">
-        {
-          cats.map((cat) => {
-            const items = byCat(cat.id);
-            return (
-              <li class="slot">
-                <button
-                  class="folder"
-                  type="button"
-                  data-cat={cat.id}
-                  data-cover={cat.cover}
-                  aria-haspopup="dialog"
-                >
-                  {cat.img ? <img class="folder-img" src={cat.img} alt={cat.imgAlt} loading="lazy" decoding="async" /> : null}
-                  <span class="folder-tab" aria-hidden="true">
-                    <span class="folder-letter">{cat.letter}</span>
-                  </span>
-                  <span class="folder-face">
-                    <span class="folder-en" aria-hidden="true">{cat.en}</span>
-                    <span class="folder-name">{cat.name}</span>
-                    <span class="folder-count">{items.length} 件</span>
-                    <span class="bigno" aria-hidden="true">{cat.letter}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })
-        }
-        <li class="slot">
+    <section class="stack-viewport" data-stack-viewport tabindex="-1">
+      <div class="stack-rail" data-stack-rail>
+        {sets.flatMap((set, setIdx) => {
+          const items: any[] = [];
+          items.push(
+            <div class="card-set" data-set={set.cat.id}>
+              {set.cards.map((card, cardIdx) => {
+                const isCover = card.type === 'cover';
+                return (
+                  <div
+                    class={`stack-card ${isCover ? 'is-cover' : ''}`}
+                    data-card={cardIdx}
+                    style={`--i: ${cardIdx}; --total: ${set.cards.length}`}
+                  >
+                    <div class="card-inner">
+                      {card.type === 'work' ? (
+                        <a class="card-link" href={card.href}>
+                          {card.img ? (
+                            <img class="card-img" src={card.img} alt={card.title} loading="lazy" decoding="async" />
+                          ) : (
+                            <div class="card-placeholder" data-cover={card.cover}></div>
+                          )}
+                          <div class="card-scrim"></div>
+                          <div class="card-info">
+                            <span class="card-no">{card.no}</span>
+                            <span class="card-title">{card.title}</span>
+                            <span class="card-en">{card.en}</span>
+                          </div>
+                        </a>
+                      ) : (
+                        <>
+                          <img class="card-img" src={card.img} alt={card.imgAlt} loading="lazy" decoding="async" />
+                          <div class="card-scrim"></div>
+                          <div class="card-info">
+                            <span class="card-letter">{card.letter}</span>
+                            <span class="card-title">{card.name}</span>
+                            <span class="card-en">{card.en}</span>
+                            <span class="card-count">{card.count} 件</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+          if (setIdx < sets.length - 1) {
+            items.push(<div class="set-gap" aria-hidden="true"></div>);
+          }
+          return items;
+        })}
+        <div class="end-set">
           <a class="endcard" href="/#basic">
             <span class="endcard-face">
               <span class="end-zh" aria-hidden="true">完</span>
               <span class="end-line">有想一起做的项目？</span>
             </span>
           </a>
-        </li>
-      </ul>
+        </div>
+      </div>
     </section>
 
     <footer class="dock">
-      <span class="dash" aria-hidden="true"></span>
-      <span class="track" aria-hidden="true"><span class="fill" data-progress></span></span>
-      <span class="count"><b data-now>01</b> / {pad2(cats.length)}</span>
+      <div class="ruler" data-ruler>
+        <span class="ticks">{Array.from({ length: 29 }).map(() => (<i></i>))}</span>
+        <span class="frame" data-frame></span>
+      </div>
     </footer>
   </main>
-
-  {/* 分类弹层：每分类一份，卡片从夹口错峰弹出 */}
-  {
-    cats.map((cat) => {
-      const items = byCat(cat.id);
-      return (
-        <div class="pop" data-pop={cat.id} role="dialog" aria-modal="true" aria-label={`「${cat.name}」分类的作品`}>
-          <div class="pop-panel">
-            <div class="pop-head">
-              <div>
-                <p class="pop-en" aria-hidden="true">{cat.en}</p>
-                <h2 class="pop-title">
-                  {cat.name}
-                  <small>{items.length} 件卷宗</small>
-                </h2>
-              </div>
-              <button class="pop-close" type="button" aria-label="关闭弹层">
-                <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-                  <path d="M1 1l10 10M11 1L1 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div class="pop-row">
-              {items.map((w, i) => (
-                <a class="witem" href={`/works/${w.no}/`} style={`--i:${i}`}>
-                  <span class="label">
-                    <b>{w.no}</b>
-                    {w.title}
-                  </span>
-                  <span class="wcard" data-cover={w.cover}>
-                    {w.img ? <img class="cover-img" src={w.img} alt={w.title} loading="lazy" decoding="async" /> : null}
-                    <span class="bigno" aria-hidden="true">{w.no}</span>
-                  </span>
-                </a>
-              ))}
-            </div>
-            <p class="pop-hint">点击卡片翻阅详情 · 点空白处或按 Esc 收回</p>
-          </div>
-        </div>
-      );
-    })
-  }
 </Base>
-
-<noscript>
-  <style>
-    /* 无 JS 兜底：轨道退化为原生横向滚动；弹层按钮无功能，
-       详情不可达是可接受的降级 */
-    .rail-wrap { overflow-x: auto; }
-    .rail { transform: none !important; }
-  </style>
-</noscript>
 
 <script>
   import { createWorksRail } from '../lib/works-rail.js';
 
-  const viewport = document.querySelector('[data-rail-viewport]');
-  const rail = document.querySelector('[data-rail]');
-  const nowEl = document.querySelector('[data-now]');
-  const progressEl = document.querySelector('[data-progress]');
+  const viewport = document.querySelector('[data-stack-viewport]');
+  const rail = document.querySelector('[data-stack-rail]');
   const rulerEl = document.querySelector('[data-ruler]');
   const frameEl = document.querySelector('[data-frame]');
   const total = Number(rail?.dataset.total ?? '0');
 
   const railAPI = viewport && rail
-    ? createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, rulerEl, total })
+    ? createWorksRail({
+        viewport, rail, frameEl, rulerEl, total,
+        onRender: renderCascade,
+      })
     : null;
 
-  // ── 分类弹层：开一只、关一只；开 = 锁轨道，关 = 还焦点 ──
-  let openPop = null;
-  let opener = null;
+  function clamp(v, a, b) { return Math.min(Math.max(v, a), b); }
 
-  function openPop_(cat, btn) {
-    closePop();
-    const pop = document.querySelector(`[data-pop="${cat}"]`);
-    if (!pop || !railAPI) return;
-    openPop = pop;
-    opener = btn;
-    pop.classList.add('open');
-    railAPI.setLocked(true);
-    pop.querySelector('.pop-close')?.focus();
-  }
+  /**
+   * 横向卡牌堆叠展开
+   * 
+   * 每组流程：
+   * 1. 居中 + 卡片堆叠
+   * 2. 堆叠完成后停留
+   * 3. 继续滑动时，当前组左移，下一组从右进入
+   */
+  function renderCascade(pos, max) {
+    if (!max) return;
+    const progress = pos / max; // 0→1
 
-  function closePop() {
-    if (!openPop) return;
-    openPop.classList.remove('open');
-    openPop = null;
-    railAPI?.setLocked(false);
-    opener?.focus?.();
-    opener = null;
-  }
+    const viewportWidth = viewport.clientWidth;
+    const cardSets = document.querySelectorAll('.card-set');
+    const setCount = cardSets.length;
+    if (!setCount) return;
 
-  document.querySelectorAll('.folder[data-cat]').forEach((btn) => {
-    btn.addEventListener('click', () => openPop_(btn.dataset.cat, btn));
-  });
-  document.querySelectorAll('.pop').forEach((pop) => {
-    // 点背景（.pop 自身）关闭；点面板内部不关
-    pop.addEventListener('click', (e) => {
-      if (e.target === pop) closePop();
+    // 获取尺寸
+    const firstSet = cardSets[0];
+    const setGap = document.querySelector('.set-gap');
+    const cardSetWidth = firstSet.offsetWidth;
+    const setGapWidth = setGap ? setGap.offsetWidth : 100;
+    const paddingLeft = parseFloat(getComputedStyle(rail).paddingLeft) || 80;
+
+    // ── 计算每组的居中位置 ──
+    const setCenters = [];
+    for (let i = 0; i < setCount; i++) {
+      const setLeft = paddingLeft + i * (cardSetWidth + setGapWidth);
+      const centerOffset = (viewportWidth - cardSetWidth) / 2;
+      setCenters.push(setLeft - centerOffset);
+    }
+
+    // ── 计算轨道位置 ──
+    const setSegment = 1 / setCount;
+    const activeIdx = Math.min(Math.floor(progress * setCount), setCount - 1);
+    const segProgress = (progress * setCount) % 1;
+
+    let railPos;
+    if (activeIdx < setCount - 1 && segProgress > 0.7) {
+      // 过渡阶段：从当前组中心移动到下一组中心
+      const transitionProgress = (segProgress - 0.7) / 0.3;
+      const eased = transitionProgress * transitionProgress;
+      railPos = setCenters[activeIdx] + (setCenters[activeIdx + 1] - setCenters[activeIdx]) * eased;
+    } else if (activeIdx === setCount - 1) {
+      // 最后一组：先居中，然后往左移露出"完"
+      const endSet = document.querySelector('.end-set');
+      const endSetLeft = endSet ? endSet.offsetLeft : 0;
+      const endSetCenter = endSetLeft - (viewportWidth - (endSet?.offsetWidth || 200)) / 2;
+      
+      if (segProgress < 0.6) {
+        // 停留在最后一组居中
+        railPos = setCenters[activeIdx];
+      } else {
+        // 过渡到"完"卡片居中
+        const transitionProgress = (segProgress - 0.6) / 0.4;
+        const eased = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
+        railPos = setCenters[activeIdx] + (endSetCenter - setCenters[activeIdx]) * eased;
+      }
+    } else {
+      railPos = setCenters[activeIdx];
+    }
+
+    // ── 移动轨道 ──
+    rail.style.transform = `translate3d(${-railPos}px,0,0)`;
+
+    // ── 动画卡片 ──
+    cardSets.forEach((set, setIdx) => {
+      const cards = set.querySelectorAll('.stack-card');
+      const cardCount = cards.length;
+      if (!cardCount) return;
+
+      // 这组的进度
+      const segStart = setIdx / setCount;
+      const segEnd = (setIdx + 1) / setCount;
+      const sp = clamp((progress - segStart) / (segEnd - segStart), 0, 1);
+
+      cards.forEach((card, i) => {
+        // 第一组的第一张卡：立即显示
+        const isImmediate = setIdx === 0 && i === 0;
+
+        let reveal;
+        if (isImmediate) {
+          reveal = 1;
+        } else {
+          const appearAt = i * 0.18;
+          reveal = clamp((sp - appearAt) / 0.35, 0, 1);
+        }
+
+        const eased = 1 - Math.pow(1 - reveal, 3);
+
+        // 目标位置（移动端减小偏移保持居中）
+        const isMobile = viewportWidth < 640;
+        const cardGap = isMobile ? 4 : 10;
+        const targetX = i * cardGap;
+        const startX = isMobile ? 40 : 80;
+        const x = startX + (targetX - startX) * eased;
+        const y = i * -2 * eased;
+
+        // 缩放
+        const shrinkRate = 0.05;
+        const targetScale = 1 - (cardCount - 1 - i) * shrinkRate;
+        const scale = 1 - (1 - targetScale) * eased;
+
+        card.style.transform = `translateX(${x}%) translateY(${y}px) scale(${scale})`;
+        card.style.opacity = String(reveal > 0 ? 1 : 0);
+        card.style.zIndex = String(i + 1);
+      });
     });
-    pop.querySelector('.pop-close')?.addEventListener('click', closePop);
-  });
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closePop();
-  });
+  }
 </script>
-
-<style is:global>
-  /* 本页描边大字需要 Anton / Archivo Black。原先因为 hero.css 不加载而在此
-     重复声明 @font-face；2026-09-13 字体声明已上提 global.css（全站一份），
-     这段重复块随之删除。此块保留为空壳随时可放页面级全局规则。 */
-</style>
 
 <style>
   .sheet {
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    background: var(--c-paper);
-    color: var(--c-ink);
-    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
-      "Microsoft YaHei", sans-serif;
+    height: 100dvh; display: flex; flex-direction: column;
+    background: var(--c-paper); color: var(--c-ink);
+    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
     overflow: hidden;
   }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+  .stack-viewport { flex: 1; min-height: 0; display: flex; align-items: center; overflow: hidden; cursor: grab; touch-action: pan-y; outline: none; }
+  .stack-viewport:active { cursor: grabbing; }
+  .stack-rail { display: flex; align-items: center; padding-inline: clamp(20px, 8vw, 110px); will-change: transform; }
+
+  .card-set {
+    position: relative; flex: none;
+    width: clamp(760px, 45vw, 920px);
+    height: clamp(440px, 62vh, 560px);
   }
 
-  /* ── 顶部刻度尺 ── */
-  .ruler-strip {
-    display: flex;
-    justify-content: center;
-    padding: clamp(14px, 2.6vh, 26px) 20px 0;
-  }
-  .ruler {
-    position: relative;
-    height: 18px;
-  }
-  .ticks {
-    display: flex;
-    gap: 4px;
-    height: 100%;
-    align-items: flex-start;
-  }
-  .ticks i {
-    width: 1px;
-    height: 12px;
-    background: rgba(var(--c-ink-rgb), 0.35);
-  }
-  .frame {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 22px;
-    height: 16px;
-    border: 1.5px solid rgba(var(--c-ink-rgb), 0.55);
-    background: var(--c-paper);
-    will-change: transform;
-  }
+  .set-gap { flex: none; width: clamp(100px, 14vw, 180px); height: 100%; }
 
-  /* ── 轨道区 ── */
-  .rail-wrap {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    cursor: grab;
-    touch-action: pan-y;
-    outline: none;
-  }
-  .rail-wrap:active { cursor: grabbing; }
-  .rail {
-    display: flex;
-    align-items: center;
-    gap: clamp(20px, 3.4vw, 52px);
-    padding-inline: clamp(20px, 8vw, 110px);
-    margin: 0;
-    padding-block: clamp(14px, 3vh, 28px);
-    list-style: none;
-    will-change: transform;
-  }
-  .slot { flex: none; display: flex; }
-
-  /* ── 卷宗夹：侧开口（右侧竖排侧签）──
-     静态倾角写独立 rotate 属性（≤1.5° 用户裁定）；hover 位移用 transform。
-     侧签贴右缘外挂（right 为负、folder 不裁切），竖排卷宗字母。 */
-  .folder {
-    position: relative;
-    width: clamp(370px, 23vw, 424px);
-    height: clamp(510px, 42vh, 590px);
-    display: block;
-    padding: 0;
-    background: var(--c-card);
-    border: 1px solid rgba(var(--c-ink-rgb), 0.22);
-    border-radius: 10px;
-    box-shadow: 0 14px 30px rgba(var(--c-ink-rgb), 0.09);
-    cursor: pointer;
-    font: inherit;
-    color: inherit;
-    text-align: left;
-    rotate: -0.7deg;
-    transition: transform 0.25s ease, rotate 0.25s ease, box-shadow 0.25s ease;
-  }
-  .slot:nth-child(even) .folder { rotate: 0.6deg; }
-  .folder:hover {
-    rotate: 0deg;
-    transform: translateY(-6px);
-    box-shadow: 0 20px 40px rgba(var(--c-ink-rgb), 0.13);
-  }
-  .folder:focus-visible {
-    outline: 2px solid var(--c-red);
-    outline-offset: 3px;
-  }
-  /* 封面纹样（与弹层卡片同一套变体，消费墨色通道变量） */
-  .folder[data-cover="grid"] {
-    background-image:
-      linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%),
-      linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%);
-    background-size: 26px 26px;
-    background-position: 0 0, 13px 13px;
-  }
-  .folder[data-cover="stripes"] {
-    background-image: repeating-linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.055) 0 2px, transparent 2px 12px);
-  }
-  .folder[data-cover="rings"] {
-    background-image: repeating-radial-gradient(circle at 72% 28%, rgba(var(--c-ink-rgb), 0.07) 0 1.5px, transparent 1.5px 15px);
-  }
-  .folder[data-cover="dots"] {
-    background-image: radial-gradient(rgba(var(--c-ink-rgb), 0.10) 1.2px, transparent 1.3px);
-    background-size: 17px 17px;
-  }
-  .folder[data-cover="bars"] {
-    background-image: repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.09) 0 2px, transparent 2px 6px, rgba(var(--c-ink-rgb), 0.09) 6px 7px, transparent 7px 14px);
-  }
-  .folder[data-cover="cross"] {
-    background-image:
-      repeating-linear-gradient(0deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px),
-      repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px);
-  }
-
-  /* 文件夹封面图：覆盖整个夹面，与文字遮罩叠加 */
-  .folder-img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 10px;
-    z-index: 0;
-  }
-  .folder:has(.folder-img) .folder-face::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 10px;
-    background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.15) 50%, transparent 100%);
-    z-index: -1;
-  }
-  .folder-face { z-index: 1; }
-
-  /* 侧签：右缘外挂竖条，竖排卷宗字母 */
-  .folder-tab {
-    position: absolute;
-    top: 16%;
-    right: -15px;
-    width: 30px;
-    height: 52%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--c-card-warm);
-    border: 1px solid rgba(var(--c-ink-rgb), 0.22);
-    border-left: none;
-    border-radius: 0 8px 8px 0;
-    writing-mode: vertical-rl;
-  }
-  .folder-letter {
-    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 15px;
-    color: var(--c-red);
-    letter-spacing: 0.1em;
-    user-select: none;
-  }
-
-  /* 夹面内容 */
-  .folder-face {
-    position: absolute;
-    inset: 0;
-    right: 12px; /* 给侧签让位 */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    gap: 5px;
-    padding: 18px;
-  }
-  /* 夹口横线：侧开口的视觉暗示 */
-  .folder-face::before {
-    content: "";
-    position: absolute;
-    top: 14px;
-    left: 14px;
-    right: 2px;
-    height: 1px;
-    background: rgba(var(--c-ink-rgb), 0.18);
-  }
-  .folder-en {
-    position: absolute;
-    top: 26px;
-    left: 18px;
-    font-family: "Anton", Impact, sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.22em;
-    color: var(--c-muted-3);
-    user-select: none;
-  }
-  .folder-name {
-    font-size: 24px;
-    font-weight: 900;
-    line-height: 1.2;
-  }
-  .folder-count {
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    color: var(--c-muted-2);
-    font-variant-numeric: tabular-nums;
-  }
-  .folder .bigno {
-    position: absolute;
-    right: 6px;
-    bottom: -10px;
-    font-family: "Anton", Impact, sans-serif;
-    font-size: clamp(96px, 18vh, 150px);
-    line-height: 1;
-    color: transparent;
-    -webkit-text-stroke: 1.5px var(--c-ghost);
-    user-select: none;
-    pointer-events: none;
-  }
-
-  /* 末位：空档案袋（完） */
-  .endcard {
-    display: block;
-    text-decoration: none;
-    color: inherit;
-    outline: none;
-  }
-  .endcard:focus-visible .endcard-face {
-    outline: 2px solid var(--c-red);
-    outline-offset: 3px;
-  }
-  .endcard-face {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    width: clamp(200px, 22vw, 250px);
-    height: clamp(270px, 42vh, 350px);
-    border: 1.5px dashed rgba(var(--c-ink-rgb), 0.35);
-    border-radius: 10px;
-    text-align: center;
-    rotate: 0.5deg;
-    transition: rotate 0.25s ease, transform 0.25s ease;
-  }
-  .endcard:hover .endcard-face {
-    rotate: 0deg;
-    transform: translateY(-6px);
-  }
-  .end-zh {
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1;
-    color: var(--c-red);
-    border: 2.5px solid var(--c-red);
-    border-radius: 8px;
-    padding: 9px 14px;
-    rotate: -5deg;
-    letter-spacing: 0.1em;
-  }
-  .end-line {
-    font-size: 12.5px;
-    color: var(--c-muted);
-  }
-
-  /* ── 底部泊位 ── */
-  .dock {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 14px clamp(20px, 4vw, 48px) 18px;
-    border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .dash {
-    flex: none;
-    width: 34px;
-    height: 5px;
-    background: var(--c-red);
-  }
-  .track {
-    position: relative;
-    flex: 1;
-    height: 3px;
-    background: rgba(var(--c-ink-rgb), 0.14);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .fill {
-    position: absolute;
-    inset: 0;
-    background: var(--c-red);
-    transform: scaleX(0);
-    transform-origin: left center;
-  }
-  .count {
-    flex: none;
-    font-size: 12.5px;
-    letter-spacing: 0.08em;
-    color: var(--c-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .count b {
-    color: var(--c-ink);
-    font-weight: 900;
-  }
-
-  /* ══ 分类弹层 ══
-     display 切换（非 hidden 属性），.open 激活；
-     卡片入场动画挂在 .open .witem 上——每次打开重新加类即重放。 */
-  .pop {
-    position: fixed;
-    inset: 0;
-    z-index: 40; /* 低于主题章(900) */
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 22px;
-    background: rgba(var(--c-ink-rgb), 0.38);
-  }
-  .pop.open { display: flex; }
-  .pop-panel {
-    display: flex;
-    flex-direction: column;
-    width: min(980px, 94vw);
-    max-height: 86vh;
-    padding: clamp(18px, 3vh, 28px) clamp(18px, 3vw, 30px);
-    background: var(--c-paper);
-    border: 1px solid rgba(var(--c-ink-rgb), 0.3);
-    border-radius: 14px;
-    box-shadow: 0 30px 70px rgba(var(--c-ink-rgb), 0.3);
-    animation: panel-in 0.28s cubic-bezier(0.2, 1, 0.35, 1) both;
-  }
-  @keyframes panel-in {
-    from { opacity: 0; transform: translateY(14px) scale(0.97); }
-    to { opacity: 1; transform: none; }
-  }
-  .pop-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .pop-en {
-    margin: 0;
-    font-family: "Anton", Impact, sans-serif;
-    font-size: 15px;
-    letter-spacing: 0.22em;
-    color: transparent;
-    -webkit-text-stroke: 1px var(--c-ghost);
-    user-select: none;
-  }
-  .pop-title {
-    margin: 4px 0 0;
-    font-size: 24px;
-    font-weight: 900;
-    line-height: 1.2;
-  }
-  .pop-title small {
-    margin-left: 10px;
-    font-size: 12px;
-    font-weight: 400;
-    letter-spacing: 0.12em;
-    color: var(--c-muted-2);
-    font-variant-numeric: tabular-nums;
-  }
-  .pop-close {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 1.5px solid rgba(var(--c-ink-rgb), 0.3);
-    border-radius: 50%;
-    background: transparent;
-    color: var(--c-muted);
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, transform 0.25s ease;
-  }
-  .pop-close:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-    transform: rotate(90deg);
-  }
-  .pop-close:focus-visible {
-    outline: 2px solid var(--c-red);
-    outline-offset: 2px;
-  }
-  .pop-row {
-    display: flex;
-    gap: clamp(16px, 2.4vw, 26px);
-    padding: clamp(14px, 2.6vh, 24px) 4px 6px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-  }
-  .pop-hint {
-    margin: 8px 2px 0;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    color: var(--c-muted-2);
-    user-select: none;
-  }
-
-  /* 弹层内卡片：与旧版卡面同构（小标签 + 大封面），入场 = 从夹口弹出 */
-  .witem {
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-    flex: none;
-    text-decoration: none;
-    color: inherit;
-    outline: none;
-  }
-  .witem:focus-visible .wcard {
-    outline: 2px solid var(--c-red);
-    outline-offset: 3px;
-  }
-  .label {
-    font-size: 12.5px;
-    letter-spacing: 0.04em;
-    color: var(--c-muted);
-    transition: color 0.15s ease;
-    user-select: none;
-  }
-  .label b {
-    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
-    font-weight: 400;
-    margin-right: 8px;
-    color: var(--c-ink-2);
-  }
-  .witem:hover .label { color: var(--c-red); }
-  .wcard {
-    position: relative;
-    display: block;
-    width: min(280px, 72vw);
-    height: clamp(280px, 44vh, 380px);
-    background: var(--c-card);
-    border: 1px solid rgba(var(--c-ink-rgb), 0.22);
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 12px 26px rgba(var(--c-ink-rgb), 0.09);
-    rotate: -0.6deg;
-    transition: transform 0.25s ease, rotate 0.25s ease, box-shadow 0.25s ease;
-  }
-  .pop-row .witem:nth-child(even) .wcard { rotate: 0.5deg; }
-  .witem:hover .wcard {
-    rotate: 0deg;
-    transform: translateY(-5px);
-    box-shadow: 0 18px 34px rgba(var(--c-ink-rgb), 0.13);
-  }
-  .wcard[data-cover="grid"] {
-    background-image:
-      linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%),
-      linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%);
-    background-size: 26px 26px;
-    background-position: 0 0, 13px 13px;
-  }
-  .wcard[data-cover="stripes"] {
-    background-image: repeating-linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.055) 0 2px, transparent 2px 12px);
-  }
-  .wcard[data-cover="rings"] {
-    background-image: repeating-radial-gradient(circle at 72% 28%, rgba(var(--c-ink-rgb), 0.07) 0 1.5px, transparent 1.5px 15px);
-  }
-  .wcard[data-cover="dots"] {
-    background-image: radial-gradient(rgba(var(--c-ink-rgb), 0.10) 1.2px, transparent 1.3px);
-    background-size: 17px 17px;
-  }
-  .wcard[data-cover="bars"] {
-    background-image: repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.09) 0 2px, transparent 2px 6px, rgba(var(--c-ink-rgb), 0.09) 6px 7px, transparent 7px 14px);
-  }
-  .wcard[data-cover="cross"] {
-    background-image:
-      repeating-linear-gradient(0deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px),
-      repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px);
-  }
-  .cover-img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .wcard .bigno {
-    position: absolute;
-    right: 12px;
-    bottom: -6px;
-    font-family: "Anton", Impact, sans-serif;
-    font-size: clamp(80px, 14vh, 118px);
-    line-height: 1;
-    color: transparent;
-    -webkit-text-stroke: 1.5px var(--c-ghost);
-    user-select: none;
-    pointer-events: none;
-  }
-  /* 弹出动画：卡片从夹口升起（下方位移 + 缩放 + 轻旋转），错峰 --i */
-  .pop .witem {
+  .stack-card {
+    position: absolute; inset: 0;
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    transform-origin: center center;
+    will-change: transform, opacity;
     opacity: 0;
   }
-  .pop.open .witem {
-    animation: pop-out 0.55s cubic-bezier(0.2, 1.25, 0.35, 1) both;
-    animation-delay: calc(90ms + var(--i, 0) * 80ms);
+
+  .card-inner {
+    width: 100%; height: 100%; border-radius: 14px; overflow: hidden;
+    position: relative;
   }
-  @keyframes pop-out {
-    from {
-      opacity: 0;
-      transform: translateY(58px) scale(0.82) rotate(2.5deg);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+
+  .card-link { display: block; width: 100%; height: 100%; text-decoration: none; color: inherit; outline: none; position: relative; }
+  .card-link:focus-visible { outline: 2px solid var(--c-red); outline-offset: 3px; }
+
+  .card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  .card-placeholder { position: absolute; inset: 0; background: var(--c-card); }
+  .card-placeholder[data-cover="grid"] { background-image: linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%), linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.05) 25%, transparent 25%, transparent 75%, rgba(var(--c-ink-rgb), 0.05) 75%); background-size: 26px 26px; background-position: 0 0, 13px 13px; }
+  .card-placeholder[data-cover="stripes"] { background-image: repeating-linear-gradient(45deg, rgba(var(--c-ink-rgb), 0.055) 0 2px, transparent 2px 12px); }
+  .card-placeholder[data-cover="rings"] { background-image: repeating-radial-gradient(circle at 72% 28%, rgba(var(--c-ink-rgb), 0.07) 0 1.5px, transparent 1.5px 15px); }
+  .card-placeholder[data-cover="dots"] { background-image: radial-gradient(rgba(var(--c-ink-rgb), 0.10) 1.2px, transparent 1.3px); background-size: 17px 17px; }
+  .card-placeholder[data-cover="bars"] { background-image: repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.09) 0 2px, transparent 2px 6px, rgba(var(--c-ink-rgb), 0.09) 6px 7px, transparent 7px 14px); }
+  .card-placeholder[data-cover="cross"] { background-image: repeating-linear-gradient(0deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px), repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px); }
+
+  .card-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.08) 40%, transparent 70%); pointer-events: none; }
+
+  .card-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
+  .card-no { font-family: "Archivo Black", sans-serif; font-size: 12px; color: var(--c-red); letter-spacing: 0.12em; }
+  .card-letter { font-family: "Archivo Black", sans-serif; font-size: 14px; color: var(--c-red); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .card-title { font-size: 22px; font-weight: 900; line-height: 1.2; color: #fff; }
+  .card-en { font-family: "Anton", Impact, sans-serif; font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.5); user-select: none; }
+  .card-count { font-size: 11px; letter-spacing: 0.12em; color: rgba(255,255,255,0.45); margin-top: 2px; }
+
+  .end-set { flex: none; display: flex; align-items: center; padding-left: clamp(40px, 6vw, 80px); }
+  .endcard { display: block; text-decoration: none; color: inherit; outline: none; }
+  .endcard:focus-visible .endcard-face { outline: 2px solid var(--c-red); outline-offset: 3px; }
+  .endcard-face { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; width: clamp(180px, 20vw, 230px); height: clamp(260px, 40vh, 340px); border: 1.5px dashed rgba(var(--c-ink-rgb), 0.35); border-radius: 10px; text-align: center; rotate: 0.5deg; transition: rotate 0.25s ease, transform 0.25s ease; }
+  .endcard:hover .endcard-face { rotate: 0deg; transform: translateY(-6px); }
+  .end-zh { font-size: 48px; font-weight: 900; line-height: 1; color: var(--c-red); border: 2.5px solid var(--c-red); border-radius: 8px; padding: 9px 14px; rotate: -5deg; letter-spacing: 0.1em; }
+  .end-line { font-size: 12.5px; color: var(--c-muted); }
+
+  .dock { 
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px 20px;
+    background: var(--c-paper);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   }
+  .ruler { position: relative; height: 18px; }
+  .ticks { display: flex; gap: 4px; height: 100%; align-items: flex-start; }
+  .ticks i { width: 1px; height: 12px; background: rgba(var(--c-ink-rgb), 0.35); }
+  .frame { position: absolute; top: 0; left: 0; width: 22px; height: 16px; border: 1.5px solid var(--c-red); background: var(--c-red); will-change: transform; }
+  .count b { color: var(--c-ink); font-weight: 900; }
 
   @media (max-width: 640px) {
-    .folder {
-      width: min(210px, 62vw);
-      height: clamp(240px, 38vh, 300px);
-    }
-    .folder .bigno { font-size: clamp(76px, 13vh, 110px); }
-    .wcard { width: min(250px, 76vw); }
+    .card-set { width: min(320px, 78vw); height: clamp(320px, 50vh, 400px); }
+    .card-title { font-size: 18px; }
+    .card-info { padding: 14px; }
+    .card-no, .card-letter { font-size: 11px; }
+    .card-en { font-size: 10px; }
     .ticks i { height: 10px; }
-    .pop { padding: 14px; }
+    .endcard-face { width: 140px; height: 200px; }
+    .end-zh { font-size: 36px; padding: 6px 10px; }
+    .end-line { font-size: 11px; }
+    .dock { padding: 8px 16px; bottom: 16px; }
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .wcard,
-    .folder,
-    .endcard-face { transition: none; }
-    .pop.open .witem,
-    .pop-panel { animation: none; }
-    .pop .witem { opacity: 1; }
-  }
+  @media (prefers-reduced-motion: reduce) { .stack-card { transition: none !important; } }
 </style>
