@@ -1,0 +1,501 @@
+---
+// 实验室 · 帧随动对比（/lab/framedemo/）——46帧单图 vs 121帧分段LRU
+//
+// 对比两种方案的差异：
+// - A：46帧单张雪碧图（background-position）
+// - B：121帧分段雪碧图 + canvas切格 + LRU按需解码
+//
+// 两边各自沿用同一套帧随动契约（人物矩形死区 · 方向角 · 姿态重定时 · 圆环 smoothDamp），
+// 只是帧数与载体不同。看左上时两边应同步"看左上"，右侧过渡与停帧更细腻。
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+---
+
+<Base title="帧随动对比 · Daidai档案馆">
+  <PageHead no="LAB-02" back={{ label: '← 返回实验室', href: '/lab/' }} />
+
+  <header class="page-head">
+    <h1>A/B 对比</h1>
+    <span class="sub">LAB-02 · 46帧单图 vs 121帧分段LRU · 同一指针驱动</span>
+  </header>
+
+  <main class="compare-area">
+    <!-- A：46帧单图 -->
+    <div class="panel old">
+      <span class="tag">A · 现状 46帧 · 单张图 background-position</span>
+      <div class="sprite-legacy" id="legacy"></div>
+      <div class="frame-badge old"><span id="fOld">0</span><small>/ 45</small></div>
+    </div>
+
+    <!-- B：121帧分段 -->
+    <div class="panel new">
+      <span class="tag">B · 新案 121帧全量抠色 · 6段LRU + canvas切格</span>
+      <canvas id="seg" width="486" height="596"></canvas>
+      <div class="frame-badge new"><span id="fNew">0</span><small>/ 120</small></div>
+    </div>
+  </main>
+
+  <!-- HUD -->
+  <aside class="hud">
+    <div class="grid">
+      <div class="col">
+        <div class="kv"><span>A · 解码位图（常驻）</span><b class="old">55.7 MB</b></div>
+        <div class="kv"><span>A · 图集尺寸 / GPU 上限</span><b class="old">3856×3612 · ≤4096 险过</b></div>
+        <div class="kv"><span>A · 文件</span><b class="old">1.81 MB</b></div>
+        <div class="kv"><span>A · 相邻帧姿态差</span><b class="old">1/45 圈</b></div>
+      </div>
+      <div class="col">
+        <div class="kv"><span>B · 驻留位图（LRU 实测）</span><b class="new" id="mem">0.0 MB</b></div>
+        <div class="kv"><span>B · 单段尺寸 / GPU 上限</span><b class="new">1944×3576 · ≤4096 安全</b></div>
+        <div class="kv"><span>B · 文件总量</span><b class="new">3.87 MB</b></div>
+        <div class="kv"><span>B · 相邻帧姿态差</span><b class="new">1/120 圈</b></div>
+        <div class="segs" id="segChips"></div>
+        <div class="kv"><span>B · 解码 / 驱逐 / 兜底</span><b class="new" id="ops">0 / 0 / 0</b></div>
+      </div>
+    </div>
+  </aside>
+
+  <footer>
+    鼠标绕任意人物一周 = 顺时针完整播放（两边同步）。人物矩形内 = 第 0 帧正面。
+    A 的姿态重定时控制点为原 46 帧契约，B 为 121 帧重测版（f48↔旧f14、f70↔旧f25）。
+  </footer>
+
+  <script>
+    // 内联数据
+    const LEGACY_DATA = {
+      asset: "/motion/atlas.webp",
+      frameCount: 46,
+      columns: 8,
+      rows: 6,
+      cellWidth: 482,
+      cellHeight: 602,
+      frameWarp: [[0,0],[0.25,10],[0.375,14],[0.5,18],[0.5833,25],[1,45]]
+    };
+
+    const SEG_DATA = {
+      frameCount: 121,
+      cellWidth: 486,
+      cellHeight: 596,
+      contentBox: { left: 0.0166, top: 0.0133, right: 0.0166, bottom: 0.0133 },
+      frameWarp: [[0,0],[0.25,22],[0.375,48],[0.5,55],[0.5833333333333334,70],[1,120]],
+      segments: [
+        { first:0, count:21, cols:4, rows:6, width:1928, height:3612, bytes:590890, asset:"/motion/segments/atlas-seg0.webp" },
+        { first:21, count:21, cols:4, rows:6, width:1928, height:3612, bytes:578518, asset:"/motion/segments/atlas-seg1.webp" },
+        { first:42, count:21, cols:4, rows:6, width:1928, height:3612, bytes:589630, asset:"/motion/segments/atlas-seg2.webp" },
+        { first:63, count:21, cols:4, rows:6, width:1928, height:3612, bytes:574872, asset:"/motion/segments/atlas-seg3.webp" },
+        { first:84, count:21, cols:4, rows:6, width:1928, height:3612, bytes:514928, asset:"/motion/segments/atlas-seg4.webp" },
+        { first:105, count:16, cols:4, rows:4, width:1928, height:2408, bytes:409202, asset:"/motion/segments/atlas-seg5.webp" }
+      ]
+    };
+
+    const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+    /* ── 圆环 smoothDamp ── */
+    function createAnimator(frameCount, smoothTime = 0.11) {
+      const wrapDelta = (d) => {
+        d = ((d % frameCount) + frameCount) % frameCount;
+        return d > frameCount / 2 ? d - frameCount : d;
+      };
+      let position = 0, velocity = 0, target = 0, raf = 0, lastT = 0;
+      let onFrame = null;
+      function loop(now) {
+        raf = 0;
+        const dt = lastT ? Math.min((now - lastT) / 1000, 1 / 30) : 1 / 60;
+        lastT = now;
+        const omega = 2 / smoothTime;
+        const x = omega * dt;
+        const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+        const maxChange = frameCount * 2 * smoothTime;
+        const vt = position + wrapDelta(target - position);
+        const ch = Math.max(-maxChange, Math.min(maxChange, position - vt));
+        const lt = position - ch;
+        const tmp = (velocity + omega * ch) * dt;
+        velocity = (velocity - omega * tmp) * decay;
+        position = ((lt + (ch + tmp) * decay) % frameCount + frameCount) % frameCount;
+        if ((vt - position > 0) === (position > vt)) { position = target; velocity = 0; }
+        const frame = ((Math.round(position) % frameCount) + frameCount) % frameCount;
+        if (onFrame) onFrame(frame);
+        if (Math.abs(wrapDelta(target - position)) > 0.002 || Math.abs(velocity) > 0.002) {
+          raf = requestAnimationFrame(loop);
+        } else lastT = 0;
+      }
+      return {
+        setProgress(p) {
+          target = Math.round(clamp01(p) * (frameCount - 1)) % frameCount;
+          if (!raf) raf = requestAnimationFrame(loop);
+        },
+        set onFrame(fn) { onFrame = fn; },
+        frameCount,
+      };
+    }
+
+    /* ── 姿态重定时 ── */
+    const makeWarp = (PTS, frameCount) => (p) => {
+      const last = frameCount - 1;
+      if (p <= PTS[0][0]) return PTS[0][1] / last;
+      if (p >= PTS[PTS.length - 1][0]) return PTS[PTS.length - 1][1] / last;
+      for (let i = 1; i < PTS.length; i++) {
+        if (p <= PTS[i][0]) {
+          const [p0, f0] = PTS[i - 1], [p1, f1] = PTS[i];
+          return (f0 + ((p - p0) / (p1 - p0)) * (f1 - f0)) / last;
+        }
+      }
+      return p;
+    };
+
+    /* ── 人物矩形 ── */
+    const personRectOf = (el, cb) => {
+      const b = el.getBoundingClientRect();
+      return {
+        left: b.left + b.width * cb.left,
+        top: b.top + b.height * cb.top,
+        width: b.width * (1 - cb.left - cb.right),
+        height: b.height * (1 - cb.top - cb.bottom),
+      };
+    };
+    const pointerProgress = (rect, cx, cy) => {
+      const px = rect.left + rect.width / 2;
+      const py = rect.top + rect.height / 2;
+      const dx = cx - px, dy = cy - py;
+      if (dx >= -rect.width / 2 && dx <= rect.width / 2 && dy >= -rect.height / 2 && dy <= rect.height / 2) return 0;
+      const phi = ((Math.atan2(dy, dx) * 180 / Math.PI - 90) % 360 + 360) % 360;
+      return phi / 360;
+    };
+
+    const CBA = { left: 0.0166, top: 0.0133, right: 0.0166, bottom: 0.0133 };
+    const CBB = SEG_DATA.contentBox || CBA;
+    const $ = (id) => document.getElementById(id);
+
+    /* ── A：46 帧单图 ── */
+    const legacyEl = $('legacy');
+    legacyEl.style.backgroundImage = `url("${LEGACY_DATA.asset}")`;
+    legacyEl.style.backgroundSize = `${LEGACY_DATA.columns * 100}% ${LEGACY_DATA.rows * 100}%`;
+    const renderLegacy = (frame) => {
+      const i = Math.max(0, Math.min(LEGACY_DATA.frameCount - 1, frame));
+      const col = i % LEGACY_DATA.columns, row = Math.floor(i / LEGACY_DATA.columns);
+      const x = LEGACY_DATA.columns === 1 ? 0 : (col / (LEGACY_DATA.columns - 1)) * 100;
+      const y = LEGACY_DATA.rows === 1 ? 0 : (row / (LEGACY_DATA.rows - 1)) * 100;
+      legacyEl.style.backgroundPosition = `${x}% ${y}%`;
+      $('fOld').textContent = String(i);
+    };
+
+    /* ── B：121 帧分段 canvas ── */
+    const { frameCount, cellWidth: CW, cellHeight: CH, segments } = SEG_DATA;
+    const canvas = $('seg');
+    const ctx = canvas.getContext('2d');
+    const bitmaps = new Map();
+    const inflight = new Set();
+    const stats = { decodes: 0, evictions: 0, fallbacks: 0 };
+    let drawnOnce = false;
+
+    async function ensureSeg(i) {
+      if (i < 0 || i >= segments.length || bitmaps.has(i) || inflight.has(i)) return;
+      inflight.add(i);
+      paintChips(-1);
+      try {
+        const res = await fetch(segments[i].asset);
+        const bmp = await createImageBitmap(await res.blob());
+        bitmaps.set(i, bmp);
+        stats.decodes++;
+        if (!drawnOnce) { lastNew = -1; renderSeg(0); }
+      } catch (err) {
+        console.error('解码失败 seg' + i, err);
+      } finally {
+        inflight.delete(i);
+      }
+    }
+
+    const segOfFrame = (f) => {
+      for (let i = 0; i < segments.length; i++) {
+        const g = segments[i];
+        if (f >= g.first && f < g.first + g.count) return i;
+      }
+      return segments.length - 1;
+    };
+
+    let lastNew = -1;
+    function renderSeg(frame) {
+      frame = ((Math.round(frame) % frameCount) + frameCount) % frameCount;
+      if (frame === lastNew) return;
+      lastNew = frame;
+
+      const s = segOfFrame(frame);
+      const nSeg = segments.length;
+      ensureSeg(s);
+      ensureSeg((s - 1 + nSeg) % nSeg);
+      ensureSeg((s + 1) % nSeg);
+
+      for (const i of [...bitmaps.keys()]) {
+        const d = Math.abs(i - s);
+        if (Math.min(d, nSeg - d) > 1) {
+          bitmaps.get(i).close();
+          bitmaps.delete(i);
+          stats.evictions++;
+        }
+      }
+
+      let seg = s, df = frame;
+      if (!bitmaps.has(s)) {
+        let best = -1, bd = Infinity;
+        for (const i of bitmaps.keys()) {
+          const g = segments[i];
+          const nf = Math.max(g.first, Math.min(frame, g.first + g.count - 1));
+          if (Math.abs(nf - frame) < bd) { bd = Math.abs(nf - frame); best = i; }
+        }
+        if (best >= 0) {
+          const g = segments[best];
+          df = Math.max(g.first, Math.min(frame, g.first + g.count - 1));
+          seg = best;
+          stats.fallbacks++;
+        } else {
+          hudB(s);
+          return;
+        }
+      }
+
+      ctx.clearRect(0, 0, CW, CH);
+      const g = segments[seg];
+      const k = df - g.first;
+      ctx.drawImage(bitmaps.get(seg), (k % g.cols) * CW, ((k / g.cols) | 0) * CH, CW, CH, 0, 0, CW, CH);
+      drawnOnce = true;
+      $('fNew').textContent = String(frame);
+      hudB(s);
+    }
+
+    const chipsEl = $('segChips');
+    segments.forEach((g, i) => {
+      const d = document.createElement('div');
+      d.className = 'seg-chip';
+      d.id = 'chip' + i;
+      d.textContent = `s${i}·f${g.first}–${g.first + g.count - 1}`;
+      chipsEl.appendChild(d);
+    });
+
+    function paintChips(cur) {
+      segments.forEach((_, i) => {
+        const el = $('chip' + i);
+        el.classList.toggle('resident', bitmaps.has(i));
+        el.classList.toggle('loading', inflight.has(i));
+        el.classList.toggle('current', i === cur);
+      });
+    }
+
+    function hudB(s) {
+      paintChips(s);
+      let bytes = 0;
+      for (const bmp of bitmaps.values()) bytes += bmp.width * bmp.height * 4;
+      $('mem').textContent = (bytes / 1048576).toFixed(1) + ' MB';
+      $('ops').textContent = `${stats.decodes} / ${stats.evictions} / ${stats.fallbacks}`;
+    }
+
+    /* ── 指针驱动 ── */
+    const animOld = createAnimator(LEGACY_DATA.frameCount);
+    const animNew = createAnimator(frameCount);
+    const warpOld = makeWarp(LEGACY_DATA.frameWarp, LEGACY_DATA.frameCount);
+    const warpNew = makeWarp(SEG_DATA.frameWarp, frameCount);
+    animOld.onFrame = renderLegacy;
+    animNew.onFrame = renderSeg;
+
+    let rectOld = null, rectNew = null;
+    const measure = () => {
+      rectOld = personRectOf(legacyEl, CBA);
+      rectNew = personRectOf(canvas, CBB);
+    };
+    measure();
+    window.addEventListener('resize', measure, { passive: true });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!rectOld || !rectOld.width) measure();
+      const pOld = pointerProgress(rectOld, e.clientX, e.clientY);
+      const pNew = pointerProgress(rectNew, e.clientX, e.clientY);
+      animOld.setProgress(warpOld(pOld));
+      animNew.setProgress(warpNew(pNew));
+    }, { passive: true });
+
+    document.documentElement.addEventListener('pointerleave', (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
+      animOld.setProgress(0);
+      animNew.setProgress(0);
+    });
+
+    /* 启动 */
+    canvas.width = CW;
+    canvas.height = CH;
+    ensureSeg(0);
+    renderLegacy(0);
+    renderSeg(0);
+  </script>
+</Base>
+
+<style>
+  .compare-area {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    justify-content: center;
+    padding: 10px 28px 14px;
+    flex-wrap: wrap;
+  }
+
+  .panel {
+    position: relative;
+    text-align: center;
+  }
+
+  .panel .tag {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: .06em;
+    padding: 3px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    background: #fffdf8;
+  }
+
+  .panel.new .tag {
+    color: var(--ok);
+    border-color: var(--ok);
+  }
+
+  .sprite-legacy, canvas#seg {
+    width: min(300px, 58vw);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: radial-gradient(circle at 50% 42%, rgba(0,0,0,.045) 0 46%, transparent 47%);
+    background-repeat: no-repeat;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .sprite-legacy {
+    aspect-ratio: 482 / 602;
+  }
+
+  canvas#seg {
+    aspect-ratio: 486 / 596;
+  }
+
+  .frame-badge {
+    position: absolute;
+    left: calc(50% - min(150px, 29vw) + 10px);
+    bottom: 46px;
+    font: 500 20px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 8px;
+    padding: 6px 9px 5px;
+  }
+
+  .frame-badge small {
+    font-size: 10px;
+    opacity: .6;
+    margin-left: 2px;
+  }
+
+  .panel.new .frame-badge {
+    background: var(--ok);
+  }
+
+  .hud {
+    width: 100%;
+    max-width: 660px;
+    margin: 12px auto 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fffdf8;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .hud .grid {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .hud .col {
+    flex: 1;
+    min-width: 260px;
+  }
+
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kv b {
+    font-weight: 500;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+
+  .kv b.old {
+    color: var(--accent);
+  }
+
+  .kv b.new {
+    color: var(--ok);
+  }
+
+  .segs {
+    display: flex;
+    gap: 5px;
+    margin: 6px 0;
+  }
+
+  .seg-chip {
+    flex: 1;
+    text-align: center;
+    padding: 5px 0 4px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .seg-chip.resident {
+    background: #e1f5ee;
+    border-color: var(--ok);
+    color: var(--ok);
+  }
+
+  .seg-chip.loading {
+    background: #e6f1fb;
+    border-color: var(--load);
+    color: var(--load);
+  }
+
+  .seg-chip.current {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  footer {
+    padding: 0 28px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    .compare-area {
+      padding: 10px 16px;
+    }
+
+    .hud .col {
+      min-width: 100%;
+    }
+
+    .segs {
+      flex-wrap: wrap;
+    }
+
+    .seg-chip {
+      flex: 1 1 calc(33% - 4px);
+    }
+  }
+</style>

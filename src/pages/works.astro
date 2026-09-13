@@ -49,6 +49,7 @@ const pad2 = (n) => String(n).padStart(2, '0');
                   data-cover={cat.cover}
                   aria-haspopup="dialog"
                 >
+                  {cat.img ? <img class="folder-img" src={cat.img} alt={cat.imgAlt} loading="lazy" decoding="async" /> : null}
                   <span class="folder-tab" aria-hidden="true">
                     <span class="folder-letter">{cat.letter}</span>
                   </span>
@@ -278,8 +279,8 @@ const pad2 = (n) => String(n).padStart(2, '0');
      侧签贴右缘外挂（right 为负、folder 不裁切），竖排卷宗字母。 */
   .folder {
     position: relative;
-    width: clamp(210px, 23vw, 264px);
-    height: clamp(270px, 42vh, 350px);
+    width: clamp(370px, 23vw, 424px);
+    height: clamp(510px, 42vh, 590px);
     display: block;
     padding: 0;
     background: var(--c-card);
@@ -329,6 +330,26 @@ const pad2 = (n) => String(n).padStart(2, '0');
       repeating-linear-gradient(0deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px),
       repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px);
   }
+
+  /* 文件夹封面图：覆盖整个夹面，与文字遮罩叠加 */
+  .folder-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+    z-index: 0;
+  }
+  .folder:has(.folder-img) .folder-face::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.15) 50%, transparent 100%);
+    z-index: -1;
+  }
+  .folder-face { z-index: 1; }
 
   /* 侧签：右缘外挂竖条，竖排卷宗字母 */
   .folder-tab {

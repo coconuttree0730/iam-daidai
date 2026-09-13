@@ -39,6 +39,12 @@ const next = works[(idx + 1) % works.length];
       </div>
     </section>
 
+    {w.img && (
+      <section class="preview">
+        <img src={w.img} alt={w.title} loading="lazy" decoding="async" />
+      </section>
+    )}
+
     <section class="detail">
       <p class="desc">{w.desc}</p>
       <ul class="chips" role="list">
@@ -123,6 +129,19 @@ const next = works[(idx + 1) % works.length];
   .status[data-tone="red"] {
     border-color: var(--c-red);
     color: var(--c-red);
+  }
+
+  .preview {
+    padding: 0 clamp(20px, 4vw, 48px);
+    margin-top: 24px;
+  }
+  .preview img {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    box-shadow: 0 8px 24px rgba(var(--c-ink-rgb), 0.1);
   }
 
   .detail {

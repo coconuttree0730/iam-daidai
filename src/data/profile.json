@@ -53,10 +53,10 @@
       "cat 分类归属是拍的，正式项目就位后重新归类即可"
     ],
     "cats": [
-      { "id": "site", "letter": "A", "name": "站点", "en": "SITES", "cover": "grid" },
-      { "id": "engine", "letter": "B", "name": "工程", "en": "ENGINE", "cover": "bars" },
-      { "id": "app", "letter": "C", "name": "应用", "en": "APPS", "cover": "dots" },
-      { "id": "craft", "letter": "D", "name": "设计手绘", "en": "CRAFT", "cover": "stripes" },
+      { "id": "site", "letter": "A", "name": "站点", "en": "SITES", "cover": "grid", "img": "/works/folder-site.jpeg", "imgAlt": "Chibi character coding at desktop with coffee" },
+      { "id": "engine", "letter": "B", "name": "工程", "en": "ENGINE", "cover": "bars", "img": "/works/folder-engine.jpeg", "imgAlt": "Chibi character focused on laptop programming" },
+      { "id": "app", "letter": "C", "name": "应用", "en": "APPS", "cover": "dots", "img": "/works/folder-app.jpeg", "imgAlt": "Cool chibi character in hoodie giving thumbs up" },
+      { "id": "craft", "letter": "D", "name": "设计手绘", "en": "CRAFT", "cover": "stripes", "img": "/works/folder-craft.jpeg", "imgAlt": "Chibi artist painting colorful monster on easel" },
       { "id": "inbox", "letter": "E", "name": "待归档", "en": "INBOX", "cover": "cross" }
     ],
     "items": [
@@ -150,6 +150,19 @@
         "href": "",
         "cover": "grid",
         "img": ""
+      },
+      {
+        "no": "08",
+        "cat": "site",
+        "title": "智能健身房管理系统",
+        "en": "AI-POWERED FITNESS SYSTEM",
+        "desc": "基于 Spring Boot + Vue3 的全栈智能健身房管理平台，覆盖会员、教练、管理端完整业务流程。集成 AI Agent 决策与编排，支持自然语言对话实现约课、购卡、查数据等操作，结合 RAG 知识库实现智能问答。",
+        "year": "2025",
+        "status": "上线",
+        "tags": ["Spring Boot", "Vue3", "PostgreSQL", "Redis", "AI Agent", "RAG"],
+        "href": "https://github.com/coconuttree0730/ai-powered-fitness-system",
+        "cover": "rings",
+        "img": "/works/fitness-index.gif"
       }
     ]
   },

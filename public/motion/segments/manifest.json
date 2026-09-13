@@ -1,0 +1,73 @@
+{
+  "frameCount": 121,
+  "cellWidth": 482,
+  "cellHeight": 602,
+  "contentBox": {
+    "left": 0.0166,
+    "top": 0.0133,
+    "right": 0.0166,
+    "bottom": 0.0133
+  },
+  "segments": [
+    {
+      "asset": "/motion/segments/atlas-seg0.webp",
+      "first": 0,
+      "count": 21,
+      "cols": 4,
+      "rows": 6,
+      "width": 1928,
+      "height": 3612,
+      "bytes": 590890
+    },
+    {
+      "asset": "/motion/segments/atlas-seg1.webp",
+      "first": 21,
+      "count": 21,
+      "cols": 4,
+      "rows": 6,
+      "width": 1928,
+      "height": 3612,
+      "bytes": 578518
+    },
+    {
+      "asset": "/motion/segments/atlas-seg2.webp",
+      "first": 42,
+      "count": 21,
+      "cols": 4,
+      "rows": 6,
+      "width": 1928,
+      "height": 3612,
+      "bytes": 589630
+    },
+    {
+      "asset": "/motion/segments/atlas-seg3.webp",
+      "first": 63,
+      "count": 21,
+      "cols": 4,
+      "rows": 6,
+      "width": 1928,
+      "height": 3612,
+      "bytes": 574872
+    },
+    {
+      "asset": "/motion/segments/atlas-seg4.webp",
+      "first": 84,
+      "count": 21,
+      "cols": 4,
+      "rows": 6,
+      "width": 1928,
+      "height": 3612,
+      "bytes": 514928
+    },
+    {
+      "asset": "/motion/segments/atlas-seg5.webp",
+      "first": 105,
+      "count": 16,
+      "cols": 4,
+      "rows": 4,
+      "width": 1928,
+      "height": 2408,
+      "bytes": 409202
+    }
+  ]
+}
