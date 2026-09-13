@@ -1,0 +1,204 @@
+---
+/*
+  顶栏公告（2026-09-13 第二轮改版：单条 inline 文案 → 常驻按钮 + 下拉公告栏）
+  ────────────────────────────────────────────────────────────────────────
+  · 触发器形态（对齐用户给的参考图）：铃铛线性图标 + 「公告」二字，按钮即常驻
+    控件，超长文案不再挤压顶栏（旧形态用单行截断解决这个，代价是全文只能靠
+    title 悬停看）。
+  · 点击展开面板：面板挂在按钮下方右对齐，列出全部公告（日期 / 标签 / 标题 /
+    正文段落 / 可选跳转），面板内部独立滚动（max-height 见 global.css），
+    列表顶部有常驻小标题条。
+  · 关闭路径三条：再点按钮 / Esc（焦点回按钮）/ 点面板外。打开不做焦点圈定
+    —— 面板是非模态浮层，圈定会打断读屏用户对页面其余部分的访问。
+  · 已读水位替代旧的「关闭 30 天」：打开面板即把**最新一条的 id**写进
+    localStorage 'announce-seen'，红点随之熄灭；发新公告（新 id）红点自动重现。
+    这比时间戳稳：不受读者本机时钟漂移影响，且「有新内容」的语义是精确的。
+    ⚠️ 红点在 markup 里默认 hidden，由本组件的脚本按水位点亮 —— 反过来做
+    （默认亮、脚本熄灭）会让已读读者每次访问都闪一下红点。
+
+  数据源：src/data/announcements.json（构建时静态 import，运行时零 fetch）。
+         **不是** profile.json —— 公告是全站共享数据，与「首页 hero 专属」的
+         profile.json 分开维护；改公告只改那个 JSON，不要改本组件。
+  位置：首页在固定顶栏 .top-bar 的右簇（昼夜章左侧）；内页在 PageHead 的
+        .head__end（返回链与章之间）。两处都是流内元素，面板用绝对定位弹出。
+  样式在 global.css 的 .announce 节（不写在这里）：面板与按钮都需要
+        [data-theme="dark"] 这类「祖先来自 html」的选择器，而组件级 <style>
+        会被 Astro 追加 cid → 规则整条永不匹配（见 MEMORY 的坑与 global.css
+        里 .theme-toggle 旁的说明）。
+  手机档（2026-09-13 第二轮改口）：**不再隐藏**。原判「手机顶栏拥挤」换了解法
+        ——改为页头不显示 NO.0x 编号 chip（见 PageHead.astro 的手机档规则），
+        腾出的宽度留给公告按钮。面板在 ≤640px 改 `position: fixed` 贴视口左右
+        各 20px：按钮右缘离视口只剩约 64px，再按「面板右缘对齐按钮右缘」展开
+        会从屏幕左侧漏出去。手机档规则在 global.css 的 .announce 节末尾。
+*/
+import announcements from '../data/announcements.json';
+
+interface Announcement {
+  id: string;
+  date: string;
+  title: string;
+  tag?: string;
+  level?: 'info' | 'notice' | 'warn';
+  body?: string[];
+  href?: string;
+  hrefLabel?: string;
+  pinned?: boolean;
+}
+
+const source = (announcements.items ?? []) as Announcement[];
+
+/* 排序：置顶优先，其余按日期倒序（Array.prototype.sort 在 V8 稳定，同日保持
+   数组原序）。排序与「最新 id」都在构建时定下，运行时零计算。 */
+const items = source
+  .slice()
+  .sort((a, b) => {
+    const pin = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+    if (pin) return pin;
+    return String(b.date).localeCompare(String(a.date));
+  })
+  .map((it) => ({
+    ...it,
+    dateLabel: String(it.date).replace(/-/g, '.'),
+    paragraphs: it.body ?? [],
+    linkLabel: it.hrefLabel ?? '查看详情',
+    external: /^https?:/i.test(it.href ?? ''),
+  }));
+
+const latestId = items[0]?.id ?? '';
+---
+
+{
+  items.length > 0 && (
+    <div class="announce" data-announce data-latest={latestId}>
+      {/* aria-controls 指向固定 id：每页最多出现一个公告栏（首页走 HeroStage、
+          内页走 PageHead，两者互斥），所以不需要为多实例生成唯一 id。 */}
+      <button
+        class="announce__btn"
+        type="button"
+        aria-expanded="false"
+        aria-controls="announce-panel"
+      >
+        <span class="announce__bell" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 8.5a6 6 0 1 0-12 0c0 6-2.4 7.6-2.4 7.6h16.8S18 14.5 18 8.5" />
+            <path d="M13.9 19.7a2 2 0 0 1-3.8 0" />
+          </svg>
+        </span>
+        <span class="announce__label">公告</span>
+        <span class="announce__dot" data-announce-dot hidden aria-hidden="true" />
+      </button>
+
+      <div class="announce__panel" id="announce-panel" hidden>
+        <div class="announce__head">
+          <span class="announce__head-title">公告</span>
+          <span class="announce__head-en" aria-hidden="true">
+            ANNOUNCEMENTS
+          </span>
+          <span class="announce__head-count">{items.length} 条</span>
+        </div>
+
+        <ol class="announce__list">
+          {items.map((it) => (
+            <li class="announce__item">
+              <p class="announce__meta">
+                <time class="announce__date" datetime={it.date}>
+                  {it.dateLabel}
+                </time>
+                {it.tag && (
+                  <span
+                    class:list={[
+                      'announce__tag',
+                      it.level === 'info' && 'is-info',
+                      it.level === 'warn' && 'is-warn',
+                    ]}
+                  >
+                    {it.tag}
+                  </span>
+                )}
+                {it.pinned && <span class="announce__pin">置顶</span>}
+              </p>
+
+              <h3 class="announce__title">{it.title}</h3>
+              {it.paragraphs.map((para) => (
+                <p class="announce__para">{para}</p>
+              ))}
+
+              {it.href && (
+                <a
+                  class="announce__link"
+                  href={it.href}
+                  target={it.external ? '_blank' : undefined}
+                  rel={it.external ? 'noopener noreferrer' : undefined}
+                >
+                  {it.linkLabel}
+                  <span aria-hidden="true">→</span>
+                </a>
+              )}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  )
+}
+
+<script>
+  /* 公告栏行为：开合 + 已读水位。常数 KEY 只在这里出现一处（Base.astro 不再
+     有对应的预涂脚本 —— 旧形态的「关闭 30 天」预涂已随改版退役）。 */
+  const KEY = 'announce-seen';
+
+  document.querySelectorAll('[data-announce]').forEach((root) => {
+    if (!(root instanceof HTMLElement)) return;
+    const btn = root.querySelector('.announce__btn');
+    const panel = root.querySelector('.announce__panel');
+    const dot = root.querySelector('[data-announce-dot]');
+    if (!(btn instanceof HTMLElement) || !(panel instanceof HTMLElement)) return;
+
+    const latestId = root.dataset.latest ?? '';
+    let seen = '';
+    try {
+      seen = localStorage.getItem(KEY) ?? '';
+    } catch {}
+
+    const paintDot = () => {
+      if (dot instanceof HTMLElement) dot.hidden = !latestId || seen === latestId;
+    };
+    paintDot();
+
+    const setOpen = (open) => {
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      if (!open || !latestId || seen === latestId) return;
+      seen = latestId;
+      try {
+        localStorage.setItem(KEY, latestId);
+      } catch {}
+      paintDot();
+    };
+
+    btn.addEventListener('click', () => setOpen(panel.hidden));
+
+    /* 点面板外关闭。按钮自身的点击会冒泡到这里，但 root.contains(target) 为真，
+       所以不会「开了立刻关」。 */
+    document.addEventListener('click', (event) => {
+      if (panel.hidden) return;
+      if (event.target instanceof Node && root.contains(event.target)) return;
+      setOpen(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || panel.hidden) return;
+      setOpen(false);
+      btn.focus();
+    });
+  });
+</script>
