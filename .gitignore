@@ -25,5 +25,7 @@ Thumbs.db
 qa/out/
 # WorkBuddy 项目记忆与工作数据
 .workbuddy/
+# 项目级 Agent 技能的工作副本（write-daidai-blog / write-daidai-portfolio，2026-09-13）
+.daidai-work/
 # safe-delete 护栏在本项目里落下的回收站
 .Trash-*/
