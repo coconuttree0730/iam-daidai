@@ -1,171 +1,354 @@
 ---
-// 实验室 · 滚动帧随动（/lab/scroll/）——独立演示页
+// 实验室 · 滚动帧随动（/lab/scroll/）——原理解剖页（2026-09-14 重设计）
 //
-// 布局：页面不滚动。手机框（iframe）内部独立滚动驱动帧播放，
-//        右侧固定显示实时参数。原理说明通过按钮弹窗展示。
-// iframe 内 scroll-demo.html 自带完整的 scroll→frame 逻辑，
-// 通过 postMessage 将 progress/frame 回传给外层参数面板。
+// 目的从「看演示」升级为「拆原理」：手机框（iframe）钉在左列 sticky，
+// 右列是一串 SVG 剖图（实时透视 / 总管线 / 映射曲线 / 图集解剖 / 双层缓存 /
+// 帧缓动），全部消费 iframe postMessage 回传的同一份数据——在手机里滑动，
+// 每张剖图同步动起来：游标走曲线、格位跳图集、LRU 窗口滑段、Δ 值起伏。
+//
+// 演示 iframe（public/lab/scroll-demo.html）与线上 motion.js 同一套契约：
+// 两层缓存（ArrayBuffer 全段常驻 + ImageBitmap LRU ±1）+ smoothDamp 追帧，
+// 因此剖图讲的就是跑的，不是两回事。
+//
+// 主题：全页消费 --c-* 变量随昼夜翻转；唯独手机屏内保持浅纸底
+// （--c-band 裁定，与 /lab/ 卡片封面同一条规则——透明人物在深底会糊成剪影）。
 import Base from '../../layouts/Base.astro';
 import { useTranslations } from '../../i18n/utils';
 import PageHead from '../../components/PageHead.astro';
+
 const t = useTranslations('zh');
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const segs = Array.from({ length: 20 }, (_, i) => i);
+const cells = Array.from({ length: 10 }, (_, k) => k);
+const pTicks = [0, 0.25, 0.5, 0.75, 1];
+const fTicks = [0, 48, 96, 144, 192];
+/* 胶片条几何（SVG 与 JS 共用同一组数）：x_i = 26 + i * (28 + 3.6) */
+const SX0 = 26, SW = 28, SG = 3.6;
+const sx = (i: number) => SX0 + i * (SW + SG);
+/* 映射曲线绘图区：x 64→616 对应 p 0→1，y 252→48 对应 f 0→192 */
+const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
 ---
-
 <Base title="滚动帧随动 · 实验室">
   <PageHead no="LAB-01" back={{ label: t('head.backLab'), href: '/lab/' }} />
 
-  <main class="demo-page" id="main">
-    <header class="page-head">
+  <main class="lab" id="main">
+    <header class="lab-head">
       <h1>SCROLL / 滚动帧随动</h1>
-      <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING</span>
+      <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING · 20 SEG WEBP</span>
+      <p class="lede">
+        把<b>滚动量</b>当时间轴：页面行程被归一化成进度 p，p 线性映射成目标帧号
+        f*，smoothDamp 追帧后拆成「段 + 格」，从分段图集里裁出单格画上 Canvas。
+        左边手机里滑动，下面六张剖图消费同一份数据——<b>全都会实时跟着动</b>。
+      </p>
     </header>
 
-    <div class="demo-layout">
-      <!-- 左：手机框（iframe 滚动隔离） -->
-      <div class="demo-left">
-        <div class="phone">
-          <div class="phone__notch" aria-hidden="true"></div>
-          <div class="phone__viewport">
-            <iframe
-              class="phone__iframe"
-              src="/lab/scroll-demo.html"
-              scrolling="yes"
-              sandbox="allow-scripts allow-same-origin"
-              loading="lazy"
-            ></iframe>
-            <div class="phone__swipe-hint" aria-hidden="true">
-              ↑ 在手机内滚动 ↓
+    <div class="layout">
+      <!-- 左列：sticky 手机框（iframe 滚动隔离） -->
+      <div class="stage-col">
+        <div class="stage-sticky">
+          <div class="phone">
+            <div class="phone__notch" aria-hidden="true"></div>
+            <div class="phone__viewport">
+              <iframe
+                class="phone__iframe"
+                src="/lab/scroll-demo.html"
+                scrolling="yes"
+                sandbox="allow-scripts allow-same-origin"
+                title="滚动帧随动演示"
+              ></iframe>
+              <div class="phone__swipe-hint" aria-hidden="true">
+                ↑ 在手机内滚动 ↓
+              </div>
             </div>
+            <div class="phone__bar" aria-hidden="true"></div>
           </div>
-          <div class="phone__bar" aria-hidden="true"></div>
+          <p class="stage-cap">↑↓ 在手机内滑动 —— 右侧剖图实时联动</p>
         </div>
       </div>
 
-      <!-- 右：固定参数面板 -->
-      <aside class="demo-right">
-        <div class="params">
-          <h2 class="params__title">实时参数</h2>
-
-          <div class="params__group">
-            <span class="params__label">滚动进度</span>
-            <div class="params__bar">
-              <div class="params__bar-fill" data-param="progress-bar"></div>
+      <!-- 右列：原理剖图 -->
+      <div class="anatomy">
+        <!-- 00 · 实时透视 -->
+        <figure class="anat">
+          <figcaption>
+            <b>00</b><span class="t">实时透视</span><span class="en">LIVE READOUT</span>
+          </figcaption>
+          <div class="probe">
+            <div class="probe__frame" aria-hidden="true">
+              <span class="probe__f" data-live="frame">0</span>
+              <span class="probe__ftotal">/ 192</span>
             </div>
-            <span class="params__value"><span data-param="progress">0.0</span>%</span>
+            <div class="probe__body">
+              <div class="probe__bar" aria-hidden="true"><i data-live="pbar"></i></div>
+              <dl class="probe__rows">
+                <div>
+                  <dt>滚动进度 p = clamp(scrollY ÷ L)</dt>
+                  <dd>p = <span data-live="p">0.000</span></dd>
+                </div>
+                <div>
+                  <dt>目标帧 f* = p × 192</dt>
+                  <dd>f* = <span data-live="ftarget">0</span></dd>
+                </div>
+                <div>
+                  <dt>落位 段 = ⌊f ÷ 10⌋，格 k = f − 段×10</dt>
+                  <dd>seg <span data-live="seg">00</span> · k <span data-live="cell">0</span></dd>
+                </div>
+                <div>
+                  <dt>缓动 f = round(smoothDamp(f*))</dt>
+                  <dd>Δ <span data-live="delta">0.0</span> 帧</dd>
+                </div>
+              </dl>
+            </div>
           </div>
+        </figure>
 
-          <div class="params__group">
-            <span class="params__label">当前帧</span>
-            <span class="params__value params__value--big">
-              <span data-param="frame">0</span>
-              <span class="params__value-sub">/ 192</span>
-            </span>
-          </div>
+        <!-- 01 · 总管线 -->
+        <figure class="anat">
+          <figcaption>
+            <b>01</b><span class="t">总管线 · 一条直线讲完</span><span class="en">PIPELINE</span>
+          </figcaption>
+          <svg viewBox="0 0 680 168" role="img" aria-label="滚动位移到画面绘制的五步管线">
+            <g class="pn">
+              <rect x="6" y="26" width="118" height="104" rx="8"></rect>
+              <text class="pn__t" x="18" y="52">滚动位移</text>
+              <text class="pn__f" x="18" y="72">scrollY (px)</text>
+              <text class="pn__v" x="18" y="108" data-live="scrollpx">0</text>
+            </g>
+            <g class="pn">
+              <rect x="148" y="26" width="118" height="104" rx="8"></rect>
+              <text class="pn__t" x="160" y="52">归一化进度</text>
+              <text class="pn__f" x="160" y="72">clamp(y ÷ L) → [0,1]</text>
+              <text class="pn__v" x="160" y="108" data-live="p2">0.000</text>
+            </g>
+            <g class="pn">
+              <rect x="290" y="26" width="118" height="104" rx="8"></rect>
+              <text class="pn__t" x="302" y="52">目标帧</text>
+              <text class="pn__f" x="302" y="72">f* = p × 192</text>
+              <text class="pn__v" x="302" y="108" data-live="ftarget2">0</text>
+            </g>
+            <g class="pn pn--live">
+              <rect x="432" y="26" width="118" height="104" rx="8"></rect>
+              <text class="pn__t" x="444" y="52">实际帧</text>
+              <text class="pn__f" x="444" y="72">round(smoothDamp)</text>
+              <text class="pn__v" x="444" y="108" data-live="frame2">0</text>
+            </g>
+            <g class="pn">
+              <rect x="574" y="26" width="100" height="104" rx="8"></rect>
+              <text class="pn__t" x="586" y="52">段 · 格</text>
+              <text class="pn__f" x="586" y="72">⌊f ÷ 10⌋ · k</text>
+              <text class="pn__v" x="586" y="108" data-live="segcell">s00·k0</text>
+            </g>
+            <line class="arr" x1="126" y1="78" x2="139" y2="78"></line>
+            <polygon class="arrh" points="139,73 148,78 139,83"></polygon>
+            <line class="arr" x1="268" y1="78" x2="281" y2="78"></line>
+            <polygon class="arrh" points="281,73 290,78 281,83"></polygon>
+            <line class="arr" x1="410" y1="78" x2="423" y2="78"></line>
+            <polygon class="arrh" points="423,73 432,78 423,83"></polygon>
+            <line class="arr" x1="552" y1="78" x2="565" y2="78"></line>
+            <polygon class="arrh" points="565,73 574,78 565,83"></polygon>
+            <text class="note" x="6" y="156">
+              f* → f 之间是 smoothDamp 追帧；几何（docTop、行程 L）只在 resize
+              时测一次 —— 滚动回调零强制布局，只做算术。
+            </text>
+          </svg>
+        </figure>
 
-          <div class="params__group">
-            <span class="params__label">段索引</span>
-            <span class="params__value">seg <span data-param="segment">0</span></span>
-          </div>
+        <!-- 02 · 映射曲线 -->
+        <figure class="anat">
+          <figcaption>
+            <b>02</b><span class="t">映射曲线 · 滚动到帧号</span><span class="en">LINEAR CLAMP</span>
+          </figcaption>
+          <svg viewBox="0 0 680 300" role="img" aria-label="进度与帧号的线性钳制映射曲线，红点为实时位置">
+            {
+              fTicks.map((f) => (
+                <line class="gridl" x1={PX0} y1={PY0 - (f / 192) * PH} x2={PX0 + PW} y2={PY0 - (f / 192) * PH} />
+              ))
+            }
+            {
+              pTicks.map((t) => (
+                <text class="tk" x={PX0 + t * PW} y="272" text-anchor="middle">
+                  {t}
+                </text>
+              ))
+            }
+            {
+              fTicks.map((f) => (
+                <text class="tk" x="56" y={PY0 - (f / 192) * PH + 4} text-anchor="end">
+                  {f}
+                </text>
+              ))
+            }
+            <line class="axis" x1={PX0} y1="42" x2={PX0} y2={PY0}></line>
+            <line class="axis" x1={PX0} y1={PY0} x2={PX0 + PW} y2={PY0}></line>
+            <line class="diag" x1={PX0} y1={PY0} x2={PX0 + PW} y2={PY0 - PH}></line>
+            <text class="lbl" x="72" y="240">顶停 f0</text>
+            <text class="lbl" x="608" y="64" text-anchor="end">到底停帧 f192 · wrap:false</text>
+            <text class="lbl2" x="26" y="30">↑ f（帧）</text>
+            <text class="lbl2" x="64" y="292">行程 3.2 屏 ÷ 192 帧 ≈ 每屏 60 帧</text>
+            <text class="lbl2" x="616" y="292" text-anchor="end">p（进度）→</text>
+            <line class="guide" data-live="gv" x1={PX0} y1={PY0} x2={PX0} y2={PY0}></line>
+            <line class="guide" data-live="gh" x1={PX0} y1={PY0} x2={PX0} y2={PY0}></line>
+            <circle class="dot" data-live="dot" cx={PX0} cy={PY0} r="6"></circle>
+            <text class="rider" data-live="rp" x="72" y="222">p 0.00</text>
+            <text class="rider" data-live="rf" x="72" y="86">f 0</text>
+          </svg>
+        </figure>
 
-          <div class="params__divider"></div>
+        <!-- 03 · 图集解剖 -->
+        <figure class="anat">
+          <figcaption>
+            <b>03</b><span class="t">图集解剖 · 20 段 × 2×5 切格</span><span class="en">ATLAS</span>
+          </figcaption>
+          <svg viewBox="0 0 680 330" role="img" aria-label="20 段胶片条与当前段 2×5 切格，实时高亮当前格">
+            {
+              segs.map((i) => (
+                <g class="chipw" data-chip={i}>
+                  <rect x={sx(i)} y="18" width={SW} height="42" rx="3" />
+                  <text class="chipT" x={sx(i) + SW / 2} y="43" text-anchor="middle">
+                    {pad2(i)}
+                  </text>
+                </g>
+              ))
+            }
+            <line class="guide" data-live="segarrow" x1={sx(0) + SW / 2} y1="64" x2={sx(0) + SW / 2} y2="104"></line>
+            <text class="lbl2" x="30" y="100">↓ 当前段 · 按 2 列 × 5 行切格（k = f − 段×10）</text>
+            {
+              cells.map((k) => (
+                <g class="cellw" data-cellw={k}>
+                  <rect x={30 + (k % 2) * 136} y={112 + Math.floor(k / 2) * 42} width="132" height="38" rx="3" />
+                  <text class="cellN" data-cell={k} x={30 + (k % 2) * 136 + 66} y={112 + Math.floor(k / 2) * 42 + 24} text-anchor="middle">
+                    {k}
+                  </text>
+                </g>
+              ))
+            }
+            <text class="fact fact--big" x="330" y="134">atlas-seg<tspan data-live="zseg">00</tspan>.webp</text>
+            <text class="fact" x="330" y="162">每格 966×720 · 每段图集 1932×3600</text>
+            <text class="fact" x="330" y="186">解码后位图 ≈ 28MB/段（w×h×4B）</text>
+            <text class="fact" x="330" y="210">段内 = 仅移动裁切窗口；跨段 = 装载新段</text>
+            <text class="fact" x="330" y="234">绘制 = drawImage 九参裁切，零缩放</text>
+            <text class="fact" x="330" y="258">末段 seg19 只有 3 格（f190–192）</text>
+            <text class="fact" x="330" y="282">20 段 WebP ≈ 11MB · 压缩态全量预热</text>
+          </svg>
+        </figure>
 
-          <div class="params__group">
-            <span class="params__label">时间轴拓扑</span>
-            <span class="params__value">线性钳制</span>
-          </div>
-          <div class="params__group">
-            <span class="params__label">渲染方式</span>
-            <span class="params__value">Canvas 2D 切格</span>
-          </div>
-          <div class="params__group">
-            <span class="params__label">wrap</span>
-            <span class="params__value">false</span>
-          </div>
-          <div class="params__group">
-            <span class="params__label">帧缓动</span>
-            <span class="params__value"><span data-param="easing">smoothDamp</span></span>
-          </div>
-        </div>
-      </aside>
+        <!-- 04 · 双层缓存 -->
+        <figure class="anat">
+          <figcaption>
+            <b>04</b><span class="t">双层缓存 · 压缩常驻 + 解码按需</span><span class="en">TWO-LAYER CACHE</span>
+          </figcaption>
+          <svg viewBox="0 0 680 250" role="img" aria-label="两层缓存：压缩态全段常驻，解码态 LRU 只驻留相邻段">
+            <text class="cap" x="26" y="22">① 压缩态 ArrayBuffer · 20 段全常驻 ≈ <tspan data-live="bmb">0</tspan> MB（WebP 字节）</text>
+            {
+              segs.map((i) => (
+                <rect class="slotA" x={sx(i)} y="34" width={SW} height="30" rx="3" />
+              ))
+            }
+            <text class="cap" x="26" y="94">② 解码态 ImageBitmap · LRU 只驻留当前段 ±1 · 合计 <tspan data-live="mmb">0</tspan> MB</text>
+            {
+              segs.map((i) => (
+                <rect class="slotB" data-slot-b={i} x={sx(i)} y="106" width={SW} height="30" rx="3" />
+              ))
+            }
+            <line class="guide" data-live="cachelink" x1={sx(0) + SW / 2} y1="66" x2={sx(0) + SW / 2} y2="104"></line>
+            <text class="cnt-l" x="26" y="176">解码次数</text>
+            <text class="cnt-v" x="26" y="204" data-live="decodes">0</text>
+            <text class="cnt-l" x="226" y="176">驱逐次数</text>
+            <text class="cnt-v" x="226" y="204" data-live="evictions">0</text>
+            <text class="cnt-l" x="426" y="176">驻留段数</text>
+            <text class="cnt-v" x="426" y="204" data-live="rcount">0</text>
+            <text class="note" x="26" y="238">
+              远段 close() 真释放位图；跨段只触发一次解码（几十 ms），运行期零网络依赖。
+            </text>
+          </svg>
+        </figure>
+
+        <!-- 05 · 帧缓动 -->
+        <figure class="anat">
+          <figcaption>
+            <b>05</b><span class="t">帧缓动 · 硬切 vs smoothDamp</span><span class="en">SMOOTHDAMP</span>
+          </figcaption>
+          <svg viewBox="0 0 680 240" role="img" aria-label="硬切台阶与 smoothDamp 平滑曲线对比，底部为实时追帧差距">
+            <text class="plt" x="30" y="24">硬切 round(p×192)</text>
+            <line class="axl" x1="30" y1="42" x2="30" y2="190"></line>
+            <line class="axl" x1="30" y1="190" x2="314" y2="190"></line>
+            <line class="ghost" x1="30" y1="184" x2="310" y2="54"></line>
+            <path class="hard" d="M30 184 H70 V165 H110 V147 H150 V128 H190 V110 H230 V91 H270 V73 H310 V54"></path>
+            <text class="plt" x="366" y="24">smoothDamp 追帧（无机械感）</text>
+            <line class="axl" x1="366" y1="42" x2="366" y2="190"></line>
+            <line class="axl" x1="366" y1="190" x2="650" y2="190"></line>
+            <line class="ghost" x1="366" y1="184" x2="646" y2="54"></line>
+            <path class="smooth" d="M366 184 C 436 180 476 168 516 130 S 606 68 646 54"></path>
+            <text class="lbl2" x="650" y="208" text-anchor="end">曲线为示意 · Δ 为实时值</text>
+            <text class="cnt-l" x="24" y="226">实时追踪</text>
+            <rect class="gtrack" x="120" y="218" width="330" height="8" rx="4"></rect>
+            <rect class="gfill" data-live="dbar" x="120" y="218" width="0" height="8" rx="4"></rect>
+            <text class="cnt-v" data-live="dval" x="462" y="227">0.0 帧</text>
+            <text class="dstat" data-live="dstat" x="656" y="227" text-anchor="end">已收敛</text>
+          </svg>
+        </figure>
+      </div>
     </div>
 
-    <!-- 底部：原理说明按钮 -->
-    <div class="principle-trigger">
-      <button class="principle-btn" data-modal-open="principle">
-        查看原理说明
-        <span class="principle-btn__icon" aria-hidden="true">→</span>
-      </button>
-    </div>
+    <footer class="specs" aria-label="技术规格">
+      <span>时间轴 <b>线性钳制（wrap:false）</b></span>
+      <span>映射 <b>f = round(p × 192) → smoothDamp</b></span>
+      <span>分段 <b>20 段 × 10 格（2×5）</b></span>
+      <span>单格 <b>966×720 · 零缩放</b></span>
+      <span>抠图 <b>RVM resnet50 + despill</b></span>
+      <span>体积 <b>20 × WebP ≈ 11MB</b></span>
+      <span>位图 <b>LRU 2–3 段 ≈ 28MB/段</b></span>
+    </footer>
+
+    <p class="outro"><a href="/lab/">{t('scroll.backLab')}</a></p>
   </main>
 
-  <!-- 原理说明弹窗 -->
-  <dialog class="modal" data-modal="principle">
-    <div class="modal__sheet">
-      <div class="modal__head">
-        <h2>原理说明</h2>
-        <span class="badge badge--win">BUILD PASS</span>
-        <button class="modal__close" data-modal-close aria-label="关闭">✕</button>
-      </div>
-
-      <div class="principle__grid">
-        <article class="principle__card">
-          <h3>滚动 → 进度</h3>
-          <p>
-            iframe 内部页面高420vh，sticky 视口钉在屏上。纵向滚动距离
-            <code>scrollY</code> 经线性映射归一化为 <code>[0, 1]</code> 进度值。
-            420vh 行程 ≈ 3.2 屏扫完 193 帧（≈15 帧/百 px）。
-            两端钳制：顶停 f0，底停 f192。
-          </p>
-        </article>
-
-        <article class="principle__card">
-          <h3>进度 → 帧号</h3>
-          <p>
-            <code>round(p × 192)</code> 将归一化进度映射为帧序号。
-            时间轴拓扑 = 线性钳制（wrap:false），首尾不相接。
-            smoothDamp 缓动平滑帧间跳变，避免逐帧硬切的机械感。
-          </p>
-        </article>
-
-        <article class="principle__card">
-          <h3>帧号 → 画面</h3>
-          <p>
-            帧号拆解为段号 + 段内偏移，从对应 WebP 图集中裁切单格绘制到 Canvas。
-            20 段 × 10 格（2×5 网格），按需解码 + LRU 驻留当前段 ± 邻段，
-            远段 <code>close()</code> 真释放——峰值位图 2–3 段。
-          </p>
-        </article>
-
-        <article class="principle__card">
-          <h3>两层缓存</h3>
-          <p>
-            压缩态 <code>ArrayBuffer</code> 全段常驻（≈3.9MB），
-            解码态 <code>ImageBitmap</code> 只驻留活跃段（53–80MB）。
-            跨段只触发 createImageBitmap 解码（几十 ms），运行期零网络依赖。
-          </p>
-        </article>
-      </div>
-
-      <div class="principle__specs">
-        <span>时间轴 <b>线性钳制（wrap:false）</b></span>
-        <span>统一窗口 <b>966×720 · 零缩放</b></span>
-        <span>分段 <b>20 段 × 10 格（2×5）</b></span>
-        <span>抠图 <b>RVM resnet50 + despill</b></span>
-        <span>体积 <b>20 × WebP ≈ 11MB 按需加载</b></span>
-      </div>
-    </div>
-  </dialog>
-
   <script>
-    /* ── iframe postMessage 监听：接收 scroll-demo.html 的实时状态 ── */
-    const params = {
-      progress: document.querySelector('[data-param="progress"]'),
-      progressBar: document.querySelector('[data-param="progress-bar"]'),
-      frame: document.querySelector('[data-param="frame"]'),
-      segment: document.querySelector('[data-param="segment"]'),
-      easing: document.querySelector('[data-param="easing"]'),
+    /* ── iframe postMessage → 六张剖图的实时更新 ─────────────────────
+       只在 rAF 里 flush（一帧至多一次 DOM 写），SVG 里全部节点出自
+       模板（带 Astro cid），JS 只改属性 / 切类，动态类名命中 scoped 样式。 */
+    const Q = (s) => document.querySelector(s);
+    const el = {
+      frame: Q('[data-live="frame"]'),
+      frame2: Q('[data-live="frame2"]'),
+      p: Q('[data-live="p"]'),
+      p2: Q('[data-live="p2"]'),
+      ftarget: Q('[data-live="ftarget"]'),
+      ftarget2: Q('[data-live="ftarget2"]'),
+      seg: Q('[data-live="seg"]'),
+      cell: Q('[data-live="cell"]'),
+      segcell: Q('[data-live="segcell"]'),
+      scrollpx: Q('[data-live="scrollpx"]'),
+      pbar: Q('[data-live="pbar"]'),
+      dot: Q('[data-live="dot"]'),
+      gv: Q('[data-live="gv"]'),
+      gh: Q('[data-live="gh"]'),
+      rp: Q('[data-live="rp"]'),
+      rf: Q('[data-live="rf"]'),
+      chips: [...document.querySelectorAll('[data-chip]')],
+      segarrow: Q('[data-live="segarrow"]'),
+      zseg: Q('[data-live="zseg"]'),
+      cellsW: [...document.querySelectorAll('[data-cellw]')],
+      cellsT: [...document.querySelectorAll('[data-cell]')],
+      slotsB: [...document.querySelectorAll('[data-slot-b]')],
+      cachelink: Q('[data-live="cachelink"]'),
+      bmb: Q('[data-live="bmb"]'),
+      mmb: Q('[data-live="mmb"]'),
+      decodes: Q('[data-live="decodes"]'),
+      evictions: Q('[data-live="evictions"]'),
+      rcount: Q('[data-live="rcount"]'),
+      dbar: Q('[data-live="dbar"]'),
+      dval: Q('[data-live="dval"]'),
+      dstat: Q('[data-live="dstat"]'),
     };
+
+    /* 与 SVG 几何保持同一组数（见上方常量注释） */
+    const FX0 = 26, FW = 28, FG = 3.6;
+    const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
+    const MAXF = 192;
+    const chipCX = (i) => FX0 + i * (FW + FG) + FW / 2;
+    const pad2 = (n) => String(n).padStart(2, '0');
 
     let rafPending = false;
     let pending = null;
@@ -185,133 +368,185 @@ const t = useTranslations('zh');
       const d = pending;
       pending = null;
 
-      const pct = (d.progress * 100).toFixed(1);
-      const seg = Math.min(19, Math.floor(d.frame / 10));
+      const p = Math.max(0, Math.min(1, d.progress ?? 0));
+      const f = Math.max(0, Math.min(MAXF, d.frame ?? 0));
+      const seg = Math.min(19, Math.max(0, d.seg ?? Math.floor(f / 10)));
+      const base = seg * 10;
+      const target = d.target ?? f;
+      const pos = d.pos ?? f;
+      const delta = Math.abs(pos - target);
+      const settled = delta < 0.05;
+      const resident = Array.isArray(d.resident) ? d.resident : [];
 
-      if (params.progress) params.progress.textContent = pct;
-      if (params.progressBar) params.progressBar.style.width = `${pct}%`;
-      if (params.frame) params.frame.textContent = String(d.frame);
-      if (params.segment) params.segment.textContent = String(seg);
-      if (params.easing) {
-        params.easing.textContent = d.progress < 0.01 || d.progress > 0.99 ? 'clamp' : 'smoothDamp';
+      /* 00 实时透视 */
+      el.frame.textContent = String(f);
+      el.frame2.textContent = String(f);
+      el.p.textContent = p.toFixed(3);
+      el.p2.textContent = p.toFixed(3);
+      el.ftarget.textContent = String(Math.round(target));
+      el.ftarget2.textContent = String(Math.round(target));
+      el.seg.textContent = pad2(seg);
+      el.cell.textContent = String(f - base);
+      el.segcell.textContent = `s${pad2(seg)}·k${f - base}`;
+      el.scrollpx.textContent = String(Math.round(d.scrollY ?? 0));
+      el.pbar.style.width = `${(p * 100).toFixed(1)}%`;
+
+      /* 02 映射曲线游标 */
+      const x = PX0 + p * PW;
+      const y = PY0 - (f / MAXF) * PH;
+      el.dot.setAttribute('cx', x.toFixed(1));
+      el.dot.setAttribute('cy', y.toFixed(1));
+      el.gv.setAttribute('x1', x.toFixed(1));
+      el.gv.setAttribute('y1', y.toFixed(1));
+      el.gv.setAttribute('x2', x.toFixed(1));
+      el.gv.setAttribute('y2', PY0);
+      el.gh.setAttribute('x1', PX0);
+      el.gh.setAttribute('y1', y.toFixed(1));
+      el.gh.setAttribute('x2', x.toFixed(1));
+      el.gh.setAttribute('y2', y.toFixed(1));
+      el.rp.setAttribute('x', Math.min(x + 8, 540).toFixed(1));
+      el.rp.textContent = `p ${p.toFixed(2)}`;
+      el.rf.setAttribute('y', Math.max(y - 10, 58).toFixed(1));
+      el.rf.textContent = `f ${f}`;
+
+      /* 03 图集解剖 */
+      for (let i = 0; i < el.chips.length; i++) {
+        el.chips[i].classList.toggle('on', i === seg);
+        el.chips[i].classList.toggle('resident', resident.includes(i));
       }
+      el.segarrow.setAttribute('x1', chipCX(seg).toFixed(1));
+      el.segarrow.setAttribute('x2', chipCX(seg).toFixed(1));
+      el.zseg.textContent = pad2(seg);
+      for (let k = 0; k < el.cellsT.length; k++) {
+        const n = base + k;
+        el.cellsT[k].textContent = n <= MAXF ? String(n) : '·';
+        el.cellsW[k].classList.toggle('on', k === f - base && n <= MAXF);
+      }
+
+      /* 04 双层缓存 */
+      for (let i = 0; i < el.slotsB.length; i++) {
+        el.slotsB[i].classList.toggle('on', i === seg);
+        el.slotsB[i].classList.toggle('resident', resident.includes(i));
+      }
+      el.cachelink.setAttribute('x1', chipCX(seg).toFixed(1));
+      el.cachelink.setAttribute('x2', chipCX(seg).toFixed(1));
+      el.bmb.textContent = (d.buffersMB ?? 0).toFixed(1);
+      el.mmb.textContent = (d.bitmapsMB ?? 0).toFixed(0);
+      el.decodes.textContent = String(d.decodes ?? 0);
+      el.evictions.textContent = String(d.evictions ?? 0);
+      el.rcount.textContent = String(resident.length);
+
+      /* 05 帧缓动 Δ */
+      el.dbar.style.width = `${Math.min(100, (delta / 6) * 100).toFixed(1)}%`;
+      el.dbar.classList.toggle('settled', settled);
+      el.dval.textContent = `${delta.toFixed(1)} 帧`;
+      el.dstat.textContent = settled ? '已收敛' : '追帧中';
+      el.dstat.classList.toggle('settled', settled);
     }
-
-    /* ── 弹窗控制 ── */
-    document.querySelectorAll('[data-modal-open]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const name = btn.dataset.modalOpen;
-        const dialog = document.querySelector(`[data-modal="${name}"]`);
-        if (dialog instanceof HTMLDialogElement) {
-          dialog.showModal();
-        }
-      });
-    });
-
-    document.querySelectorAll('[data-modal-close]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const dialog = btn.closest('[data-modal]');
-        if (dialog instanceof HTMLDialogElement) {
-          dialog.close();
-        }
-      });
-    });
-
-    document.querySelectorAll('[data-modal]').forEach((dialog) => {
-      dialog.addEventListener('click', (e) => {
-        if (e.target === dialog) dialog.close();
-      });
-    });
   </script>
 </Base>
 
 <style>
-  /* ── 页面：不滚动，全屏撑满 ─────────────────────────────────────── */
-  .demo-page {
+  .lab {
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    height: 100svh;
-    overflow: hidden;
+    background: var(--c-paper);
+    color: var(--c-ink);
+    font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
+      'Microsoft YaHei', sans-serif;
   }
 
-  .page-head {
-    flex-shrink: 0;
-    padding: clamp(16px, 3vw, 28px) clamp(20px, 4vw, 48px) 0;
+  /* ── 页头 ────────────────────────────────────────────────────────── */
+  .lab-head {
+    padding: clamp(24px, 4vw, 44px) clamp(20px, 4vw, 48px) 4px;
   }
-  .page-head h1 {
+  .lab-head h1 {
     margin: 0;
     font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: clamp(18px, 2.6vw, 26px);
+    font-size: clamp(20px, 3vw, 30px);
     font-weight: 400;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
   }
-  .page-head .sub {
+  .lab-head .sub {
     display: block;
-    margin-top: 4px;
+    margin-top: 6px;
     font-size: 11px;
     letter-spacing: 0.12em;
     color: var(--c-muted);
   }
+  .lab-head .lede {
+    margin: 14px 0 0;
+    max-width: 62em;
+    font-size: 14.5px;
+    line-height: 1.85;
+    color: var(--c-ink-2);
+  }
+  .lab-head .lede b {
+    color: var(--c-ink);
+  }
 
-  /* ── 主布局：手机 + 参数 并排居中 ────────────────────────────────── */
-  .demo-layout {
+  /* ── 主布局：左 sticky 手机 / 右剖图流 ───────────────────────────── */
+  .layout {
     flex: 1;
+    display: grid;
+    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+    gap: clamp(20px, 3vw, 42px);
+    align-items: start;
+    padding: clamp(14px, 2vw, 24px) clamp(20px, 4vw, 48px) 10px;
+  }
+
+  .stage-sticky {
+    position: sticky;
+    top: 80px; /* PageHead sticky 高约 65px + 15px 余量 */
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: clamp(20px, 3vw, 40px);
-    padding: 0 clamp(16px, 3vw, 40px);
-    min-height: 0;
+    gap: 10px;
+  }
+  .stage-cap {
+    margin: 0;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+    text-align: center;
   }
 
-  .demo-left {
-    flex-shrink: 0;
-  }
-
-  .demo-right {
-    flex-shrink: 0;
-  }
-
-  /* ── 手机外壳 ──────────────────────────────────────────────────────
-     高度优先约束（max-height），宽度由 aspect-ratio 自动算出。
-     这样手机永远不会超出视口，且保持 375:667 的真实比例。 */
+  /* 手机外壳：高度优先（钉在视口内不溢出），宽度由 375:667 比例推出 */
   .phone {
     position: relative;
-    max-height: min(62vh, 520px);
+    height: min(72vh, 620px); /* 老浏览器降级 */
+    height: min(72svh, 620px);
     aspect-ratio: 375 / 667;
     display: flex;
     flex-direction: column;
   }
-
   .phone__notch {
     flex-shrink: 0;
     width: min(140px, 40%);
     height: 16px;
     margin: 0 auto;
-    background: var(--c-ink, #131211);
+    background: var(--c-ink);
     border-radius: 0 0 10px 10px;
     z-index: 2;
   }
-
   .phone__viewport {
     flex: 1;
     position: relative;
-    border: 3px solid var(--c-ink, #131211);
+    border: 3px solid var(--c-ink);
     border-top: none;
     border-radius: 0 0 22px 22px;
     overflow: hidden;
-    background: #eeedeb;
+    /* 屏内恒保浅纸底（--c-band 裁定）：iframe 内容也按浅底绘制 */
+    background: var(--c-band);
     min-height: 0;
   }
-
   .phone__iframe {
     display: block;
     width: 100%;
     height: 100%;
     border: none;
   }
-
   .phone__swipe-hint {
     position: absolute;
     bottom: 10px;
@@ -320,281 +555,411 @@ const t = useTranslations('zh');
     text-align: center;
     font-size: 10px;
     letter-spacing: 0.1em;
-    color: var(--c-muted, #6f6f6f);
+    color: var(--c-muted);
     opacity: 0.6;
     pointer-events: none;
   }
-
   .phone__bar {
     flex-shrink: 0;
     width: min(72px, 22%);
     height: 4px;
     margin: 4px auto 0;
-    background: var(--c-ink, #131211);
+    background: var(--c-ink);
     border-radius: 2px;
     opacity: 0.22;
   }
 
-  /* ── 参数面板 ────────────────────────────────────────────────────── */
-  .params {
-    width: clamp(190px, 17vw, 240px);
-    padding: clamp(14px, 1.5vw, 20px);
-    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.14);
+  /* ── 剖图卡 ──────────────────────────────────────────────────────── */
+  .anatomy {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(14px, 1.8vw, 22px);
+    min-width: 0;
+  }
+  .anat {
+    margin: 0;
+    padding: clamp(12px, 1.5vw, 18px);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.14);
     border-radius: 8px;
-    background: var(--c-card, #fdfdfc);
-    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--c-card);
   }
-
-  .params__title {
-    margin: 0 0 14px;
-    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 12px;
-    font-weight: 400;
-    letter-spacing: 0.12em;
-    color: var(--c-muted, #6f6f6f);
-  }
-
-  .params__group {
+  .anat figcaption {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
     gap: 10px;
-    padding: 7px 0;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.06);
+    margin-bottom: 12px;
   }
-
-  .params__label {
-    font-size: 12px;
-    color: var(--c-muted, #6f6f6f);
-    letter-spacing: 0.04em;
-    flex-shrink: 0;
-  }
-
-  .params__value {
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-    color: var(--c-ink, #131211);
-    text-align: right;
-  }
-
-  .params__value--big {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-
-  .params__value-sub {
-    font-size: 12px;
-    font-weight: 400;
-    color: var(--c-muted, #6f6f6f);
-  }
-
-  .params__bar {
-    flex: 1;
-    height: 4px;
-    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.08);
-    border-radius: 2px;
-    overflow: hidden;
-    min-width: 50px;
-  }
-
-  .params__bar-fill {
-    height: 100%;
-    width: 0%;
-    background: var(--c-red, #cf0a1a);
-    border-radius: 2px;
-    transition: width 0.06s linear;
-  }
-
-  .params__divider {
-    height: 1px;
-    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.12);
-    margin: 6px 0;
-  }
-
-  /* ── 原理按钮 ────────────────────────────────────────────────────── */
-  .principle-trigger {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: center;
-    padding: clamp(10px, 2vw, 18px) 20px clamp(14px, 2.4vw, 22px);
-  }
-
-  .principle-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 24px;
-    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.22);
-    border-radius: 6px;
-    background: var(--c-card, #fdfdfc);
-    color: var(--c-ink, #131211);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    transition: border-color 0.18s, background 0.18s;
-  }
-  .principle-btn:hover {
-    border-color: var(--c-red, #cf0a1a);
-    background: rgba(var(--c-red-rgb, 207, 10, 26), 0.04);
-  }
-  .principle-btn:focus-visible {
-    outline: 2px solid var(--c-red, #cf0a1a);
-    outline-offset: 2px;
-  }
-  .principle-btn__icon {
-    transition: transform 0.18s;
-  }
-  .principle-btn:hover .principle-btn__icon {
-    transform: translateX(3px);
-  }
-
-  /* ── 弹窗 ────────────────────────────────────────────────────────── */
-  .modal {
-    max-width: min(860px, 92vw);
-    max-height: 85vh;
-    padding: 0;
-    border: none;
-    border-radius: 12px;
-    background: var(--c-card, #fdfdfc);
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
-    overflow: hidden;
-  }
-  .modal::backdrop {
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-  }
-  .modal[open] {
-    animation: modal-in 0.22s ease-out;
-  }
-  @keyframes modal-in {
-    from { opacity: 0; transform: translateY(16px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  .modal__sheet {
-    padding: clamp(20px, 3vw, 32px);
-    overflow-y: auto;
-    max-height: 85vh;
-  }
-
-  .modal__head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: clamp(16px, 2vw, 24px);
-  }
-  .modal__head h2 {
-    margin: 0;
+  .anat figcaption b {
     font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 18px;
+    font-size: 12px;
     font-weight: 400;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+    color: var(--c-red);
   }
-
-  .modal__close {
-    margin-left: auto;
-    width: 32px;
-    height: 32px;
-    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.16);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--c-ink, #131211);
-    font-size: 14px;
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-    transition: background 0.15s;
-  }
-  .modal__close:hover {
-    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.06);
-  }
-
-  .badge {
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-  }
-  .badge--win {
-    background: rgba(var(--c-ok-rgb, 59, 109, 17), 0.12);
-    color: var(--c-ok, #3b6d11);
-    border: 1px solid rgba(var(--c-ok-rgb, 59, 109, 17), 0.28);
-  }
-
-  .principle__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-    gap: clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(14px, 2vw, 20px);
-  }
-
-  .principle__card {
-    padding: clamp(12px, 1.4vw, 18px);
-    border: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.1);
-    border-radius: 6px;
-    background: rgba(var(--c-ink-rgb, 19, 18, 17), 0.02);
-  }
-  .principle__card h3 {
-    margin: 0 0 6px;
+  .anat figcaption .t {
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.02em;
   }
-  .principle__card p {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.7;
-    color: var(--c-ink-2, #55524e);
+  .anat figcaption .en {
+    margin-left: auto;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: transparent;
+    -webkit-text-stroke: 0.7px var(--c-ghost);
+    user-select: none;
   }
-  .principle__card code {
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: var(--c-code-bg, rgba(0, 0, 0, 0.06));
-    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 0.92em;
+  .anat svg {
+    display: block;
+    width: 100%;
+    height: auto;
   }
 
-  .principle__specs {
+  /* ── 00 实时透视 ─────────────────────────────────────────────────── */
+  .probe {
     display: flex;
+    align-items: center;
+    gap: clamp(16px, 2.4vw, 30px);
     flex-wrap: wrap;
-    gap: 8px 16px;
-    padding-top: 14px;
-    border-top: 1px solid rgba(var(--c-ink-rgb, 19, 18, 17), 0.1);
-    font-size: 12px;
-    color: var(--c-muted, #6f6f6f);
+  }
+  .probe__frame {
+    flex-shrink: 0;
+    font-family: 'SF Mono', ui-monospace, 'Fira Code', Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .probe__f {
+    font-size: clamp(40px, 5vw, 58px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .probe__ftotal {
+    margin-left: 6px;
+    font-size: 14px;
+    color: var(--c-muted);
+  }
+  .probe__body {
+    flex: 1 1 280px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .probe__bar {
+    height: 5px;
+    background: rgba(var(--c-ink-rgb), 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .probe__bar i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--c-red);
+    transition: width 0.06s linear;
+  }
+  .probe__rows {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 2px 22px;
+    margin: 0;
+  }
+  .probe__rows div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px dashed rgba(var(--c-ink-rgb), 0.14);
+  }
+  .probe__rows dt {
+    font-size: 11.5px;
+    color: var(--c-muted);
     letter-spacing: 0.02em;
   }
-  .principle__specs b {
-    color: var(--c-ink, #131211);
+  .probe__rows dd {
+    margin: 0;
+    font-size: 12.5px;
+    font-family: 'SF Mono', ui-monospace, 'Fira Code', Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .probe__rows dd span {
+    color: var(--c-red);
     font-weight: 600;
   }
 
-  /* ── 手机档 ──────────────────────────────────────────────────────── */
-  @media (max-width: 768px) {
-    .demo-page {
-      height: auto;
-      overflow: auto;
+  /* ── SVG 通用（节点 / 轴 / 文本，全部主题变量） ──────────────────── */
+  .pn rect {
+    fill: var(--c-paper);
+    stroke: rgba(var(--c-ink-rgb), 0.35);
+    stroke-width: 1;
+  }
+  .pn--live rect {
+    stroke: var(--c-red);
+    stroke-width: 1.5;
+  }
+  .pn__t {
+    font-size: 12.5px;
+    font-weight: 700;
+    fill: var(--c-ink);
+  }
+  .pn__f {
+    font-size: 10px;
+    fill: var(--c-muted);
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  }
+  .pn__v {
+    font-size: 19px;
+    font-weight: 600;
+    fill: var(--c-red);
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .arr {
+    stroke: rgba(var(--c-ink-rgb), 0.4);
+    stroke-width: 1.5;
+  }
+  .arrh {
+    fill: rgba(var(--c-ink-rgb), 0.4);
+  }
+  .note {
+    font-size: 10.5px;
+    fill: var(--c-muted);
+  }
+
+  .axis {
+    stroke: rgba(var(--c-ink-rgb), 0.5);
+    stroke-width: 1.5;
+  }
+  .gridl {
+    stroke: rgba(var(--c-ink-rgb), 0.07);
+    stroke-width: 1;
+  }
+  .tk {
+    font-size: 10px;
+    fill: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .diag {
+    stroke: var(--c-ink);
+    stroke-width: 2;
+  }
+  .lbl {
+    font-size: 10.5px;
+    fill: var(--c-muted);
+  }
+  .lbl2 {
+    font-size: 10px;
+    fill: var(--c-muted);
+    letter-spacing: 0.02em;
+  }
+  .guide {
+    stroke: var(--c-red);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.55;
+  }
+  .dot {
+    fill: var(--c-red);
+  }
+  .rider {
+    font-size: 11px;
+    fill: var(--c-red);
+    font-weight: 600;
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 03 胶片条与切格 */
+  .chipw rect {
+    fill: transparent;
+    stroke: rgba(var(--c-ink-rgb), 0.3);
+    stroke-width: 1;
+  }
+  .chipw.resident rect {
+    fill: rgba(var(--c-ink-rgb), 0.16);
+  }
+  .chipw.on rect {
+    fill: var(--c-red);
+    stroke: var(--c-red);
+  }
+  .chipT {
+    font-size: 9px;
+    fill: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .chipw.on .chipT {
+    fill: #fdfdfc;
+  }
+  .cellw rect {
+    fill: var(--c-paper);
+    stroke: rgba(var(--c-ink-rgb), 0.3);
+    stroke-width: 1;
+  }
+  .cellw.on rect {
+    fill: var(--c-red);
+    stroke: var(--c-red);
+  }
+  .cellN {
+    font-size: 13.5px;
+    fill: var(--c-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .cellw.on .cellN {
+    fill: #fdfdfc;
+    font-weight: 600;
+  }
+  .fact {
+    font-size: 11.5px;
+    fill: var(--c-ink-2);
+  }
+  .fact--big {
+    font-size: 13.5px;
+    font-weight: 700;
+    fill: var(--c-ink);
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  }
+  .fact tspan[data-live],
+  .cap tspan[data-live] {
+    fill: var(--c-red);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 04 双层缓存 */
+  .cap {
+    font-size: 11.5px;
+    fill: var(--c-ink-2);
+  }
+  .slotA {
+    fill: rgba(var(--c-ink-rgb), 0.22);
+    stroke: rgba(var(--c-ink-rgb), 0.35);
+    stroke-width: 1;
+  }
+  .slotB {
+    fill: transparent;
+    stroke: rgba(var(--c-ink-rgb), 0.3);
+    stroke-width: 1;
+  }
+  .slotB.resident {
+    fill: rgba(var(--c-ink-rgb), 0.16);
+  }
+  .slotB.on {
+    fill: var(--c-red);
+    stroke: var(--c-red);
+  }
+  .cnt-l {
+    font-size: 11px;
+    fill: var(--c-muted);
+    letter-spacing: 0.04em;
+  }
+  .cnt-v {
+    font-size: 20px;
+    font-weight: 600;
+    fill: var(--c-red);
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 05 帧缓动 */
+  .axl {
+    stroke: rgba(var(--c-ink-rgb), 0.25);
+    stroke-width: 1;
+  }
+  .ghost {
+    stroke: var(--c-ghost);
+    stroke-width: 1.5;
+  }
+  .hard {
+    stroke: var(--c-ink);
+    stroke-width: 2;
+    fill: none;
+  }
+  .smooth {
+    stroke: var(--c-red);
+    stroke-width: 2;
+    fill: none;
+  }
+  .plt {
+    font-size: 11.5px;
+    font-weight: 700;
+    fill: var(--c-ink);
+  }
+  .gtrack {
+    fill: rgba(var(--c-ink-rgb), 0.1);
+  }
+  .gfill {
+    fill: var(--c-red);
+  }
+  .gfill.settled {
+    fill: var(--c-ok);
+  }
+  .dstat {
+    font-size: 11.5px;
+    font-weight: 600;
+    fill: var(--c-red);
+  }
+  .dstat.settled {
+    fill: var(--c-ok);
+  }
+
+  /* ── 规格条 / 收尾 ───────────────────────────────────────────────── */
+  .specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 10px clamp(20px, 4vw, 48px) 6px;
+  }
+  .specs span {
+    padding: 4px 10px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.2);
+    border-radius: 4px;
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    color: var(--c-muted);
+  }
+  .specs b {
+    color: var(--c-ink);
+    font-weight: 600;
+  }
+  .outro {
+    margin: 0;
+    padding: 10px clamp(20px, 4vw, 48px) 30px;
+  }
+  .outro a {
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    padding-bottom: 2px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .outro a:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+
+  /* ── 平板/手机档：单列，手机框不再 sticky ────────────────────────── */
+  @media (max-width: 960px) {
+    .layout {
+      grid-template-columns: 1fr;
     }
-    .demo-layout {
-      flex-direction: column;
-      gap: 16px;
-      padding: 0 16px;
+    .stage-sticky {
+      position: static;
     }
     .phone {
-      max-height: min(48vh, 380px);
+      height: auto;
+      width: min(100%, 340px);
     }
-    .params {
-      width: 100%;
-      max-width: 280px;
-      padding: 14px;
+  }
+  @media (max-width: 640px) {
+    .lab-head {
+      padding-top: 22px;
     }
-    .principle__grid {
-      grid-template-columns: 1fr;
+    .probe__f {
+      font-size: 38px;
     }
   }
 </style>

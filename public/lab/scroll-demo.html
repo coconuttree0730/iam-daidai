@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>滚动帧演示</title>
+<title>滚动帧演示 · 同款驱动</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { overscroll-behavior: none; }
   body {
     height: 420vh;
     background: #eeedeb;
-    font-family: -apple-system, sans-serif;
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   }
   .viewport {
     position: sticky;
@@ -48,103 +48,248 @@
     <canvas id="c" width="966" height="720"></canvas>
     <div class="hud">
       <span>↓ 滚动驱动帧播放</span>
-      <span>F<b id="f">0</b>/192</span>
+      <span>F<b id="f">0</b>/192 · <b id="s">seg00</b></span>
     </div>
   </div>
 <script>
 (function() {
-  var FRAME_COUNT = 193;
-  var CELL_W = 966;
-  var CELL_H = 720;
-  var COLS = 2;
-  var ROWS = 5;
-  var SEGMENTS = [
-    { asset: '/motion/scroll/segments/seg00.webp', first: 0,  count: 10 },
-    { asset: '/motion/scroll/segments/seg01.webp', first: 10, count: 10 },
-    { asset: '/motion/scroll/segments/seg02.webp', first: 20, count: 10 },
-    { asset: '/motion/scroll/segments/seg03.webp', first: 30, count: 10 },
-    { asset: '/motion/scroll/segments/seg04.webp', first: 40, count: 10 },
-    { asset: '/motion/scroll/segments/seg05.webp', first: 50, count: 10 },
-    { asset: '/motion/scroll/segments/seg06.webp', first: 60, count: 10 },
-    { asset: '/motion/scroll/segments/seg07.webp', first: 70, count: 10 },
-    { asset: '/motion/scroll/segments/seg08.webp', first: 80, count: 10 },
-    { asset: '/motion/scroll/segments/seg09.webp', first: 90, count: 10 },
-    { asset: '/motion/scroll/segments/seg10.webp', first: 100, count: 10 },
-    { asset: '/motion/scroll/segments/seg11.webp', first: 110, count: 10 },
-    { asset: '/motion/scroll/segments/seg12.webp', first: 120, count: 10 },
-    { asset: '/motion/scroll/segments/seg13.webp', first: 130, count: 10 },
-    { asset: '/motion/scroll/segments/seg14.webp', first: 140, count: 10 },
-    { asset: '/motion/scroll/segments/seg15.webp', first: 150, count: 10 },
-    { asset: '/motion/scroll/segments/seg16.webp', first: 160, count: 10 },
-    { asset: '/motion/scroll/segments/seg17.webp', first: 170, count: 10 },
-    { asset: '/motion/scroll/segments/seg18.webp', first: 180, count: 10 },
-    { asset: '/motion/scroll/segments/seg19.webp', first: 190, count: 3 }
-  ];
+  'use strict';
+  /* ═══ 契约：与线上 motion.js / scroll-driver.js 同一套驱动 ═══
+     滚动 → p = clamp(scrollY / L) → f* = p × 192
+         → f = round(smoothDamp(f*)) → 段 = ⌊f/10⌋ → Canvas 切格
+     缓存两层：压缩态 ArrayBuffer 全段常驻（fetch 预热）；
+               解码态 ImageBitmap LRU 只驻留当前段 ±1，远段 close() 真释放。 */
+
+  var FRAME_COUNT = 193, MAXF = 192;
+  var CELL_W = 966, CELL_H = 720, COLS = 2;
+  var SMOOTH = 0.11; // smoothDamp 时间常数 = 线上 createFrameAnimator 默认值
+
+  /* 20 段 × 10 格（2 列 × 5 行），末段 3 格；pw/ph = 段图集像素尺寸（算位图内存用） */
+  var SEGMENTS = [];
+  for (var i = 0; i < 20; i++) {
+    var count = i === 19 ? 3 : 10;
+    SEGMENTS.push({
+      asset: '/motion/scroll/segments/seg' + ('0' + i).slice(-2) + '.webp',
+      first: i * 10,
+      count: count,
+      pw: COLS * CELL_W,
+      ph: Math.ceil(count / COLS) * CELL_H
+    });
+  }
 
   var canvas = document.getElementById('c');
   var ctx = canvas.getContext('2d');
-  var frameLabel = document.getElementById('f');
-  var images = new Array(SEGMENTS.length);
-  var loaded = 0;
-  var currentFrame = 0;
-  var trackLen = 1;
+  var fLabel = document.getElementById('f');
+  var sLabel = document.getElementById('s');
 
+  /* ── 两层缓存 ──────────────────────────────────────────────── */
+  var buffers = {};   // 段号 → ArrayBuffer（压缩态，全段常驻）
+  var bitmaps = {};   // 段号 → ImageBitmap（解码态，LRU 驻留 ±1）
+  var pending = {};   // 去重中的 fetch / 解码 Promise
+  var curSeg = -1;
+  var stats = { decode: 0, evict: 0 };
+
+  function buffersMB() {
+    var b = 0;
+    for (var k in buffers) b += buffers[k].byteLength;
+    return b / 1048576;
+  }
+  function bitmapsMB() {
+    var b = 0;
+    for (var i = 0; i < SEGMENTS.length; i++) {
+      if (bitmaps[i]) b += SEGMENTS[i].pw * SEGMENTS[i].ph * 4;
+    }
+    return b / 1048576;
+  }
+  function residentList() {
+    var r = [];
+    for (var k in bitmaps) r.push(Number(k));
+    return r.sort(function(a, b) { return a - b; });
+  }
+
+  /* 下层：fetch → ArrayBuffer，幂等（并行共享同一 Promise） */
+  function loadBuffer(i) {
+    if (buffers[i]) return Promise.resolve(buffers[i]);
+    if (pending['b' + i]) return pending['b' + i];
+    pending['b' + i] = fetch(SEGMENTS[i].asset)
+      .then(function(r) { return r.arrayBuffer(); })
+      .then(function(buf) {
+        buffers[i] = buf;
+        delete pending['b' + i];
+        schedulePost();
+        return buf;
+      })
+      .catch(function(e) { delete pending['b' + i]; throw e; });
+    return pending['b' + i];
+  }
+
+  /* 上层：ArrayBuffer → ImageBitmap，解码后按 LRU 窗口驱逐远段 */
+  function decode(i) {
+    if (bitmaps[i]) return Promise.resolve(bitmaps[i]);
+    if (pending['d' + i]) return pending['d' + i];
+    pending['d' + i] = loadBuffer(i).then(function(buf) {
+      if (window.createImageBitmap) {
+        return createImageBitmap(new Blob([buf], { type: 'image/webp' }));
+      }
+      /* 兜底：Image + objectURL（无 createImageBitmap 的老浏览器） */
+      return new Promise(function(res, rej) {
+        var url = URL.createObjectURL(new Blob([buf], { type: 'image/webp' }));
+        var im = new Image();
+        im.onload = function() { URL.revokeObjectURL(url); res(im); };
+        im.onerror = function() { URL.revokeObjectURL(url); rej(new Error('img decode')); };
+        im.src = url;
+      });
+    }).then(function(bmp) {
+      bitmaps[i] = bmp;
+      stats.decode++;
+      delete pending['d' + i];
+      evict(curSeg < 0 ? i : curSeg);
+      schedulePost();
+      kickRender(); // 若此刻已静止，补画刚解码好的帧
+      return bmp;
+    }, function(e) {
+      delete pending['d' + i];
+      throw e;
+    });
+    return pending['d' + i];
+  }
+
+  function evict(cur) {
+    for (var k in bitmaps) {
+      var idx = Number(k);
+      if (Math.abs(idx - cur) > 1) {
+        try { bitmaps[k].close && bitmaps[k].close(); } catch (e) {}
+        delete bitmaps[k];
+        stats.evict++;
+      }
+    }
+  }
+
+  /* 压缩态全段预热（线上由 IntersectionObserver 门控，这里开屏即预热） */
+  function preloadAll() {
+    var i = 0;
+    (function next() { if (i < SEGMENTS.length) loadBuffer(i++).then(next, next); })();
+  }
+  if (window.requestIdleCallback) requestIdleCallback(preloadAll, { timeout: 2500 });
+  else setTimeout(preloadAll, 600);
+
+  /* ── smoothDamp 追帧（Unity 式，线性钳制 + 防过冲） ────────── */
+  var target = 0, pos = 0, vel = 0, raf = 0, lastT = 0;
+  var lastF = 0;
+
+  function kick() { if (!raf) { lastT = 0; raf = requestAnimationFrame(step); } }
+  function kickRender() { if (!raf) render(Math.round(Math.max(0, Math.min(MAXF, pos)))); }
+
+  function step(now) {
+    raf = 0;
+    var dt = lastT ? Math.min((now - lastT) / 1000, 1 / 30) : 1 / 60;
+    lastT = now;
+    var omega = 2 / Math.max(1e-4, SMOOTH);
+    var x = omega * dt;
+    var decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+    var maxChange = MAXF * 2 * SMOOTH; // maxSpeed 与线上同式
+    var change = pos - target;
+    change = Math.max(-maxChange, Math.min(maxChange, change));
+    var base = pos - change;
+    var tmp = (vel + omega * change) * dt;
+    vel = (vel - omega * tmp) * decay;
+    var np = base + (change + tmp) * decay;
+    /* 防过冲：用旧 pos 判方向（Unity SmoothDamp 同款判定） */
+    if ((target - pos > 0) === (np > target)) { np = target; vel = 0; }
+    pos = np;
+    render(Math.round(Math.max(0, Math.min(MAXF, pos))));
+    if (Math.abs(target - pos) > 0.02 || Math.abs(vel) > 0.02) {
+      raf = requestAnimationFrame(step);
+    } else {
+      pos = target; vel = 0; lastT = 0;
+      render(Math.round(pos));
+      schedulePost();
+    }
+  }
+
+  /* ── 渲染：帧号 → 段·格 → Canvas 裁切 ──────────────────────── */
+  var drawnF = -1;
+  function segOf(f) { return Math.min(SEGMENTS.length - 1, Math.floor(f / 10)); }
+
+  function render(f) {
+    f = Math.max(0, Math.min(MAXF, Math.round(f)));
+    lastF = f;
+    fLabel.textContent = String(f);
+    var s = segOf(f);
+    curSeg = s;
+    sLabel.textContent = 'seg' + ('0' + s).slice(-2);
+    var bmp = bitmaps[s];
+    if (!bmp) {
+      if (drawnF < 0) placeholder(s);
+      decode(s);
+      schedulePost();
+      return;
+    }
+    if (f === drawnF) { schedulePost(); return; }
+    drawnF = f;
+    var k = f - SEGMENTS[s].first;
+    ctx.clearRect(0, 0, CELL_W, CELL_H);
+    ctx.drawImage(
+      bmp,
+      (k % COLS) * CELL_W, Math.floor(k / COLS) * CELL_H, CELL_W, CELL_H,
+      0, 0, CELL_W, CELL_H
+    );
+    schedulePost();
+  }
+
+  function placeholder(s) {
+    ctx.fillStyle = '#eeedeb';
+    ctx.fillRect(0, 0, CELL_W, CELL_H);
+    ctx.fillStyle = '#6f6f6f';
+    ctx.font = '28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('seg ' + ('0' + s).slice(-2) + ' 解码中…', CELL_W / 2, CELL_H / 2);
+  }
+
+  /* ── 滚动 → 目标帧 ─────────────────────────────────────────── */
+  var trackLen = 1;
   function measure() {
     trackLen = Math.max(1, document.body.scrollHeight - window.innerHeight);
   }
-
-  function segOf(f) {
-    for (var i = 0; i < SEGMENTS.length; i++) {
-      var g = SEGMENTS[i];
-      if (f >= g.first && f < g.first + g.count) return i;
-    }
-    return SEGMENTS.length - 1;
-  }
-
-  function drawFrame(f) {
-    f = Math.max(0, Math.min(FRAME_COUNT - 1, Math.round(f)));
-    if (f === currentFrame && images[segOf(f)]) return;
-    currentFrame = f;
-    var s = segOf(f);
-    if (!images[s]) return;
-    var g = SEGMENTS[s];
-    var k = f - g.first;
-    ctx.clearRect(0, 0, CELL_W, CELL_H);
-    ctx.drawImage(
-      images[s],
-      (k % COLS) * CELL_W,
-      Math.floor(k / COLS) * CELL_H,
-      CELL_W, CELL_H,
-      0, 0, CELL_W, CELL_H
-    );
-    frameLabel.textContent = String(f);
-    try {
-      var p = FRAME_COUNT > 1 ? f / (FRAME_COUNT - 1) : 0;
-      parent.postMessage({ type: 'scroll-demo', progress: p, frame: f }, '*');
-    } catch(e) {}
-  }
-
-  SEGMENTS.forEach(function(seg, i) {
-    var img = new Image();
-    img.onload = function() {
-      images[i] = img;
-      loaded++;
-      if (loaded === 1) { measure(); apply(); }
-      if (loaded === SEGMENTS.length) measure();
-    };
-    img.src = seg.asset;
-  });
-
-  function apply() {
+  function onScroll() {
     var y = window.scrollY || 0;
     var p = Math.max(0, Math.min(1, y / trackLen));
-    drawFrame(p * (FRAME_COUNT - 1));
+    target = p * MAXF;
+    kick();
+    schedulePost();
   }
-
-  window.addEventListener('scroll', apply, { passive: true });
-  window.addEventListener('resize', function() { measure(); apply(); });
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', function() { measure(); onScroll(); });
   measure();
-  apply();
+  onScroll();
+
+  /* ── postMessage：把整条链路的实时量回传给外层解剖图 ───────── */
+  var postRaf = 0;
+  function schedulePost() {
+    if (postRaf) return;
+    postRaf = requestAnimationFrame(function() {
+      postRaf = 0;
+      var y = window.scrollY || 0;
+      try {
+        parent.postMessage({
+          type: 'scroll-demo',
+          progress: Math.max(0, Math.min(1, y / trackLen)),
+          frame: lastF,
+          target: target,
+          pos: pos,
+          seg: Math.max(0, curSeg),
+          resident: residentList(),
+          decodes: stats.decode,
+          evictions: stats.evict,
+          buffersMB: buffersMB(),
+          bitmapsMB: bitmapsMB(),
+          scrollY: y,
+          trackLen: trackLen
+        }, '*');
+      } catch (e) {}
+    });
+  }
+  schedulePost();
 })();
 </script>
 </body>
