@@ -19,8 +19,12 @@
 //    能力。收编后组件只负责渲染，文案的唯一来源是这里。
 //
 // ⚠️ 支持 `{name}` 占位符的键（用 utils 的 `interpolate` 消费）：
-//    hero.figureAria / basic.foot / contact.err / blog.noResult / blog.count /
+//    hero.figureAria / basic.foot / contact.err /
 //    post.minutes / post.updated
+//    （blog.noResult / blog.count 已移出：它们唯一消费方是 Pagefind UI 的
+//      translations，那里只认 [SEARCH_TERM]/[COUNT] 令牌，不经过 interpolate
+//      ——2026-09-15 修正：此前写成 {term}/{n}，线上零结果/结果计数会印出
+//      字面占位符。）
 
 import type { Locale } from './config';
 
@@ -305,8 +309,8 @@ export const ui = {
     'blog.clearAria': 'Clear search',
     'blog.searching': 'Searching…',
     'blog.searchErr': 'Search failed, please retry',
-    'blog.noResult': 'No results for “{term}”',
-    'blog.count': '{n} results · “{term}”',
+    'blog.noResult': 'No results for “[SEARCH_TERM]”',
+    'blog.count': '[COUNT] results · “[SEARCH_TERM]”',
     'blog.filter': 'Filter',
     'blog.loadMore': 'Load more',
     'blog.listAria': 'Post list',

@@ -9,8 +9,11 @@
 //    为了不让访问者困惑，页面上会挂一条常驻说明（见 .fallback-note），
 //    明确告知「文章内容以中文为准」。这比静默显示中文正文诚实。
 //
-// ⚠️ Pagefind 检索框在这一期**不挂**：索引里只有中文正文，挂一个搜出来
-//    全是中文摘要的框会让人以为检索坏了。等英文正文就位时连索引一起加。
+// ⚠️ Pagefind 检索框（2026-09-15 用户要求挂载，推翻第 1 期「暂不挂」裁定）：
+//    挂载方案与中文版同构（src/lib/blog-search.js + blog-search.css），文案走
+//    英文键。已知现状：正文仍是中文回退，索引里搜出来的是中文文章——这与
+//    .fallback-note 的「内容以中文为准」说明语义自洽，不算检索坏了。
+//    等英文正文就位那期再评估 Pagefind 按语言分索引。
 //
 // ⚠️ 与中文版的关系：本页的中文对应物是 src/pages/blog/[...page].astro。
 //    两者的**差异仅在文案**（chips 标签、返回链、h1）+ 本页独有的
@@ -24,6 +27,7 @@ import { getSortedPosts, groupPostsByYear } from '../../../data/posts';
 import { useTranslations } from '../../../i18n/utils';
 import '../../../styles/sheet.css';
 import '../../../styles/archive-chrome.css';
+import '../../../styles/blog-search.css';
 
 export async function getStaticPaths({ paginate }) {
   const posts = await getSortedPosts();
@@ -32,6 +36,21 @@ export async function getStaticPaths({ paginate }) {
 
 const { page } = Astro.props;
 const t = useTranslations('en');
+
+/* 检索框文案（SSR 序列化给 data-pf-i18n）：script 引用不到 frontmatter 的
+   t()，只能写进 data 属性让运行时读回。键与中文版 [...page].astro 对齐。 */
+const pfI18n = JSON.stringify({
+  placeholder: t('blog.searchPlaceholder'),
+  clear: t('blog.clear'),
+  loadMore: t('blog.loadMore'),
+  search: t('blog.search'),
+  filter: t('blog.filter'),
+  zero: t('blog.noResult'),
+  count: t('blog.count'),
+  clearSearch: t('blog.clearAria'),
+  searching: t('blog.searching'),
+  searchErr: t('blog.searchErr'),
+});
 
 const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
   year,
@@ -62,6 +81,13 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
         <img class="hero-band__shadow" src="/motion/blog-shadow.webp" alt="" width="760" height="76" loading="eager" decoding="async" />
         <img class="hero-band__char" src="/motion/blog-character-chibi.webp" alt="" width="1279" height="1950" loading="eager" decoding="async" />
       </div>
+    </section>
+
+    <!-- 站内全文检索（2026-09-15 挂载）：与中文版同一挂载脚本（lib/blog-search.js），
+         文案走 data-pf-i18n 英文键。索引里是中文文章，见文件头说明。 -->
+    <section class="searchbar" aria-label={t('blog.search')}>
+      <div class="search-mount" id="search-mount" data-pf-i18n={pfI18n}></div>
+      <p class="search-status" data-search-status hidden></p>
     </section>
 
     <!-- 内容回退说明（第 1 期专有）：英文正文尚未提供，列表条目是中文。
@@ -105,6 +131,37 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     </footer>
   </main>
 </Base>
+
+<script>
+  {/* 站内全文检索挂载：与中文版共用 lib/blog-search.js，这里只传英文兜底
+      文案与状态行文案（data-pf-i18n 正常时兜底不会被用到）。 */}
+  import { mountBlogSearch, reportSearchFailure } from '../../../lib/blog-search.js';
+
+  const mountEl = document.getElementById('search-mount');
+  const statusEl = document.querySelector('[data-search-status]');
+
+  mountBlogSearch({
+    mountEl,
+    statusEl,
+    fallback: {
+      placeholder: 'Search posts…',
+      clear: 'Clear',
+      loadMore: 'Load more',
+      search: 'Search this site',
+      filter: 'Filter',
+      zero: 'No results for “[SEARCH_TERM]”',
+      count: '[COUNT] results · “[SEARCH_TERM]”',
+      searching: 'Searching…',
+      searchErr: 'Search failed, please retry',
+      clearSearch: 'Clear search',
+    },
+    devNotice: 'dev mode: no index · full-text search works in the build output / live site',
+    failNotice: (msg) => `Failed to load search UI: ${msg}`,
+  }).catch((err) => {
+    console.error('[blog-search] Failed to mount search UI:', err);
+    reportSearchFailure(statusEl, (msg) => `Failed to load search UI: ${msg}`, err);
+  });
+</script>
 
 <style>
   /* 仅本页特有的版式。骨架（.sheet/.sr-only/.foot）已移至 src/styles/。 */

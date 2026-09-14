@@ -1,0 +1,82 @@
+/* ── 博客全文检索框（Pagefind default-ui 挂载段）────────────────────────────
+ *
+ * 本段原属 blog-list.css（2026-09-15 拆出）：英文版博客页也要挂检索框，
+ * 但不需要年份分组等列表版式——搜索段独立成表，中英两页各自按需引入。
+ *
+ * ⚠️ 历史坑（2026-09-13，.astro scoped style 时代）：注入元素没有
+ *    data-astro-cid-*，scoped 选择器匹配不上，当时靠 :global() 解决。
+ * ⚠️ 新坑（2026-09-14 用户截图）：i18n 重构把本段搬进**独立 CSS 文件**
+ *    时把 :global() 原样照搬了。:global() 是 Astro 对 .astro <style> 块的
+ *    编译期语法，frontmatter import 的普通 CSS 不会处理它——浏览器收到
+ *    `:global(.search-clear)` 这种未知伪类，整条规则静默丢弃。症状：
+ *    default-ui 的文本「清空」按钮重新露出、圆圈 × 裸奔成默认按钮。
+ *    **独立 CSS 文件里所有选择器本来就是全局的，:global() 必须剥掉。**
+ *    改完去 dist/_astro/*.css 核对规则确实存在。
+ */
+
+  /* ── 全文检索（方案二：default-ui 挂载点，官方 CSS 变量对齐档案馆风）── */
+  .searchbar {
+    padding: 20px clamp(20px, 4vw, 48px) 0;
+  }
+  .search-mount {
+    position: relative;
+    --pagefind-ui-scale: 0.95;
+    --pagefind-ui-primary: var(--c-red);
+    --pagefind-ui-text: var(--c-ink);
+    --pagefind-ui-background: transparent;
+    --pagefind-ui-border: rgba(var(--c-ink-rgb), 0.4);
+    --pagefind-ui-tag: var(--c-muted);
+    --pagefind-ui-border-width: 1.5px;
+    --pagefind-ui-border-radius: 6px;
+    --pagefind-ui-font: inherit;
+    min-height: 46px;
+  }
+  .search-status {
+    margin: 10px 2px 0;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+  }
+  /* 自定义圆圈 × 清除按钮：替代 default-ui 的文本「清空」按钮。
+     本按钮与 default-ui 的节点都是**脚本运行时注入**的，DOM 上没有
+     Astro 的 data-astro-cid-* 属性——本文件是全局 CSS，普通选择器直接命中。 */
+  .search-clear {
+    position: absolute;
+    /* 纵向锚在输入框行内：输入框高 64px×scale、圆直径 30px，上下各留半间隙。
+       不写 top:50%——绝对定位的参照是 form（结果抽屉也在 form 里），
+       50% 会落到整个结果区的中段。scale 变量声明在 .search-mount 上，form 继承得到。 */
+    top: calc((64px * var(--pagefind-ui-scale) - 30px) / 2);
+    right: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1.5px solid rgba(var(--c-ink-rgb), 0.3);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-muted);
+    cursor: pointer;
+    /* 悬停旋转用独立 rotate 属性，不往 transform 里塞（定位不依赖 transform） */
+    transition: color 0.15s ease, border-color 0.15s ease, rotate 0.25s ease;
+    z-index: 10;
+  }
+  .search-clear:hover,
+  .search-clear:focus-visible {
+    color: var(--c-red);
+    border-color: var(--c-red);
+    outline: none;
+  }
+  .search-clear:hover {
+    rotate: 90deg;
+  }
+  /* 用 hidden 切换设了 display 的元素必须配强规则（作者样式压过 UA 的 [hidden]） */
+  .search-clear[hidden] {
+    display: none !important;
+  }
+  /* 隐藏 default-ui 自带的文本「清空」按钮：节点保留在 DOM 里，
+     脚本的清除逻辑仍借它执行（display:none 不影响程序化 .click()）。 */
+  .search-mount .pagefind-ui__search-clear {
+    display: none !important;
+  }

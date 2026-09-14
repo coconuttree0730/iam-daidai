@@ -257,7 +257,7 @@
     font-size: 15px;
     line-height: 1.9;
   }
-  .prose :global(h2) {
+  .prose h2 {
     font-size: 20px;
     font-weight: 900;
     margin: 34px 0 12px;
@@ -266,30 +266,30 @@
     /* 大纲锚点跳转的呼吸位（页头 sticky 后高约 64px，留 96px 不被遮住） */
     scroll-margin-top: 96px;
   }
-  .prose :global(h3) {
+  .prose h3 {
     font-size: 16.5px;
     font-weight: 800;
     margin: 26px 0 10px;
     scroll-margin-top: 96px;
   }
-  .prose :global(p) {
+  .prose p {
     margin: 0 0 14px;
   }
-  .prose :global(a) {
+  .prose a {
     color: var(--c-red);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 2px;
   }
-  .prose :global(a:hover) {
+  .prose a:hover {
     text-decoration-thickness: 2px;
   }
   /* 外链标记（2026-09-14）：由 rehype-external-links 给站外链接加的 .ext-link。
      尾随一个 ↗ 表示「会离开本站」——用 ::after 而非在文本里插字，免得复制正文
-     时把箭头也复制走。⚠️ 用 :global 是**本文件一贯写法**（见上方所有 .prose 规则），
-     本文件被 <style> 内联导入时 Astro 会给它加 cid 后缀，若不 :global 则
-     匹配不上正文里由 Markdown 渲染出的 <a>。 */
-  .prose :global(a.ext-link)::after {
+     时把箭头也复制走。本文件是 frontmatter import 的全局 CSS（不走 Astro scoped
+     处理），普通选择器直接命中 Markdown 渲染出的 <a>；此前照搬自 .astro 的
+     .prose :global(...) 是无效语法，浏览器整条丢弃（2026-09-15 修正）。 */
+  .prose a.ext-link::after {
     content: '↗';
     display: inline-block;
     margin-left: 0.15em;
@@ -297,27 +297,27 @@
     line-height: 1;
     text-decoration: none;
   }
-  .prose :global(strong) {
+  .prose strong {
     font-weight: 800;
   }
-  .prose :global(blockquote) {
+  .prose blockquote {
     margin: 18px 0;
     padding: 4px 18px;
     border-left: 3px solid var(--c-red);
     color: var(--c-muted);
   }
-  .prose :global(blockquote p) {
+  .prose blockquote p {
     margin: 8px 0;
   }
-  .prose :global(ul),
-  .prose :global(ol) {
+  .prose ul,
+  .prose ol {
     margin: 0 0 14px;
     padding-left: 24px;
   }
-  .prose :global(li) {
+  .prose li {
     margin-bottom: 6px;
   }
-  .prose :global(code) {
+  .prose code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.86em;
     padding: 1px 6px;
@@ -325,7 +325,7 @@
     background: rgba(var(--c-ink-rgb), 0.06);
     border: 1px dotted rgba(var(--c-ink-rgb), 0.35);
   }
-  .prose :global(pre) {
+  .prose pre {
     margin: 18px 0;
     padding: 16px 18px;
     border-radius: 10px;
@@ -333,34 +333,34 @@
     font-size: 13px;
     line-height: 1.7;
   }
-  .prose :global(pre code) {
+  .prose pre code {
     background: none;
     border: 0;
     padding: 0;
     font-size: inherit;
   }
-  .prose :global(img) {
+  .prose img {
     max-width: 100%;
     border-radius: 8px;
   }
-  .prose :global(hr) {
+  .prose hr {
     border: 0;
     border-top: 1px dashed rgba(var(--c-ink-rgb), 0.3);
     margin: 30px 0;
   }
-  .prose :global(table) {
+  .prose table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13.5px;
     margin: 18px 0;
   }
-  .prose :global(th),
-  .prose :global(td) {
+  .prose th,
+  .prose td {
     border-bottom: 1px dashed rgba(var(--c-ink-rgb), 0.3);
     padding: 8px 10px;
     text-align: left;
   }
-  .prose :global(th) {
+  .prose th {
     font-weight: 800;
     border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
   }

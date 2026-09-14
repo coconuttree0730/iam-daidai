@@ -15,6 +15,7 @@ import '@pagefind/default-ui/css/ui.css';
 import '../../styles/sheet.css';
 import '../../styles/archive-chrome.css';
 import '../../styles/blog-list.css';
+import '../../styles/blog-search.css';
 
 export async function getStaticPaths({ paginate }) {
 	const posts = await getSortedPosts();
@@ -165,107 +166,36 @@ const t = useTranslations('zh');
   /* ── 站内全文检索（Pagefind）──
      方案二（2026-09-12 用户裁定）：@pagefind/default-ui 构建时打包成独立
      chunk，运行时由 UI 内部按需加载 /pagefind/ 索引产物（bundlePath）。
-     输入框右侧的圆圈 × 为自定义按钮，替代 default-ui 的文本「清空」按钮。 */
+     输入框右侧的圆圈 × 为自定义按钮，替代 default-ui 的文本「清空」按钮。
+     挂载逻辑与英文版 /en/blog/ 完全同构，已抽到 src/lib/blog-search.js，
+     这里只传入本页语言兜底文案与状态行文案。 */
+  import { mountBlogSearch, reportSearchFailure } from '../../lib/blog-search.js';
+
   const mountEl = document.getElementById('search-mount');
   const statusEl = document.querySelector('[data-search-status]');
-  const show = (el) => el && el.removeAttribute('hidden');
 
-  /* 检索框文案（第 2 期双语化）：SSR 写进 data-pf-i18n 的 JSON。
-     script 引用不到 frontmatter 的 t()，只能序列化后读回来；
-     解析失败时下面每一项都留着中文兜底，页面不会出现裸键名。 */
-  let PF = {};
-  try {
-    PF = JSON.parse(mountEl?.dataset.pfI18n || '{}');
-  } catch {
-    PF = {};
-  }
-  const pf = (k, fallback) => PF[k] ?? fallback;
-
-  async function mountSearch() {
-    const { PagefindUI } = await import('@pagefind/default-ui');
-    new PagefindUI({
-      element: mountEl,
-      bundlePath: import.meta.env.BASE_URL.replace(/\/$/, '') + '/pagefind/',
-      /* resetStyles 默认 true 会向 <head> 注入全局重置，可能波及站内样式，关掉 */
-      resetStyles: false,
-      showSubResults: true,
-      excerptLength: 20,
-      /* 文案来自 data-pf-i18n（SSR 写进的 JSON）。script 里不能引用 frontmatter
-         的 t()，只能序列化后读回来。解析失败时逐项都有兜底。 */
-      translations: {
-        placeholder: pf('placeholder', '检索文章全文…'),
-        clear_search: pf('clear', '清空'),
-        load_more: pf('loadMore', '加载更多'),
-        search_label: pf('search', '站内全文检索'),
-        filters_label: pf('filter', '过滤'),
-        /* 占位符必须是 default-ui 的令牌：它只做
-           `.replace(/\[SEARCH_TERM\]/)` 与 `.replace(/\[COUNT\]/)`，
-           旧文案写的 [QUERY] 原样印在页面上（2026-09-13 用户截图暴露）。 */
-        zero_results: pf('zero', '没有与「[SEARCH_TERM]」匹配的结果'),
-        one_result: pf('count', '[COUNT] 个结果 ·「[SEARCH_TERM]」'),
-        many_results: pf('count', '[COUNT] 个结果 ·「[SEARCH_TERM]」'),
-        searching: pf('searching', '检索中…'),
-        error_searching: pf('searchErr', '检索出错，请重试'),
-      },
-    });
-
-    // default-ui 渲染的是文本「清空」按钮；替换为上一版的圆圈 ×
-    const input = mountEl.querySelector('.pagefind-ui__search-input');
-    const nativeClear = mountEl.querySelector('.pagefind-ui__search-clear');
-    if (!input) return;
-
-    /* 圆圈 × 挂进 default-ui 的 <form> 而不是 .search-mount：form 是
-       position:relative 且顶边 == 输入框顶边，绝对定位才能钉在输入框行内；
-       .search-mount 把结果抽屉也包在内（结果区在 form 里），随结果长高会把
-       绝对定位的按钮一路带下去——2026-09-13 用户截图里的「下方方块 ×」
-       就是这个按钮既没拿到样式、又落在了结果区之下。 */
-    const anchor = mountEl.querySelector('.pagefind-ui__form') ?? mountEl;
-
-    const clearBtn = document.createElement('button');
-    clearBtn.type = 'button';
-    clearBtn.className = 'search-clear';
-    clearBtn.title = pf('clearSearch', '清空检索');
-    clearBtn.setAttribute('aria-label', pf('clearSearch', '清空检索'));
-    clearBtn.innerHTML =
-      '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">' +
-      '<path d="M1 1l10 10M11 1L1 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>' +
-      '</svg>';
-    anchor.appendChild(clearBtn);
-
-    const sync = () => {
-      clearBtn.hidden = !input.value;
-    };
-    input.addEventListener('input', sync);
-    clearBtn.addEventListener('click', () => {
-      /* 优先走 default-ui 自己的清除逻辑（清 val + 收起结果抽屉，节点常驻
-         DOM 只是被 suppressed 透明化，故引用长期有效）；失败则手动清空 +
-         派发 input 让 UI 走同一条响应链。 */
-      if (nativeClear?.isConnected) nativeClear.click();
-      if (input.value) {
-        input.value = '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      input.focus();
-      sync();
-    });
-    sync();
-  }
-
-  /* dev 也挂载：cactus 原版在 dev 直接 return 不装 UI，但 dev 看不到真实
-     版式等于盲区。改为 dev 照常挂载输入框、状态行解释「无索引」；输入后
-     UI 内部报「检索出错」是 dev 预期行为（/pagefind/ 产物只在构建链生成）。 */
-  if (import.meta.env.DEV) {
-    show(statusEl);
-    statusEl.textContent = 'dev 模式无索引 · 全文检索在构建产物 / 线上可用';
-  }
-  if (mountEl) {
-    mountSearch().catch((err) => {
-      /* 生产环境把真实错误外显（含 chunk 加载失败），不静默吞掉 */
-      console.error('[blog-search] 检索 UI 挂载失败：', err);
-      show(statusEl);
-      statusEl.textContent = `检索 UI 加载失败：${err?.message ?? err}`;
-    });
-  }
+  mountBlogSearch({
+    mountEl,
+    statusEl,
+    /* data-pf-i18n 解析失败时的中文兜底（正常情况 SSR 已写入全量文案） */
+    fallback: {
+      placeholder: '检索文章全文…',
+      clear: '清空',
+      loadMore: '加载更多',
+      search: '站内全文检索',
+      filter: '过滤',
+      zero: '没有与「[SEARCH_TERM]」匹配的结果',
+      count: '[COUNT] 个结果 ·「[SEARCH_TERM]」',
+      searching: '检索中…',
+      searchErr: '检索出错，请重试',
+      clearSearch: '清空检索',
+    },
+    devNotice: 'dev 模式无索引 · 全文检索在构建产物 / 线上可用',
+    failNotice: (msg) => `检索 UI 加载失败：${msg}`,
+  }).catch((err) => {
+    console.error('[blog-search] 检索 UI 挂载失败：', err);
+    reportSearchFailure(statusEl, (msg) => `检索 UI 加载失败：${msg}`, err);
+  });
 </script>
 
 <style>
