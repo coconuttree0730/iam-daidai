@@ -1,0 +1,87 @@
+/* ── 404 页版式 ────────────────────────────────────────────────────
+ *
+ * 本表由 src/pages/404.astro 的 <style> 抽出（2026-09-14 i18n）。
+ * 抽取理由：英文版要复用同一套版式，内联复制会让它变成两份必须手工同步的
+ * CSS——而这一步正是在为每个页面加第二份副本之前做的，所以没有产生新债。
+ *
+ * ⚠️ 本文件是**全站唯一**的一份。改版式改这里，中英文两侧同时生效。
+ * ⚠️ 中英文共用。注意：404 页目前**不做英文版**——Cloudflare 只认根目录一个 404.html，
+ * 英文站 404 会落到中文页（见交付说明）。
+ * ⚠️ .sheet / .sr-only / .foot 不在这里——它们已抽到 sheet.css 与
+ *    archive-chrome.css（所有内页共用）。
+ */
+
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 56px 20px 10px;
+    text-align: center;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: clamp(72px, 18vw, 200px);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1.6px var(--c-ghost);
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(22px, 4.5vw, 40px);
+    line-height: 1.2;
+  }
+  .hero .hint {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--c-muted);
+  }
+
+  .stamp {
+    align-self: center;
+    margin: 22px 0 6px;
+    padding: 14px 30px;
+    border: 2px solid var(--c-red);
+    border-radius: 6px;
+    color: var(--c-red);
+    text-align: center;
+    transform: rotate(-2.5deg);
+  }
+  .stamp strong {
+    display: block;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+  }
+  .stamp small {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  .exits {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding: 26px 20px 60px;
+  }
+  .exit {
+    padding: 10px 22px;
+    border: 1.5px solid var(--c-ink);
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--c-ink);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .exit:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+

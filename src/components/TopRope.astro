@@ -29,6 +29,16 @@
   ⚠️ MAX_PULL 与 CSS 的 --cord-travel 是同一个 132：手指位移与圆扣位移
   1:1 对得上全靠这两处同值，改一处必须改另一处。
 */
+import { useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
+
+interface Props {
+  /** 页面语言（第 2 期加）。本组件只挂在首页，由页面透传。 */
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
 ---
 
 <div class="rope" data-rope data-on="false">
@@ -36,8 +46,8 @@
     class="rope__hand"
     type="button"
     data-rope-hand
-    aria-label="按住下拉，回到页面顶部"
-    title="按住下拉 · 回到顶部"
+    aria-label={t('rope.pull')}
+    title={t('rope.title')}
   >
     <span class="rope__mount" aria-hidden="true">
       <span class="rope__plate"></span>

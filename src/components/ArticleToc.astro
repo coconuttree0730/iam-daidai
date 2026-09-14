@@ -28,6 +28,9 @@
   与正文 ids 的一致性：headings[].slug 就是 Astro 写进 <h*> 的 id（同一套
   github-slugger），所以 href 与锚点天然对齐；这也是不自己扫 h2/h3 的原因。
 */
+import { useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
+
 interface Heading {
   depth: number;
   slug: string;
@@ -36,9 +39,12 @@ interface Heading {
 interface Props {
   /** 直接传 render(post) 的 headings（depth 2/3 会被收进大纲） */
   headings?: Heading[];
+  /** 页面语言（第 2 期加）：表头/aria 文案。大纲条目文本来自正文，不翻译。 */
+  locale?: Locale;
 }
 
-const { headings = [] } = Astro.props;
+const { headings = [], locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
 const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
 const ok = items.length >= 2;
 ---
@@ -50,8 +56,8 @@ const ok = items.length >= 2;
         <div class="rail__bar" aria-hidden="true">
           <span data-progress />
         </div>
-        <p class="rail__label">目录 / INDEX</p>
-        <nav class="rail__nav" aria-label="文章目录">
+        <p class="rail__label">{t('toc.title')}</p>
+        <nav class="rail__nav" aria-label={t('toc.aria')}>
           <ul>
             {items.map((h) => (
               <li data-depth={`H${h.depth}`}>
@@ -75,8 +81,8 @@ const ok = items.length >= 2;
   hidden={!ok}
 >
   <header class="sheet__head">
-    <h2 class="sheet__title" id="toc-sheet-title">目录 / INDEX</h2>
-    <button type="button" class="sheet__x" data-sheet-close aria-label="关闭目录">
+    <h2 class="sheet__title" id="toc-sheet-title">{t('toc.title')}</h2>
+    <button type="button" class="sheet__x" data-sheet-close aria-label={t('toc.close')}>
       <svg
         viewBox="0 0 24 24"
         width="18"
@@ -93,7 +99,7 @@ const ok = items.length >= 2;
   </header>
 
   <div class="sheet__body">
-    <nav class="sheet__nav" aria-label="文章目录">
+    <nav class="sheet__nav" aria-label={t('toc.aria')}>
       <ul>
         {
           items.map((h) => (

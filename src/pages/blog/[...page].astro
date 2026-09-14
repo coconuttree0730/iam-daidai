@@ -3,14 +3,18 @@
 // 由原 blog.astro 重命名迁移而来（路由升级为 paginate，12 篇/页，与 Cactus 一致）。
 // 档案风骨架沿用：NO.03 编号头 + NOTES 描边大字 + 页脚条码；head 增加标签/RSS 入口。
 import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
 import PageHead from '../../components/PageHead.astro';
 import Paginator from '../../components/Paginator.astro';
 import PostCard from '../../components/PostCard.astro';
-import { getSortedPosts, groupPostsByYear } from '../../data/posts';
+import { getSortedPosts, groupPostsByYear, splitFeaturedPosts } from '../../data/posts';
 /* default-ui 的组件样式是独立 CSS（JS 里不含样式，漏引 = 输入框裸原生样式，
    2026-09-12 dev 截图暴露的正是这个，线上同样会裸）。类名前缀 pagefind-ui，
    不会污染站内样式；.search-mount 上的 --pagefind-ui-* 变量负责主题换肤。 */
 import '@pagefind/default-ui/css/ui.css';
+import '../../styles/sheet.css';
+import '../../styles/archive-chrome.css';
+import '../../styles/blog-list.css';
 
 export async function getStaticPaths({ paginate }) {
 	const posts = await getSortedPosts();
@@ -19,21 +23,34 @@ export async function getStaticPaths({ paginate }) {
 
 const { page } = Astro.props;
 
+/* 置顶精选（2026-09-14 建）：featured 的文章单独成组排在最前，**不参与年份分组**
+   ——否则会散落到各自年份里失去置顶意义。
+   ⚠️ 分页边界：featured 只在**第 1 页**抽出。第 2 页起若继续抽 featured 会得到
+   空组（第一篇就已被拿走了）；而且置顶的意义本就是"首屏可见"。
+   故用 page.currentPage === 1 门控，其余页只走年份分组。 */
+const isFirstPage = page.currentPage === 1;
+const { featured, rest } = splitFeaturedPosts(page.data);
+const featuredItems = isFirstPage ? featured : [];
+const listItems = isFirstPage ? rest : page.data;
+
 // 按年分组（编号序列不再需要，2026-09-12 用户裁定：文档标签保留时间，去掉 NO.xx）
-const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
+const yearGroups = groupPostsByYear(listItems).map(([year, posts]) => ({
 	year,
 	items: posts,
 }));
+const t = useTranslations('zh');
+
 ---
 <Base title="Daidai档案馆" description="博客板块 · 文章归档">
-  <main class="sheet">
+  <main class="sheet" id="main">
     <PageHead
       no="NO.03"
       chips={[
+        { label: '分类', href: '/categories/' },
         { label: '标签', href: '/tags/' },
         { label: 'RSS', href: '/rss.xml' },
       ]}
-      back={{ label: '← 返回档案馆', href: '/' }}
+      back={{ label: t('head.backHome'), href: '/' }}
     />
 
     {/* 页头横幅三件套（2026-09-12 晚升级）：横幅底 + 独立地面阴影 + Q版人物层。
@@ -74,19 +91,52 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
       </div>
     </section>
 
-    <section class="searchbar" aria-label="全文检索">
-      <div class="search-mount" id="search-mount"></div>
+    <section class="searchbar" aria-label={t('blog.search')}>
+      <div
+        class="search-mount"
+        id="search-mount"
+        data-pf-i18n={JSON.stringify({
+          placeholder: t('blog.searchPlaceholder'),
+          clear: t('blog.clear'),
+          loadMore: t('blog.loadMore'),
+          search: t('blog.search'),
+          filter: t('blog.filter'),
+          zero: t('blog.noResult'),
+          count: t('blog.count'),
+          clearSearch: t('blog.clearAria'),
+          searching: t('blog.searching'),
+          searchErr: t('blog.searchErr'),
+        })}
+      ></div>
       <p class="search-status" data-search-status hidden></p>
     </section>
 
     {
       page.data.length === 0 ? (
-        <section class="stamp" aria-label="档案整理中">
-          <strong>档案整理中</strong>
-          <small>ARCHIVING · 该板块即将开放</small>
+        <section class="stamp" aria-label={t('empty.archiving')}>
+          <strong>{t('empty.archiving')}</strong>
+          <small>{t('empty.archivingNote')}</small>
         </section>
       ) : (
-        <section class="list-section" data-list aria-label="文章列表">
+        <section class="list-section" data-list aria-label={t('blog.listAria')}>
+          {/* 置顶精选组（2026-09-14）：只在第 1 页、且确实有 featured 文章时渲染。
+              标题用「精选 / FEATURED」而不是年份——它是编辑推荐，不表达时间。 */}
+          {featuredItems.length > 0 && (
+            <section class="year-group year-group--featured">
+              <h2 class="year year--featured">
+                <span class="year__star" aria-hidden="true">★</span>
+                精选 / FEATURED
+              </h2>
+              <ul class="list list--archive" role="list">
+                {featuredItems.map((post) => (
+                  <li>
+                    <PostCard post={post} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {yearGroups.map(({ year, items }) => (
             <section class="year-group">
               <h2 class="year">{year}</h2>
@@ -99,7 +149,7 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
               </ul>
             </section>
           ))}
-          <Paginator page={page} />
+          <Paginator page={page} locale="zh" />
         </section>
       )
     }
@@ -120,6 +170,17 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
   const statusEl = document.querySelector('[data-search-status]');
   const show = (el) => el && el.removeAttribute('hidden');
 
+  /* 检索框文案（第 2 期双语化）：SSR 写进 data-pf-i18n 的 JSON。
+     script 引用不到 frontmatter 的 t()，只能序列化后读回来；
+     解析失败时下面每一项都留着中文兜底，页面不会出现裸键名。 */
+  let PF = {};
+  try {
+    PF = JSON.parse(mountEl?.dataset.pfI18n || '{}');
+  } catch {
+    PF = {};
+  }
+  const pf = (k, fallback) => PF[k] ?? fallback;
+
   async function mountSearch() {
     const { PagefindUI } = await import('@pagefind/default-ui');
     new PagefindUI({
@@ -129,20 +190,22 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
       resetStyles: false,
       showSubResults: true,
       excerptLength: 20,
+      /* 文案来自 data-pf-i18n（SSR 写进的 JSON）。script 里不能引用 frontmatter
+         的 t()，只能序列化后读回来。解析失败时逐项都有兜底。 */
       translations: {
-        placeholder: '检索文章全文…',
-        clear_search: '清空',
-        load_more: '加载更多',
-        search_label: '站内全文检索',
-        filters_label: '过滤',
+        placeholder: pf('placeholder', '检索文章全文…'),
+        clear_search: pf('clear', '清空'),
+        load_more: pf('loadMore', '加载更多'),
+        search_label: pf('search', '站内全文检索'),
+        filters_label: pf('filter', '过滤'),
         /* 占位符必须是 default-ui 的令牌：它只做
            `.replace(/\[SEARCH_TERM\]/)` 与 `.replace(/\[COUNT\]/)`，
            旧文案写的 [QUERY] 原样印在页面上（2026-09-13 用户截图暴露）。 */
-        zero_results: '没有与「[SEARCH_TERM]」匹配的结果',
-        one_result: '[COUNT] 个结果 ·「[SEARCH_TERM]」',
-        many_results: '[COUNT] 个结果 ·「[SEARCH_TERM]」',
-        searching: '检索中…',
-        error_searching: '检索出错，请重试',
+        zero_results: pf('zero', '没有与「[SEARCH_TERM]」匹配的结果'),
+        one_result: pf('count', '[COUNT] 个结果 ·「[SEARCH_TERM]」'),
+        many_results: pf('count', '[COUNT] 个结果 ·「[SEARCH_TERM]」'),
+        searching: pf('searching', '检索中…'),
+        error_searching: pf('searchErr', '检索出错，请重试'),
       },
     });
 
@@ -161,8 +224,8 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'search-clear';
-    clearBtn.title = '清空检索';
-    clearBtn.setAttribute('aria-label', '清空检索');
+    clearBtn.title = pf('clearSearch', '清空检索');
+    clearBtn.setAttribute('aria-label', pf('clearSearch', '清空检索'));
     clearBtn.innerHTML =
       '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">' +
       '<path d="M1 1l10 10M11 1L1 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>' +
@@ -206,233 +269,7 @@ const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
 </script>
 
 <style>
-  .sheet {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--c-paper);
-    color: var(--c-ink);
-    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
-      "Microsoft YaHei", sans-serif;
-  }
-
-  /* ── 页头横幅（2026-09-12 两件套分层）──
-     横幅底（文字 + 基线 + 地面阴影）与人物层是两张独立图，按精配准落点
-     以百分比定位。容器锁死 aspect-ratio 2/1（与素材同比例），任何视口
-     宽度下两层都逐像素对齐，不随缩放漂移。 */
-  .hero {
-    padding: 0;
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-  }
-  .hero-band {
-    position: relative;
-    width: 100%;
-    /* 桌面收窄（2026-09-12 用户反馈：全宽 2:1 太高，把下方文字挤出首屏）。
-       860→760px（同日二次反馈仍偏大，高 380px）；横幅纸色与页面同色，
-       收窄后无可见接缝。移动端视口 < 760px 不受影响。 */
-    max-width: 760px;
-    margin-inline: auto;
-    aspect-ratio: 2 / 1;
-  }
-  .hero-band__bg,
-  .hero-band__shadow,
-  .hero-band__char {
-    position: absolute;
-    display: block;
-  }
-  .hero-band__bg {
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-  /* 阴影层落点 = 剥离时在横幅 2048x1024 中的原配准矩形（prep 脚本 3c 步打印）。
-     原位回贴即与横幅构图（NOTES/基线）逐像素对齐；要跟随人物位移时改 left 偏移 */
-  .hero-band__shadow {
-    left: 52.7344%;
-    top: 87.8906%;
-    width: 37.1094%;
-    height: 7.4219%;
-  }
-  /* Q版人物层（2026-09-12 晚，源 temp/图片优化-character.png → blog-character-chibi.webp）。
-     沿用原照片人物的调校框（-15px 微调：头部轻微盖住 NOTES 的 S），按新图长宽比
-     1279:1950 重算宽度保持高度 91.1133% 不变（脚底落基线下方，与参考构图一致） */
-  .hero-band__char {
-    left: calc(56.2012% - 15px);
-    top: 4.4922%;
-    width: 29.8828%;
-    height: 91.1133%;
-  }
-
-  /* ── 文章列表区 ── */
-  .list-section {
-    flex: 1;
-    padding: 26px clamp(20px, 4vw, 48px) 6px;
-  }
-  .list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .list--archive {
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-
-	/* ── 全文检索（方案二：default-ui 挂载点，官方 CSS 变量对齐档案馆风）── */
-	.searchbar {
-		padding: 20px clamp(20px, 4vw, 48px) 0;
-	}
-	.search-mount {
-		position: relative;
-		--pagefind-ui-scale: 0.95;
-		--pagefind-ui-primary: var(--c-red);
-		--pagefind-ui-text: var(--c-ink);
-		--pagefind-ui-background: transparent;
-		--pagefind-ui-border: rgba(var(--c-ink-rgb), 0.4);
-		--pagefind-ui-tag: var(--c-muted);
-		--pagefind-ui-border-width: 1.5px;
-		--pagefind-ui-border-radius: 6px;
-		--pagefind-ui-font: inherit;
-		min-height: 46px;
-	}
-	.search-status {
-		margin: 10px 2px 0;
-		font-size: 12px;
-		letter-spacing: 0.06em;
-		color: var(--c-muted);
-	}
-	/* 自定义圆圈 × 清除按钮：替代 default-ui 的文本「清空」按钮。
-	   ⚠️ 本按钮与 default-ui 的节点都是**脚本运行时注入**的，DOM 上没有
-	   Astro 的 data-astro-cid-* 属性 → 普通 scoped 选择器被编译成
-	   `.search-clear[data-astro-cid-xxx]`，永远匹配不上。症状（2026-09-13
-	   用户截图）：圆圈裸奔成默认方块按钮掉在结果区下方、原生「清空」按钮
-	   照常显示。**给注入元素写样式必须包 :global()**，改完去
-	   dist/_astro/*.css 核对后缀确实没了。 */
-	:global(.search-clear) {
-		position: absolute;
-		/* 纵向锚在输入框行内：输入框高 64px×scale、圆直径 30px，上下各留半间隙。
-		   不写 top:50%——绝对定位的参照是 form（结果抽屉也在 form 里），
-		   50% 会落到整个结果区的中段。scale 变量声明在 .search-mount 上，form 继承得到。 */
-		top: calc((64px * var(--pagefind-ui-scale) - 30px) / 2);
-		right: 14px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 30px;
-		height: 30px;
-		padding: 0;
-		border: 1.5px solid rgba(var(--c-ink-rgb), 0.3);
-		border-radius: 50%;
-		background: transparent;
-		color: var(--c-muted);
-		cursor: pointer;
-		/* 悬停旋转用独立 rotate 属性，不往 transform 里塞（定位不依赖 transform） */
-		transition: color 0.15s ease, border-color 0.15s ease, rotate 0.25s ease;
-		z-index: 10;
-	}
-	:global(.search-clear):hover,
-	:global(.search-clear):focus-visible {
-		color: var(--c-red);
-		border-color: var(--c-red);
-		outline: none;
-	}
-	:global(.search-clear):hover {
-		rotate: 90deg;
-	}
-	/* 用 hidden 切换设了 display 的元素必须配强规则（作者样式压过 UA 的 [hidden]） */
-	:global(.search-clear)[hidden] {
-		display: none !important;
-	}
-	/* 隐藏 default-ui 自带的文本「清空」按钮：节点保留在 DOM 里，
-	   脚本的清除逻辑仍借它执行（display:none 不影响程序化 .click()）。
-	   ⚠️ :global() 必须包住**整条选择器**——写成 `.search-mount :global(.x)`
-	   时 Astro 仍会给 :global 内那一段补 data-astro-cid 后缀，规则等于没写
-	   （2026-09-13 构建产物实测）。 */
-	:global(.search-mount .pagefind-ui__search-clear) {
-		display: none !important;
-	}
-
-  /* ── 年份分隔条（票04）：Anton 描边数字，与 hero 同一视觉语言 ──
-     收尾线只在末组保留，避免多组时组间出现重复横线（code-review 修正） */
-  .year-group .list--archive {
-    border-bottom: none;
-  }
-  .year-group:last-child .list--archive {
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .year-group + .year-group {
-    margin-top: 14px;
-  }
-  .year {
-    margin: 20px 0 0;
-    font-family: 'Anton', Impact, sans-serif;
-    font-size: 24px;
-    line-height: 1;
-    letter-spacing: 0.06em;
-    color: transparent;
-    -webkit-text-stroke: 1px var(--c-ghost);
-    user-select: none;
-  }
-  .year-group:first-child .year {
-    margin-top: 0;
-  }
-
-  .stamp {
-    align-self: center;
-    margin-bottom: 40px;
-    padding: 14px 26px;
-    border: 2px solid var(--c-red);
-    border-radius: 6px;
-    color: var(--c-red);
-    text-align: center;
-    transform: rotate(-2.5deg);
-  }
-  .stamp strong {
-    display: block;
-    font-size: 18px;
-    font-weight: 900;
-    letter-spacing: 0.22em;
-  }
-  .stamp small {
-    display: block;
-    margin-top: 6px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-  }
-
-  .foot {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 clamp(20px, 4vw, 48px) 26px;
-  }
-  .foot .dash {
-    width: 34px;
-    height: 5px;
-    background: var(--c-red);
-  }
-  .foot .barcode {
-    height: 14px;
-    width: 64px;
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--c-ink) 0 1px,
-      transparent 1px 2.4px,
-      var(--c-ink) 2.4px 4.4px,
-      transparent 4.4px 5.4px,
-      var(--c-ink) 5.4px 6.4px,
-      transparent 6.4px 8.4px
-    );
-  }
+  /* 版式已抽到 src/styles/blog-list.css（i18n 时为英文版共享）。
+     本页如需页面专有样式，写在这里。 */
 </style>
 

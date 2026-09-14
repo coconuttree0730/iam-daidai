@@ -1,0 +1,71 @@
+---
+// 英文首页 = /en/（2026-09-14 i18n 第 1 期）
+//
+// 与中文首页（src/pages/index.astro）**同构**：同样的 HeroStage + TopRope +
+// 同一对脚本。差异只有三处：<Base> 的文案与 locale、传给 HeroStage 的 locale。
+//
+// ⚠️ 媒体素材（人物立绘 / 卷宗封面 / 页头插画）不分语言，两份页面共用
+//    public/ 下的同一批文件。不要为英文版复制素材。
+//
+// hero 可见文案来自 profile.json（第 2 期已双语化）。例外：hero 大字区是
+// 艺术封面、不计入中英切换（2026-09-14 裁定），两种语言显示同一套
+// 「PERSONAL / ARCHIVE / 个人档案馆 / About Me」——数据层 zh/en 同值。
+import Base from '../../layouts/Base.astro';
+import HeroStage from '../../components/HeroStage.astro';
+import TopRope from '../../components/TopRope.astro';
+import '../../styles/hero.css';
+import { useTranslations } from '../../i18n/utils';
+
+const t = useTranslations('en');
+---
+
+<!-- dock=false：与中文首页同规则（2026-09-13 裁定「留右侧回顶绳、去掉右下角」） -->
+<Base
+  title={t('site.title')}
+  description="A personal archive: move the cursor to turn the figure, scroll to drive the motion timeline."
+  locale="en"
+  dock={false}
+>
+  <HeroStage locale="en" />
+
+  <!-- 右侧回顶绳。**必须是 .stage 的兄弟节点**：理由见中文首页的同位置注释
+       （.stage 带 touch-action:none，绳子站到外面才拿得到干净手势）。 -->
+  <TopRope locale="en" />
+
+  <script>
+    import '../../lib/demo-driver.js';
+    import '../../lib/scroll-scrub.js';
+  </script>
+</Base>
+
+<style>
+  /* 本文件的样式与中文首页 index.astro 的 <style> 块**有意保持一致**：
+     .scroll-figure 的对齐系数是实测得出的硬契约（见中文版的推导注释），
+     两处不一致会让人物在两种语言下错位。若日后调整，两个文件必须同步改。 */
+  :global(.scroll-figure) {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: calc(var(--figure-h) * 1.6126);
+    height: auto;
+    aspect-ratio: 966 / 720;
+    transform: translateX(-57.04%);
+    pointer-events: none;
+  }
+
+  /* 可见性互斥（scroll-scrub.js 切换 hidden 属性）——同中文首页 */
+  :global(.hero-person [hidden]) {
+    display: none !important;
+  }
+
+  /* 移动端手势所有权——同中文首页（.stage 上 touch-action:none 是移动端
+     scrub 能跑通的硬前提） */
+  :global(.stage) {
+    touch-action: none;
+  }
+
+  /* 关掉下拉刷新/触底回弹的橡皮筋 */
+  :global(html) {
+    overscroll-behavior-y: none;
+  }
+</style>

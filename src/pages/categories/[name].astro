@@ -1,0 +1,132 @@
+---
+/*
+  单分类文章列表页（2026-09-14 建）：/categories/<name>/
+  ────────────────────────────────────────────────────────────────────────
+  与 /tags/<tag>/ 的结构差异：
+    · 分类是**单选**，所以本页的每篇文章天然只属于这里一次（标签页反之，
+      一篇文章会在 N 个标签页各出现一次）。
+    · 分类带说明文字（categories.ts 的 desc），页头下方渲染它——标签没有说明，
+      那是标签的灵活性代价（随手加的标签没法都有解释）。
+    · 分类**不做分页**：分类是粗粒度聚合（4 个领域），单类文章数远小于标签页
+      可能达到的量级。真要溢出再加 paginate，不预先埋。
+    · 页头给出「上一篇/下一篇」之外的出路：全部标签、RSS。
+
+  版式复用 tag-detail.css（标题居中 + 行式列表，与标签页同构）。
+*/
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getSortedPosts } from '../../data/posts';
+import { CATEGORIES, findCategory } from '../../data/categories';
+import '../../styles/sheet.css';
+import '../../styles/archive-chrome.css';
+import '../../styles/tag-detail.css';
+
+export async function getStaticPaths() {
+  // 只给**清单里登记的**分类生成路由 —— 未登记的分类不出页（它们在索引页
+  // 会被标为「未登记」，但不该产生一个没有任何说明的孤儿页面）。
+  // 这样 /categories/ 上的每个链接都保证有落点，反之也不会多出隐形路由。
+  const posts = await getSortedPosts();
+  return CATEGORIES.map((c) => ({
+    params: { name: c.name },
+    props: {
+      name: c.name,
+      en: c.en,
+      desc: c.desc,
+      posts: posts.filter((p) => p.data.category === c.name),
+    },
+  }));
+}
+
+const { name, en, desc, posts } = Astro.props;
+const def = findCategory(name);
+---
+
+<Base
+  title={`分类「${name}」 · Daidai档案馆`}
+  description={`领域「${name}」下的全部文章${desc ? ' · ' + desc : ''}`}
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: `${posts.length} 篇`, variant: 'red' },
+        { label: '全部分类', href: '/categories/' },
+        { label: '全部标签', href: '/tags/' },
+      ]}
+      back={{ label: '← 返回分类索引', href: '/categories/' }}
+    />
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">{en || 'CATEGORY'}</p>
+      <h1>{name}</h1>
+      {desc && <p class="hero__desc">{desc}</p>}
+    </section>
+
+    {
+      posts.length === 0 ? (
+        <section class="stamp" aria-label="该分类暂无文章">
+          <strong>暂无文章</strong>
+          <small>EMPTY · 这个方向还没开始写</small>
+        </section>
+      ) : (
+        <section class="list-section" aria-label={`分类 ${name} 的文章列表`}>
+          <ul class="list" role="list">
+            {posts.map((p) => (
+              <li>
+                <PostCard post={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <!-- 收尾导航（手机档专用）：同上，页头 .back 在 ≤640px 隐藏时的补偿入口。
+         本页的 chips 里已有「全部分类」，但那是另一目的地（索引页）；
+         这里补的是通往 /blog/ 的路径，与 .back 同一目的地。 -->
+    <a class="postback" href="/blog/">← 返回博客</a>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 版式复用 src/styles/tag-detail.css。这里只补分类页特有的说明文字。 */
+  .hero__desc {
+    margin: 8px 0 0;
+    max-width: 46ch;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--c-muted);
+  }
+  /* 手机档收尾导航：.sheet 是 flex column，必须 align-self:flex-start +
+     width:fit-content，否则交叉轴 stretch 会把下划线拉成整行宽
+     （作品页 .backhome 踩过同一个坑，见 tags-index.css 的注释）。 */
+  .postback {
+    display: none;
+    align-self: flex-start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 6px clamp(20px, 4vw, 48px) 22px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .postback:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .postback {
+      display: flex;
+    }
+  }
+</style>

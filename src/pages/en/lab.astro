@@ -1,0 +1,376 @@
+---
+// 英文实验室 = /en/lab/（2026-09-14 i18n 第 1 期）
+//
+// 条目数据来自 src/data/lab.json —— **与中文版同一份**。lab.json 的条目
+// 已有可选的 `en` 字段（如 "SCROLL / FRAME FOLLOW"），那是**对照用英文名**
+// 而非翻译（中文版也会渲染它，作为卡片上的描边小字）。真正的英文 title/desc
+// 属于第 2 期数据层双语化的工作。
+//
+// ⚠️ 演示页（/lab/scroll/、/lab/framedemo/）**暂不做英文版**：那两个页面
+//    本身就是「教材」，正文是长篇中文讲解，翻译成本高且属于内容而非 UI。
+//    因此本页的卡片 href 直接指向中文演示页。这是刻意的，不是漏配。
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import lab from '../../data/lab.json';
+import { useTranslations, interpolate } from '../../i18n/utils';
+import '../../styles/sheet.css';
+import '../../styles/archive-chrome.css';
+
+const entries = lab.entries;
+const t = useTranslations('en');
+const pad2 = (n: number) => String(n).padStart(2, '0');
+---
+<Base
+  title={`${t('section.lab.title')} · ${t('site.title')}`}
+  description={t('section.lab.desc')}
+  locale="en"
+>
+  <main class="sheet" id="main">
+    <PageHead no="NO.04" back={{ label: t('head.backHome'), href: '/en/' }} locale="en" />
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">LAB</p>
+      <h1>{t('section.lab.title')}</h1>
+      <p class="hero__note">{t('lab.heroSub')}</p>
+    </section>
+
+    <p class="fallback-note">
+      Entry descriptions and demos are currently in Chinese only.
+    </p>
+
+    <section class="entries" aria-label={t('lab.heroTitle')}>
+      <header class="sec-head">
+        <h2 class="sec-title">{t('lab.heroTitle')}</h2>
+        <span class="sec-count">{interpolate(t('lab.entryCount'), { n: pad2(entries.length) })}</span>
+      </header>
+
+      <ul class="grid" role="list">
+        {
+          entries.map((e) => (
+            <li>
+              {/* 整张卡片是一个链接：不嵌套可交互元素，accessible name 由
+                  aria-label 收短（否则会把提要正文全念一遍）——同中文版。
+                  ⚠️ 英文页的可访问名必须走 `e.en`（拉丁副标题）而不是 e.title/e.kind：
+                  后者来自 lab.json，是**内容层中文**，读屏在英文页里会中英混读。
+                  视觉上 .card__en 仍是 aria-hidden（正副标题并存，读屏念一遍即可）。 */}
+              <a class="card" href={e.href} aria-label={`${e.no} · ${e.en}`}>
+                <span class="card__media">
+                  <img
+                    src={e.poster}
+                    alt=""
+                    width={e.posterW}
+                    height={e.posterH}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span class="card__no" aria-hidden="true">{e.no}</span>
+                </span>
+
+                <span class="card__body">
+                  <span class="card__kind">{e.kind}</span>
+                  <h2 class="card__title">{e.title}</h2>
+                  <span class="card__en" aria-hidden="true">{e.en}</span>
+                  <p class="card__desc">{e.desc}</p>
+                  <span class="card__meta">
+                    {e.meta.map((m) => (
+                      <span class="card__chip">{m}</span>
+                    ))}
+                  </span>
+                  <span class="card__cta">
+                    {e.cta}
+                    <span class="card__go" aria-hidden="true">→</span>
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="stamp" aria-label="Section under construction">
+      <strong>Under construction</strong>
+      <small>New entries are being archived</small>
+    </section>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* ⚠️ 以下规则与中文版 lab.astro **逐条对应**（.hero / .sec-head / .grid /
+     .card* / .stamp / 手机档），只在文案相关处留白。两处若不一致，中英文
+     版面就走形——改任何一条都必须同步另一个文件。
+     抽取共享 view 组件（消除这份重复）是第 3 期工作，见交付说明。
+     `.foot` 已抽到 src/styles/archive-chrome.css，两页共用。 */
+
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: clamp(30px, 5vw, 58px) 20px clamp(16px, 2.4vw, 28px);
+    text-align: center;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: clamp(28px, 6vw, 72px);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1.2px var(--c-ghost);
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(34px, 7vw, 84px);
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+  .hero__note {
+    margin: 12px 0 0;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--c-muted);
+  }
+
+  /* 内容回退说明条（英文页专有，第 1 期）：左侧红竖线 + 极浅底 */
+  .fallback-note {
+    margin: 18px clamp(20px, 4vw, 48px) 0;
+    padding: 9px 14px;
+    border-left: 3px solid var(--c-red);
+    background: rgba(var(--c-ink-rgb), 0.04);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+
+  .entries {
+    flex: 1;
+    padding: 0 clamp(20px, 4vw, 48px);
+  }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    max-width: 960px;
+    margin-inline: auto;
+    padding-bottom: 10px;
+    margin-bottom: clamp(16px, 2.2vw, 24px);
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .sec-title {
+    margin: 0;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+  }
+  .sec-count {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* auto-fit（而非 auto-fill）：空轨道会被折叠，所以只有一条目时那张卡片
+     会撑满整行——加第二条起自动变双列，不需要改任何规则。
+     min(100%, 320px) 保证极窄视口下 minmax 的上界不超过容器宽（不横向溢出）。 */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: clamp(16px, 2.4vw, 26px);
+    max-width: 960px;
+    margin: 0;
+    margin-inline: auto;
+    padding: 0;
+    list-style: none;
+  }
+
+  .card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(14px, 2vw, 26px);
+    padding: clamp(12px, 1.6vw, 20px);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    border-radius: 6px;
+    background: var(--c-card);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.18s ease;
+  }
+  .card:hover {
+    border-color: var(--c-red);
+  }
+  .card:focus-visible {
+    outline: 2px solid var(--c-red);
+    outline-offset: 2px;
+  }
+  .card:hover .card__title {
+    text-decoration: underline;
+    text-decoration-color: var(--c-red);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .card:hover .card__cta {
+    color: var(--c-red);
+  }
+  .card:hover .card__go {
+    transform: translateX(4px);
+  }
+
+  .card__media {
+    position: relative;
+    flex: 1 1 300px;
+    min-width: 0;
+    /* 主题不变量纸底（--c-band）：封面是 RVM 抠出的透明人物（深发深衣），
+       深色主题下若跟着翻成深底会糊成一团剪影。与 /tags/ 页头纸带同一裁定。 */
+    background: var(--c-band);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .card__media img {
+    display: block;
+    /* 不设 height：由 width/height 属性给出的固有比例决定高度——无裁切、
+       无信箱边，且因为属性齐备不会产生布局位移。 */
+    width: 100%;
+    height: auto;
+  }
+  .card__no {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 3px 8px;
+    border: 1px solid var(--c-red);
+    border-radius: 3px;
+    background: var(--c-band);
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--c-red);
+  }
+
+  .card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1 1 340px;
+    min-width: 0;
+  }
+  .card__kind {
+    padding: 3px 8px;
+    border: 1px solid var(--c-red);
+    border-radius: 3px;
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--c-red);
+  }
+  .card__title {
+    margin: 0;
+    font-size: clamp(21px, 2.4vw, 28px);
+    font-weight: 900;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+  }
+  .card__en {
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: transparent;
+    -webkit-text-stroke: 0.8px var(--c-ghost);
+    user-select: none;
+  }
+  .card__desc {
+    margin: 2px 0 0;
+    /* 用 em 而非 ch：ch 以「0」字宽为准（约 0.5em），对中文会把行宽压到
+       二十来字一行，读起来很碎。34em ≈ 34 个中文字，接近正文的舒适行宽。 */
+    max-width: 34em;
+    font-size: 14.5px;
+    line-height: 1.75;
+    color: var(--c-ink-2);
+  }
+  .card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .card__chip {
+    padding: 3px 8px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.18);
+    border-radius: 3px;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-ink);
+    transition: color 0.18s ease;
+  }
+  .card__go {
+    transition: transform 0.18s ease;
+  }
+
+  .stamp {
+    align-self: center;
+    margin: clamp(28px, 4vw, 44px) auto 40px;
+    padding: 14px 26px;
+    border: 2px solid var(--c-red);
+    border-radius: 6px;
+    color: var(--c-red);
+    text-align: center;
+    transform: rotate(-2.5deg);
+  }
+  .stamp strong {
+    display: block;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+  }
+  .stamp small {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  /* 手机档：内缩收到 20px，卡片内距与间距收紧；封面与文字强制各占整行
+     （flex:1 1 100%），保证封面在上、提要在下的阅读顺序。 */
+  @media (max-width: 640px) {
+    .hero {
+      padding: 26px 20px 14px;
+    }
+    .entries {
+      padding: 0 20px;
+    }
+    .card {
+      gap: 14px;
+      padding: 12px;
+    }
+    .card__media,
+    .card__body {
+      flex: 1 1 100%;
+    }
+    .card__desc {
+      font-size: 14px;
+    }
+  }
+</style>

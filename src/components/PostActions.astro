@@ -1,0 +1,282 @@
+---
+/*
+  文章页底部操作条（2026-09-14 建）
+  ────────────────────────────────────────────────────────────────────────
+  三件事，按「使用者动作频次」从高到低排：
+    ① 复制链接    —— 任何环境可用，纯 clipboard API + 降级
+    ② 系统分享    —— navigator.share 存在时才渲染（移动端 / 部分桌面）
+    ③ 订阅 RSS    —— 读者读完一篇想订阅时的唯一入口（此前只有列表页页头有）
+
+  ── 两个刻意的设计决定 ──────────────────────────────────────────────
+  1. **系统分享按钮由 JS 注入、不写死在模板里**：navigator.share 的支持与否
+     只有运行时才知道，写在模板里会在不支持的桌面浏览器上留一个点不动的死按钮。
+     注入型 DOM 没有 Astro 的 cid → 其样式必须写在 global.css 或用 :global()，
+     见本组件 <style> 里的注释。**复制链接则总是渲染**（clipboard 有降级路径，
+     连 clipboard 都没有时用 execCommand / 提示手动复制，故不需要运行时判断）。
+  2. **无 JS 时降级**：复制/分享按钮由脚本接管，但「订阅 RSS」是真链接，
+     且用 <noscript> 保留一条「复制链接」的说明式入口——不追求 JS 全禁下的
+     完整功能，只保证读者不会撞上一个语义为空的区块。
+
+  ── 与 .post-grid 的关系（重要）────────────────────────────────────
+  详情页网格是显式四行：post-head(1) / prose(2) / postnav(3) / postback(4)。
+  **本组件必须整体放进其中一行的元素内部**，自己抢 grid-row 会和既有块同行重叠
+  （MEMORY 的「会复现的坑」有这一条）。这里的做法是作为独立一格插在
+  prose 与 postnav 之间——见页面里它被包在 .post-actions-row 中并显式占行。
+*/
+interface Props {
+  /** 文章永久链接（绝对地址，由页面用 Astro.site + 路径拼好传进来） */
+  url: string;
+  /** 文章标题，系统分享时带出去 */
+  title: string;
+  /** RSS 订阅源地址 */
+  rssHref: string;
+}
+
+const { url, title, rssHref } = Astro.props;
+---
+
+<section
+  class="post-actions"
+  aria-label="分享与订阅"
+  data-post-actions
+  data-share-url={url}
+  data-share-title={title}
+>
+  <div class="act">
+    <button type="button" class="btn" data-copy-link>
+      <svg
+        class="btn__icon"
+        viewBox="0 0 16 16"
+        width="15"
+        height="15"
+        aria-hidden="true"
+      >
+        <path
+          d="M6.5 9.5a2.5 2.5 0 0 0 3.6.2l2.2-2.2a2.5 2.5 0 0 0-3.5-3.5l-1 1"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"></path>
+        <path
+          d="M9.5 6.5a2.5 2.5 0 0 0-3.6-.2L3.7 8.5a2.5 2.5 0 0 0 3.5 3.5l1-1"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"></path>
+      </svg>
+      <span class="btn__label" data-copy-label>复制链接</span>
+    </button>
+
+    <noscript>
+      <p class="act__fallback">
+        复制此链接分享：
+        <span class="act__url">{url}</span>
+      </p>
+    </noscript>
+
+    <a class="btn btn--link" href={rssHref}>
+      <svg
+        class="btn__icon"
+        viewBox="0 0 16 16"
+        width="15"
+        height="15"
+        aria-hidden="true"
+      >
+        <path
+          d="M3.2 11.6a1.2 1.2 0 1 0 0 .01"
+          fill="currentColor"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"></path>
+        <path
+          d="M2.5 6.8a6.7 6.7 0 0 1 6.7 6.7M2.5 3a10.5 10.5 0 0 1 10.5 10.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"></path>
+      </svg>
+      <span class="btn__label">订阅更新</span>
+    </a>
+  </div>
+
+  <p class="act__note" aria-hidden="true">SHARE / SUBSCRIBE</p>
+</section>
+
+<script>
+  /* ── 复制链接 + 系统分享 ────────────────────────────────────────────
+     一个组件内两件事，都挂在 [data-post-actions] 上——页面只有一处，
+     不需要更细的模块划分。 */
+  const root = document.querySelector('[data-post-actions]');
+  if (root) {
+    const url = root.dataset.shareUrl ?? location.href;
+    const title = root.dataset.shareTitle ?? document.title;
+
+    /* ① 复制链接：优先 async clipboard，降级 execCommand，再降级提示手动复制。
+       成功后在按钮文字上给 1.8s 的「已复制」反馈（不换整个按钮，避免布局跳动）。 */
+    const copyBtn = root.querySelector('[data-copy-link]');
+    const copyLabel = root.querySelector('[data-copy-label]');
+    let resetTimer = 0;
+
+    function flash(label) {
+      if (!copyLabel) return;
+      const original = copyLabel.dataset.original ?? copyLabel.textContent;
+      copyLabel.dataset.original = original;
+      copyLabel.textContent = label;
+      clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => {
+        copyLabel.textContent = original;
+      }, 1800);
+    }
+
+    function legacyCopy(text) {
+      // http:// 页面 + 老浏览器：clipboard API 不可用时的兜底
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    copyBtn?.addEventListener('click', async () => {
+      let ok = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          ok = true;
+        } else {
+          ok = legacyCopy(url);
+        }
+      } catch {
+        ok = legacyCopy(url);
+      }
+      flash(ok ? '已复制' : '复制失败');
+    });
+
+    /* ② 系统分享：只有 runtime 支持才注入按钮。
+       ⚠️ 注入的节点没有 Astro cid → 样式靠本组件 <style> 里那条 :global 规则，
+       见下方注释。插在复制按钮之后、RSS 之前（动作强度递增：临时 → 外发 → 订阅）。 */
+    if (typeof navigator.share === 'function' && navigator.canShare) {
+      const shareBtn = document.createElement('button');
+      shareBtn.type = 'button';
+      shareBtn.className = 'btn btn--share';
+      shareBtn.innerHTML =
+        '<svg class="btn__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">' +
+        '<path d="M8 10.5V2.5M8 2.5L4.8 5.7M8 2.5l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
+        '<path d="M3 9.5v3.2c0 .4.3.8.8.8h8.4c.5 0 .8-.4.8-.8V9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
+        '</svg><span class="btn__label">分享</span>';
+      shareBtn.addEventListener('click', async () => {
+        try {
+          await navigator.share({ title, url });
+        } catch {
+          /* 用户取消分享会抛 AbortError，属正常路径，不提示 */
+        }
+      });
+      copyBtn?.insertAdjacentElement('afterend', shareBtn);
+    }
+  }
+</script>
+
+<style>
+  /* 本组件**整体占 .post-grid 的一行**（页面里给它 .post-actions-row 包装，
+     或直接作为网格项）。这里只负责内部版式，不写 grid-column/grid-row——
+     摆在哪一格是页面的职责，与 ArticleToc 的分工一致。 */
+  .post-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 20px 0 26px;
+    border-top: 1px dashed rgba(var(--c-ink-rgb), 0.25);
+  }
+  .act {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .act__note {
+    margin: 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--c-ghost);
+    user-select: none;
+  }
+  .act__fallback {
+    margin: 0;
+    font-size: 12px;
+    color: var(--c-muted);
+  }
+  .act__url {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow-wrap: anywhere;
+  }
+
+  /* 按钮与链接共用一套壳：1.5px 描边、小圆角、红章 hover，
+     与页头 chip / 文章标签同一视觉语言。 */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border: 1.5px solid rgba(var(--c-ink-rgb), 0.3);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--c-ink);
+    font: inherit;
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn:hover,
+  .btn:focus-visible {
+    color: var(--c-red);
+    border-color: var(--c-red);
+    background: rgba(var(--c-red-rgb), 0.06);
+    outline: none;
+  }
+  .btn__icon {
+    flex: none;
+    display: block;
+  }
+
+  /* ⚠️ 系统分享按钮是**运行时 JS 注入**的（见脚本注释），DOM 上没有 Astro 的
+     data-astro-cid-* → 普通 scoped 选择器编译成 .btn--share[data-astro-cid-x]
+     永远匹配不上，按钮会裸奔成默认灰按钮。共享的 .btn 规则本身由模板元素
+     命中（复制按钮与订阅链接都是模板渲染的），但 .btn--share 这个**修饰类**
+     只出现在注入节点上，所以这一条必须 :global 且整条包住。 */
+  :global(.btn--share) {
+    border-style: solid;
+  }
+
+  @media (max-width: 640px) {
+    .post-actions {
+      justify-content: flex-start;
+      gap: 10px;
+    }
+    /* 手机档按钮放大到可点区域（≥40px 高），并允许换行不挤压 */
+    .btn {
+      padding: 9px 14px;
+      font-size: 13px;
+    }
+    .act__note {
+      display: none;
+    }
+  }
+</style>

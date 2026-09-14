@@ -1,0 +1,37 @@
+/* ── 档案风页脚（2026-09-14 i18n 时抽出）──────────────────────────────────
+ *
+ * `.foot`（红短横 + 条码）此前在 blog/lab/tags×2/404/works 详情 6 个内页里
+ * 各写一份，规则完全一致，只有 padding 值偶有差异。与 sheet.css 同理抽出。
+ *
+ * ⚠️ 这些元素在 markup 里带 aria-hidden="true" —— 纯装饰，不进可访问性树。
+ *    条码用 repeating-linear-gradient 画（不是图片，避免额外请求，且随主题
+ *    换色）。百分比尺寸的渐变必须在独立元素上、且用视口单位——见 MEMORY
+ *    的坑；这里条码是固定 px 尺寸，天然安全。
+ */
+
+.foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 4vw, 48px) 26px;
+}
+
+.foot .dash {
+  width: 34px;
+  height: 5px;
+  background: var(--c-red);
+}
+
+.foot .barcode {
+  height: 14px;
+  width: 64px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--c-ink) 0 1px,
+    transparent 1px 2.4px,
+    var(--c-ink) 2.4px 4.4px,
+    transparent 4.4px 5.4px,
+    var(--c-ink) 5.4px 6.4px,
+    transparent 6.4px 8.4px
+  );
+}

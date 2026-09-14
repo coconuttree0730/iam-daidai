@@ -3,48 +3,225 @@
   "_siteComment": "站名徽标（2026-09-13 建）。SiteMark.astro 的**唯一文案源**：首页顶栏左上角标（.mark-tl）右侧、内页 PageHead 的 .head__lead 最左（内页渲染成 <a href=\"/\">，点击回首页；首页是 span——已在首页再套链接只会白刷一次）。字形与红色手绘下划线在组件里，改名字只改 name。aria 是给读屏的全称（视觉上只印 name）。",
   "site": {
     "name": "Daidai",
-    "aria": "Daidai 档案馆"
+    "aria": {
+      "zh": "Daidai 档案馆",
+      "en": "Daidai Archive"
+    }
   },
+  "_heroComment": "hero 大字区是「艺术封面」，2026-09-14 用户裁定**不计入中英文切换**：英文描边底字（PERSONAL ARCHIVE）+ 英文实心大字（PERSONAL / ARCHIVE）+ 中文标题（个人档案馆）+ 英文花体（About Me）构成一套固定的中英合体排版，两种语言下显示完全相同。实现方式 = 以下字段 zh/en 两值写死相同，HeroStage 的 L() 拿哪边都一样。不要把 solidLeft / solidRight / titleZh 改回 {zh,en} 异值（那会恢复「彻底切换」，正是被否掉的形态）。",
   "hero": {
-    "ghostEn": "PERSONAL ARCHIVE",
-    "solidLeft": "PERSONAL",
-    "solidRight": "ARCHIVE",
-    "titleZh": "个人档案馆",
-    "script": "About Me",
-    "indexLabel": "SIDE INDEX"
+    "ghostEn": {
+      "zh": "PERSONAL ARCHIVE",
+      "en": "PERSONAL ARCHIVE"
+    },
+    "solidLeft": {
+      "zh": "PERSONAL",
+      "en": "PERSONAL"
+    },
+    "solidRight": {
+      "zh": "ARCHIVE",
+      "en": "ARCHIVE"
+    },
+    "titleZh": {
+      "zh": "个人档案馆",
+      "en": "个人档案馆"
+    },
+    "script": {
+      "zh": "About Me",
+      "en": "About Me"
+    },
+    "indexLabel": {
+      "zh": "SIDE INDEX",
+      "en": "SIDE INDEX"
+    }
   },
   "_announceComment": "公告的数据源已迁至 src/data/announcements.json（2026-09-13 第二轮改版：单条 inline 文案 → 常驻「公告」按钮 + 下拉面板，可容纳多条）。原文案一字未改地迁入该文件 items[0]。**不要在本文件重建 announce 节**：公告是全站共享数据（首页 + 8 个内页），与「首页 hero 专属」的 profile.json 分开维护，Announce.astro 只读 announcements.json。",
   "cards": [
-    { "no": "01", "title": "关于我...", "theta": -46, "href": "#basic", "lookFrame": 20 },
-    { "no": "02", "title": "作品集", "theta": -22, "href": "/works/", "lookFrame": 48 },
-    { "no": "03", "title": "博客", "theta": 22, "href": "/blog/", "lookFrame": 58 },
-    { "no": "04", "title": "实验室", "theta": 46, "href": "/lab/", "lookFrame": 80 }
+    {
+      "no": "01",
+      "title": {
+        "zh": "关于我...",
+        "en": "About"
+      },
+      "theta": -46,
+      "href": {
+        "zh": "#basic",
+        "en": "#basic"
+      },
+      "lookFrame": 20
+    },
+    {
+      "no": "02",
+      "title": {
+        "zh": "作品集",
+        "en": "Works"
+      },
+      "theta": -22,
+      "href": {
+        "zh": "/works/",
+        "en": "/en/works/"
+      },
+      "lookFrame": 48
+    },
+    {
+      "no": "03",
+      "title": {
+        "zh": "博客",
+        "en": "Blog"
+      },
+      "theta": 22,
+      "href": {
+        "zh": "/blog/",
+        "en": "/en/blog/"
+      },
+      "lookFrame": 58
+    },
+    {
+      "no": "04",
+      "title": {
+        "zh": "实验室",
+        "en": "Lab"
+      },
+      "theta": 46,
+      "href": {
+        "zh": "/lab/",
+        "en": "/en/lab/"
+      },
+      "lookFrame": 80
+    }
   ],
   "infoBar": [
-    { "label": "编号", "value": "NO.001" },
-    { "label": "密级", "value": "密级 公开" },
-    { "label": "状态", "value": "OPEN TO WORK" },
-    { "label": "署名", "value": "DAIDAI" }
+    {
+      "label": {
+        "zh": "编号",
+        "en": "NO."
+      },
+      "value": {
+        "zh": "NO.001",
+        "en": "NO.001"
+      }
+    },
+    {
+      "label": {
+        "zh": "密级",
+        "en": "LEVEL"
+      },
+      "value": {
+        "zh": "密级 公开",
+        "en": "PUBLIC"
+      }
+    },
+    {
+      "label": {
+        "zh": "状态",
+        "en": "STATUS"
+      },
+      "value": {
+        "zh": "OPEN TO WORK",
+        "en": "OPEN TO WORK"
+      }
+    },
+    {
+      "label": {
+        "zh": "署名",
+        "en": "SIGNED"
+      },
+      "value": {
+        "zh": "DAIDAI",
+        "en": "DAIDAI"
+      }
+    }
   ],
   "_outroComment": "飞散终态（--sc→1，人物+背景+黑条留白）时从下升起的收尾区块。左=个人语录+简介，右=邮箱联系表单骨架。窗口按素材实测的头部朝向错峰：左侧在人物「看左」窗口（--sc 0.34→0.54，实测看左峰 36.5–57.3%）升起，右侧在「看右」窗口（--sc 0.62→0.82，实测看右峰 67.7–83.3%）升起——人物转头看向哪边，哪边的区块刚好到位。窗口常数写在 hero.css 的 --outro-l-* / --outro-r-*，改这里不动版式。contact 不含任何邮箱字段（2026-09-12 用户裁定：表单旁不展示 hello@，页面零邮箱明文，写信一律走表单；真实收件邮箱只存在于 Worker secret）——不要把任何邮箱地址加回这里。",
-  "_basicComment": "基本信息抽屉（#basic overlay）的唯一数据源，2026-09-13 建。标 _TODO 的值都是编的占位内容，改这里即可、不要改组件。photo 素材是 public/motion/basic-portrait.webp（图集 f0 正脸帧裁切 340×420 透明底，换姿态用 ffmpeg 重裁即可）。",
+  "_basicComment": "基本信息抽屉（#basic overlay）的唯一数据源，2026-09-13 建。标 _TODO 的值都是编的占位内容，改这里即可、不要改组件。photo 素材是 public/motion/basic-portrait.webp（图集 f0 正脸帧裁切 340×420 透明底，换姿态用 ffmpeg 重裁即可）。**name 例外（2026-09-14 裁定）**：「DAIDAI@饿得快」是艺术化 ID，不计入中英文切换——en 值恒等于 zh，不要译成 Always Hungry。",
   "basic": {
     "fileNo": "NO.001",
-    "name": "DAIDAI@饿得快",
-    "status": "OPEN TO WORK",
-    "identity": "软件开发 × 设计，正在把喜欢的事做成日常。",
-    "now": "正在打磨这个档案馆，顺便计划下一场说走就走。",
-    "skills": ["Java后端开发", "AI-Agent", "小程序开发", "UI 设计", "手绘"],
-    "links": [
-      { "label": "GitHub", "href": "https://github.com/coconuttree0730", "icon": "/icons/github.svg", "mono": true },
-      { "label": "邮箱", "href": "#contact", "action": "contact", "icon": "/icons/mail.svg" },
-      { "label": "RSS", "href": "/rss.xml", "icon": "/icons/rss.svg" }
+    "name": {
+      "zh": "DAIDAI@饿得快",
+      "en": "DAIDAI@饿得快"
+    },
+    "status": {
+      "zh": "OPEN TO WORK",
+      "en": "OPEN TO WORK"
+    },
+    "identity": {
+      "zh": "软件开发 × 设计，正在把喜欢的事做成日常。",
+      "en": "Software development × design — turning what I love into everyday work."
+    },
+    "now": {
+      "zh": "正在打磨这个档案馆，顺便计划下一场说走就走。",
+      "en": "Polishing this archive, and planning the next spontaneous trip."
+    },
+    "skills": [
+      {
+        "zh": "Java后端开发",
+        "en": "Java Backend"
+      },
+      {
+        "zh": "AI-Agent",
+        "en": "AI Agents"
+      },
+      {
+        "zh": "小程序开发",
+        "en": "Mini Programs"
+      },
+      {
+        "zh": "UI 设计",
+        "en": "UI Design"
+      },
+      {
+        "zh": "手绘",
+        "en": "Hand Drawing"
+      }
     ],
-    "mbti": "INFP",
-    "zodiac": "狮子座",
-    "zodiacDesc": "外放的热源。认定的舞台就站上去发光，对在意的人尤其慷慨——顺带自带 BGM。",
-    "mbtiDesc": "安静的理想主义者。外壳柔软、内核有主见；靠感受导航，靠把喜欢的事做成日常落地。",
-    "_todo": ["identity", "now", "skills", "mbti", "zodiac", "zodiacDesc", "mbtiDesc", "links[].href（其余链接地址待核）"]
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/coconuttree0730",
+        "icon": "/icons/github.svg",
+        "mono": true
+      },
+      {
+        "label": {
+          "zh": "邮箱",
+          "en": "Email"
+        },
+        "href": "#contact",
+        "action": "contact",
+        "icon": "/icons/mail.svg"
+      },
+      {
+        "label": "RSS",
+        "href": "/rss.xml",
+        "icon": "/icons/rss.svg"
+      }
+    ],
+    "mbti": {
+      "zh": "INFP",
+      "en": "INFP"
+    },
+    "zodiac": {
+      "zh": "狮子座",
+      "en": "Leo"
+    },
+    "zodiacDesc": {
+      "zh": "外放的热源。认定的舞台就站上去发光，对在意的人尤其慷慨——顺带自带 BGM。",
+      "en": "An outgoing heat source. Once I claim a stage I step up and shine — especially generous with the people I care about, theme music included."
+    },
+    "mbtiDesc": {
+      "zh": "安静的理想主义者。外壳柔软、内核有主见；靠感受导航，靠把喜欢的事做成日常落地。",
+      "en": "A quiet idealist. Soft on the outside, opinionated at the core; I navigate by feel and land things by turning what I love into daily routine."
+    },
+    "_todo": [
+      "identity",
+      "now",
+      "skills",
+      "mbti",
+      "zodiac",
+      "zodiacDesc",
+      "mbtiDesc",
+      "links[].href（其余链接地址待核）"
+    ]
   },
   "works": {
     "_comment": "作品集页（/works/，2026-09-12 建，当晚两轮改版：精简卡面 → 分类卷宗夹）唯一数据源。列表页 = 卷宗夹轨道：cats 每项一个侧开口文件夹，点击弹窗展示该分类卡片（弹层内卡片仍是「编号+标题+大封面」，链 /works/<no>/ 详情页）。item.cat 对应 cats[].id；item 的 desc/tags/status/year 由详情页消费；href 是详情页「访问项目」按钮外链。cover 是纹样变体（grid/stripes/rings/dots/bars/cross），有真图填 img。letter 是文件夹侧签的卷宗字母。status「上线」红章。01 为本站真实条目，其余占位。",
@@ -53,11 +230,49 @@
       "cat 分类归属是拍的，正式项目就位后重新归类即可"
     ],
     "cats": [
-      { "id": "site", "letter": "A", "name": "站点", "en": "SITES", "cover": "grid", "img": "/works/folder-site.jpeg", "imgAlt": "Chibi character coding at desktop with coffee" },
-      { "id": "engine", "letter": "B", "name": "工程", "en": "ENGINE", "cover": "bars", "img": "/works/folder-engine.jpeg", "imgAlt": "Chibi character focused on laptop programming" },
-      { "id": "app", "letter": "C", "name": "应用", "en": "APPS", "cover": "dots", "img": "/works/folder-app.jpeg", "imgAlt": "Cool chibi character in hoodie giving thumbs up" },
-      { "id": "craft", "letter": "D", "name": "设计手绘", "en": "CRAFT", "cover": "stripes", "img": "/works/folder-craft.jpeg", "imgAlt": "Chibi artist painting colorful monster on easel" },
-      { "id": "inbox", "letter": "E", "name": "待归档", "en": "INBOX", "cover": "cross" }
+      {
+        "id": "site",
+        "letter": "A",
+        "name": "站点",
+        "en": "SITES",
+        "cover": "grid",
+        "img": "/works/folder-site.jpeg",
+        "imgAlt": "Chibi character coding at desktop with coffee"
+      },
+      {
+        "id": "engine",
+        "letter": "B",
+        "name": "工程",
+        "en": "ENGINE",
+        "cover": "bars",
+        "img": "/works/folder-engine.jpeg",
+        "imgAlt": "Chibi character focused on laptop programming"
+      },
+      {
+        "id": "app",
+        "letter": "C",
+        "name": "应用",
+        "en": "APPS",
+        "cover": "dots",
+        "img": "/works/folder-app.jpeg",
+        "imgAlt": "Cool chibi character in hoodie giving thumbs up"
+      },
+      {
+        "id": "craft",
+        "letter": "D",
+        "name": "设计手绘",
+        "en": "CRAFT",
+        "cover": "stripes",
+        "img": "/works/folder-craft.jpeg",
+        "imgAlt": "Chibi artist painting colorful monster on easel"
+      },
+      {
+        "id": "inbox",
+        "letter": "E",
+        "name": "待归档",
+        "en": "INBOX",
+        "cover": "cross"
+      }
     ],
     "items": [
       {
@@ -68,7 +283,12 @@
         "desc": "你正在看的这个网站。绿幕视频抽帧、抠图、打包成雪碧图，指针方向驱动人物转头帧序；全站纸感档案视觉，Astro 纯静态构建。",
         "year": "2026",
         "status": "上线",
-        "tags": ["Astro", "Pagefind", "Canvas / WebP", "Cloudflare Pages"],
+        "tags": [
+          "Astro",
+          "Pagefind",
+          "Canvas / WebP",
+          "Cloudflare Pages"
+        ],
         "href": "https://github.com/coconuttree0730/iam-daidai",
         "cover": "grid",
         "img": "/works/01.png"
@@ -81,7 +301,10 @@
         "desc": "把日常重复劳动交给智能体编排：任务拆解、工具调用、结果回收的一条龙小实验。",
         "year": "2026",
         "status": "整理中",
-        "tags": ["AI-Agent", "Python"],
+        "tags": [
+          "AI-Agent",
+          "Python"
+        ],
         "href": "",
         "cover": "rings",
         "img": ""
@@ -94,7 +317,10 @@
         "desc": "一个克制到只有三屏的记账小程序，练手也是练心。",
         "year": "2025",
         "status": "归档",
-        "tags": ["小程序", "UI 设计"],
+        "tags": [
+          "小程序",
+          "UI 设计"
+        ],
         "href": "",
         "cover": "dots",
         "img": ""
@@ -107,7 +333,10 @@
         "desc": "Java 后端的起步脚手架：鉴权、日志、部署流水线一次配齐，开新项目直接抄家。",
         "year": "2025",
         "status": "归档",
-        "tags": ["Java", "Spring"],
+        "tags": [
+          "Java",
+          "Spring"
+        ],
         "href": "",
         "cover": "bars",
         "img": ""
@@ -120,7 +349,10 @@
         "desc": "临摹与再设计：把每天看到的好界面拆开重装，存档在此。",
         "year": "2025",
         "status": "整理中",
-        "tags": ["UI 设计", "手绘"],
+        "tags": [
+          "UI 设计",
+          "手绘"
+        ],
         "href": "",
         "cover": "stripes",
         "img": ""
@@ -133,7 +365,9 @@
         "desc": "铅笔与马克笔的日常涂鸦扫描件，不成体系，但都在场。",
         "year": "2024",
         "status": "归档",
-        "tags": ["手绘"],
+        "tags": [
+          "手绘"
+        ],
         "href": "",
         "cover": "cross",
         "img": ""
@@ -146,7 +380,9 @@
         "desc": "空档案袋一枚——下一个想做的事还没定名字。",
         "year": "—",
         "status": "空白",
-        "tags": ["待填"],
+        "tags": [
+          "待填"
+        ],
         "href": "",
         "cover": "grid",
         "img": ""
@@ -159,7 +395,14 @@
         "desc": "基于 Spring Boot + Vue3 的全栈智能健身房管理平台，覆盖会员、教练、管理端完整业务流程。集成 AI Agent 决策与编排，支持自然语言对话实现约课、购卡、查数据等操作，结合 RAG 知识库实现智能问答。",
         "year": "2025",
         "status": "上线",
-        "tags": ["Spring Boot", "Vue3", "PostgreSQL", "Redis", "AI Agent", "RAG"],
+        "tags": [
+          "Spring Boot",
+          "Vue3",
+          "PostgreSQL",
+          "Redis",
+          "AI Agent",
+          "RAG"
+        ],
         "href": "https://github.com/coconuttree0730/ai-powered-fitness-system",
         "cover": "rings",
         "img": "/works/fitness-index.gif"
@@ -167,19 +410,73 @@
     ]
   },
   "outro": {
-    "quote": "把喜欢的事做成日常。",
-    "intro": "DD和PP有个约定，不把喜欢寄给未来，不把热爱留在计划里。想见就见面，想出发就出发，把每一件让眼睛发亮的小事，都安放进日复一日的生活里。因为他们相信，把喜欢的事做成日常。",
+    "quote": {
+      "zh": "把喜欢的事做成日常。",
+      "en": "Make what you love part of every day."
+    },
+    "intro": {
+      "zh": "DD和PP有个约定，不把喜欢寄给未来，不把热爱留在计划里。想见就见面，想出发就出发，把每一件让眼睛发亮的小事，都安放进日复一日的生活里。因为他们相信，把喜欢的事做成日常。",
+      "en": "DD and PP have a pact: never mail what you love to the future, never leave passion sitting in a plan. Meet when you want to meet, set off when you want to go — tuck every small thing that makes your eyes light up into the rhythm of ordinary days. Because they believe in making what you love part of every day."
+    },
     "contact": {
-      "heading": "联系我",
-      "note": "有合作或想法，直接写信给我。",
-      "consent": "已知晓并同意：所填信息仅用于回复本次留言；本站不留存副本，来信仅存于站长邮箱。回复该邮件即可要求删除。",
+      "heading": {
+        "zh": "联系我",
+        "en": "Contact me"
+      },
+      "note": {
+        "zh": "有合作或想法，直接写信给我。",
+        "en": "Have a project or an idea? Just write to me."
+      },
+      "consent": {
+        "zh": "已知晓并同意：所填信息仅用于回复本次留言；本站不留存副本，来信仅存于站长邮箱。回复该邮件即可要求删除。",
+        "en": "I understand and agree: the information I provide is used only to reply to this message. This site keeps no copy — your mail lives solely in the owner’s inbox, and replying to it is enough to request deletion."
+      },
       "fields": [
-        { "name": "name", "label": "Full Name", "type": "text", "placeholder": "Full Name" },
-        { "name": "email", "label": "Email Address", "type": "email", "placeholder": "Email Address" },
-        { "name": "message", "label": "Your Message", "type": "textarea", "placeholder": "Your Message" }
+        {
+          "name": "name",
+          "label": {
+            "zh": "Full Name",
+            "en": "Full Name"
+          },
+          "type": "text",
+          "placeholder": {
+            "zh": "Full Name",
+            "en": "Full Name"
+          }
+        },
+        {
+          "name": "email",
+          "label": {
+            "zh": "Email Address",
+            "en": "Email Address"
+          },
+          "type": "email",
+          "placeholder": {
+            "zh": "Email Address",
+            "en": "Email Address"
+          }
+        },
+        {
+          "name": "message",
+          "label": {
+            "zh": "Your Message",
+            "en": "Your Message"
+          },
+          "type": "textarea",
+          "placeholder": {
+            "zh": "Your Message",
+            "en": "Your Message"
+          }
+        }
       ],
-      "submit": "Send Message",
-      "submitZh": "发送消息"
+      "submit": {
+        "zh": "Send Message",
+        "en": "Send Message"
+      },
+      "submitZh": {
+        "zh": "发送消息",
+        "en": "Send message"
+      }
     }
   }
 }

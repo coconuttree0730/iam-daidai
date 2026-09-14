@@ -1,0 +1,87 @@
+---
+// ── 语言切换器（2026-09-14 i18n，方案 A）────────────────────────────────
+//
+// 形态：单枚链接（不是下拉）——本站只有两种语言，下拉是多余的一层交互，
+// 且会与紧邻的「公告」下拉（Announce.astro）在视觉上打架（两个同形的
+// 浮层触发器并排，用户分不清哪个弹什么）。
+//
+// 文案策略：显示**目标**语言而非当前语言——「中」出现在英文页（点了回
+// 中文）、「EN」出现在中文页（点了去英文）。这是双语站的主流做法：用户
+// 扫视页头时找的是「我想要的那个语言」，不是「我现在在哪」。
+// aria-label 同理（head.switchTo 字典项就是按这个语义写的）。
+//
+// 位置：PageHead 的 .head__end 里（返回链之后、公告之前）。
+//
+// ⚠️ 与 --chrome-axis 的关系：本组件新增一枚控件会改变 .head__end 的宽度，
+//    但那条约对齐轴是 Base.astro 用 getBoundingClientRect() **实测**得出
+//    的（见 Base.astro 的 syncAxis），加控件后自动重算，**不需要改任何
+//    消费方**。这正是当初「必须实测、不要写死 right: 20px」那条裁定的红利。
+//
+// ⚠️ 手机档（≤640px）：.head__end 届时已有三件（公告 + 章，返回链在该档
+//    隐藏），再挤一枚会有压力。故本档收窄到只显示两字标签、去掉方框描边
+//    （见下方 media query），复用返回链让位后腾出的宽度。
+import { LOCALES, localeMeta, switchLocalePath, getLocaleFromPath, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+
+/* 目标语言：本站只有两种语言，取「非当前」的那一门。
+   写 filter 而不是硬编码，是为了将来加第三种语言时行为仍然合理
+   （届时应改为下拉，这里会退化成「取第一个非当前语言」）。 */
+const target = (LOCALES.find((l) => l !== locale) ?? locale) as Locale;
+const href = switchLocalePath(Astro.url.pathname, target);
+const meta = localeMeta(target);
+---
+
+<a class="lang" href={href} hreflang={meta.htmlLang} rel="alternate" title={meta.name}>
+  {meta.label}
+</a>
+
+<style>
+  /* 与 .tag--link 同一视觉语言（描边 chip），保证页头右簇风格统一。
+     不用 .tag 类是因为那个类由 PageHead 定义、且带 Archivo Black 字体，
+     这里想用更小的字号与自适应的宽度。 */
+  .lang {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 固定宽度避免「中」与「EN」的字宽差导致页头右簇抖动（切页时跳一下）。
+       桌面 34px 容得下两字符；手机档见下方 media query。 */
+    min-width: 34px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.3);
+    border-radius: 4px;
+    font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    color: var(--c-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .lang:hover,
+  .lang:focus-visible {
+    color: var(--c-red);
+    border-color: var(--c-red);
+    outline: none;
+  }
+
+  /* 手机档：页头宽度优先给可交互控件。去掉描边方框改为纯文字，
+     与「公告」按钮的图标+文字形态在视觉层级上不冲突（后者是主操作）。
+     ⚠️ 不要在这一档隐藏整个组件——那是本页唯一的语言入口，
+     与 .back 的情况不同（英文用户没有系统级的「切换语言」手势）。 */
+  @media (max-width: 640px) {
+    .lang {
+      min-width: 0;
+      padding: 0 2px;
+      border-color: transparent;
+      font-size: 12px;
+    }
+  }
+</style>

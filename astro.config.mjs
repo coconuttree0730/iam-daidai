@@ -6,6 +6,7 @@ import sitemap from '@astrojs/sitemap';
 import mdx from '@astrojs/mdx';
 import expressiveCode from 'astro-expressive-code';
 import remarkReadingTime from './src/plugins/remark-reading-time.ts';
+import rehypeExternalLinks from './src/plugins/rehype-external-links.ts';
 
 // expressive-code 双主题绑定（Cactus 同款契约，2026-09-12 暗色模式）：
 // 首个主题决定基准 type，另一枚取相反 type，各自生成 [data-theme='dark'|'light']
@@ -61,6 +62,40 @@ function pagefindIndexer() {
   };
 }
 
+// ── i18n（2026-09-14 建，方案 A：默认语言无前缀）────────────────────────
+//
+// 决策依据（用户裁定 + 行业通用做法）：
+//   · 子目录架构（而非子域名 / ccTLD）——个人站的默认选择，权威度全部集中在
+//     主域，不产生权重分裂。
+//   · prefixDefaultLocale: false —— 这是 Astro 的**型别默认值**，也是本次
+//     方案的核心：中文地址保持 iam.daidai.click/ 、/works/ 、/blog/ 一字不变，
+//     英文挂 /en/ 。避免一次性迁移线上 28 条已收录 URL（含 /tags/前端/ 等
+//     三条百分号编码的中文 slug，_redirects 的 :splat 对它们有边界风险）。
+//
+// ⚠️ 文件结构契约：prefixDefaultLocale: false 时，src/pages/ 根目录
+//    **就是中文的家**——不能再建 src/pages/zh/，否则会生成 /zh/... 这个
+//    我们不想保留的路径（Astro 要求文件结构与 URL 结构严格对应）。
+//    英文页只在 src/pages/en/ 下，中文页原地不动。
+//
+// ⚠️ 语言切换器不能用「当前路径删/加 /en 前缀」的字符串拼接：中文与英文的
+//    URL 层级不对齐（/works/ ↔ /en/works/）。必须走 src/i18n/utils.ts 的
+//    显式映射（内部用 getRelativeLocaleUrl 保证与配置同源）。
+const SITE_URL = 'https://daidai.click';
+const I18N = {
+  locales: ['zh', 'en'],
+  defaultLocale: 'zh',
+  routing: { prefixDefaultLocale: false },
+};
+
+// sitemap 的 i18n 选项与上方 I18N 必须同源：它决定 sitemap 里每个 <url>
+// 是否输出 <xhtml:link rel="alternate" hreflang>。locales 的值是
+// 「locale → hreflang 值」的映射，故 zh 要写成语言-地区形式 zh-CN
+// （纯 'zh' 也是合法 hreflang，但 GSC 对带地区的写法报告更细致）。
+const SITEMAP_I18N = {
+  defaultLocale: I18N.defaultLocale,
+  locales: { zh: 'zh-CN', en: 'en' },
+};
+
 // 纯静态输出：构建产物 dist/ 可直接托管到 Cloudflare Pages / Netlify / Vercel
 // 不需要常驻 Node 进程，没有服务端运行时。
 //
@@ -71,16 +106,25 @@ function pagefindIndexer() {
 const LOCAL_TMP = '/home/vii/.tmp';
 
 export default defineConfig({
-  site: 'https://daidai.click',
+  site: SITE_URL,
   output: 'static',
+  i18n: I18N,
   integrations: [
     expressiveCode(expressiveCodeOptions),
-    sitemap(),
+    sitemap({ i18n: SITEMAP_I18N }),
     mdx(),
     pagefindIndexer(),
   ],
   markdown: {
     remarkPlugins: [remarkReadingTime],
+    /* 外链自动补 target="_blank" + rel + .ext-link 标记（2026-09-14）。
+       siteOrigin 取本站 origin，用于「同域绝对 URL 不算外链」的判定——
+       硬编码域名换域时会漏，这里从 site 推导（见 plugins/rehype-external-links.ts）。
+       ⚠️ Astro.site 在配置对象内尚不可用（就是本对象自己在定义它），
+       所以直接写字面量；**改 site 时这一行要同改**。 */
+    rehypePlugins: [
+      [rehypeExternalLinks, { siteOrigin: 'https://daidai.click' }],
+    ],
   },
   server: {
     host: true,

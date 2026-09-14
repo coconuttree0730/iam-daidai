@@ -19,13 +19,32 @@ import ArchiveCard from './ArchiveCard.astro';
 import Announce from './Announce.astro';
 import BasicDrawer from './BasicDrawer.astro';
 import ContactForm from './ContactForm.astro';
+import LangSwitch from './LangSwitch.astro';
 import SiteMark from './SiteMark.astro';
 import ThemeToggle from './ThemeToggle.astro';
 import atlas from '../data/atlas-meta.json';
 import scrollMeta from '../data/scroll-meta.json';
 import profile from '../data/profile.json';
+import { pickLocalized, useTranslations, interpolate, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
 
-const { hero, cards, infoBar, outro } = profile;
+interface Props {
+  /** 页面语言。中文首页不传 = 'zh'（现有调用零改动）；英文首页传 'en'。
+      第 2 期起真实生效：四卡菜单名 / infoBar / 收尾区块 /
+      基本信息抽屉 / 联系表单的文案都按它选边（字段内联 {zh,en}）。
+      例外（2026-09-14 裁定）：hero 大字区（描边底字 / 实心大字 / 中文标题 /
+      花体）是艺术封面，**不计入中英文切换**——profile.json 里 zh/en 两值
+      写死相同，L() 无论拿哪边都一样。 */
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+
+const t = useTranslations(locale);
+/** 双语字段取值：`{zh,en}` → 当前语言；非双语值（theta/lookFrame/no…）原样返回 */
+const L = <T,>(v: T): T => pickLocalized(v, locale);
+
+const { hero, infoBar, outro } = profile;
 const { contentBox } = atlas;
 const personInset = [contentBox.left, contentBox.top, contentBox.right, contentBox.bottom].join(' ');
 
@@ -39,17 +58,43 @@ const frameWarp = atlas.frameWarp
   ? atlas.frameWarp.points.map(([p, f]) => `${p}:${f}`).join(' ')
   : undefined;
 
+// 四卡（全站导航）：cards[].title / cards[].href 都是双语字段。景深与角度
+// 是版式契约，不参与翻译。href 已在数据层分好语言（英文版指向 /en/…）。
+const cards = profile.cards.map((card) => ({
+  ...card,
+  title: L(card.title),
+  href: L(card.href),
+}));
+
 // 景深：以最大张角为基准归一化，外沿卡片位移更大（看起来离观众更近）
 const maxTheta = Math.max(...cards.map((card) => Math.abs(card.theta))) || 1;
 const cardsWithDepth = cards.map((card) => ({
   ...card,
   depth: Number((0.55 + (Math.abs(card.theta) / maxTheta) * 0.75).toFixed(3)),
 }));
+
+// 收尾区块文案（双语）
+const outroQuote = L(outro.quote);
+const outroIntro = L(outro.intro);
+// hero 大字区（描边底字 / 实心大字 / 中文标题 / 花体 / 侧标）：艺术封面，
+// 不随 locale 切换（2026-09-14 裁定）。数据层 zh/en 同值，L() 在此恒等——
+// 见 profile.json 的 _heroComment。若出现 zh/en 异值即是退回「彻底切换」。
+const heroGhost = L(hero.ghostEn);
+const heroSolidLeft = L(hero.solidLeft);
+const heroSolidRight = L(hero.solidRight);
+const heroTitleZh = L(hero.titleZh);
+const heroScript = L(hero.script);
+const heroIndexLabel = L(hero.indexLabel);
+const infoBarItems = infoBar.map((item) => ({
+  label: L(item.label),
+  value: item.value === null ? null : L(item.value),
+}));
 ---
 
 <!-- 滚动 scrub（scroll-scrub.js）：滚动素材参数挂在 hero 舞台上，单屏原地融合——
      页面不滚动，纵向滚轮/触摸输入驱动 193 帧序列在人物位原地播放 -->
 <main
+  id="main"
   class="stage"
   data-sprite-view
   data-segments={segments}
@@ -75,15 +120,15 @@ const cardsWithDepth = cards.map((card) => ({
        位移见 hero.css 的 .stage-bg-shift。纯装饰、不可交互。 -->
   <div class="stage-bg-shift" aria-hidden="true"></div>
 
-  <div class="ghost" aria-hidden="true">{hero.ghostEn}</div>
+  <div class="ghost" aria-hidden="true">{heroGhost}</div>
 
   <h1 class="title">
-    <span class="sr-only">{hero.titleZh} · {hero.solidLeft} {hero.solidRight}</span>
+    <span class="sr-only">{heroTitleZh} · {heroSolidLeft} {heroSolidRight}</span>
     <span class="title-en" aria-hidden="true">
-      <em class="w-left">{hero.solidLeft}</em>
-      <em class="w-right">{hero.solidRight}</em>
+      <em class="w-left">{heroSolidLeft}</em>
+      <em class="w-right">{heroSolidRight}</em>
     </span>
-    <span class="title-zh" aria-hidden="true">{hero.titleZh}</span>
+    <span class="title-zh" aria-hidden="true">{heroTitleZh}</span>
   </h1>
 
   <div class="hero-person">
@@ -93,7 +138,7 @@ const cardsWithDepth = cards.map((card) => ({
       width={atlas.cellWidth}
       height={atlas.cellHeight}
       role="img"
-      aria-label={`鼠标跟随人物立绘，共 ${atlas.frameCount} 帧`}
+      aria-label={interpolate(t('hero.figureAria'), { n: atlas.frameCount })}
     ></canvas>
     <!-- 滚动 scrub 素材画布：与 hero 画布同位叠放，滚动时原地换血（f0 已按
          墨迹尺度对齐，见 index.astro 的 .scroll-figure 与 ScrollStage 注释）；
@@ -108,7 +153,7 @@ const cardsWithDepth = cards.map((card) => ({
     ></canvas>
   </div>
 
-  <nav class="fan" aria-label="档案目录">
+  <nav class="fan" aria-label={t('hero.fanAria')}>
     {cardsWithDepth.map((card) => <ArchiveCard {...card} />)}
   </nav>
 
@@ -129,15 +174,17 @@ const cardsWithDepth = cards.map((card) => ({
        本层要压在人物之上（终态是"人物 + 背景 + 黑条 + 两块内容"），
        但 .chrome 是 pointer-events:none 的纯装饰层，塞进去表单收不到点击。 -->
   <div class="outro" aria-labelledby="outro-quote">
-    <blockquote class="outro-quote" id="outro-quote">{outro.quote}</blockquote>
-    <p class="outro-intro">{outro.intro}</p>
+    <blockquote class="outro-quote" id="outro-quote">{outroQuote}</blockquote>
+    <p class="outro-intro">{outroIntro}</p>
   </div>
 
   <!-- 联系表单（2026-09-13 抽为共享组件）：markup + toast/提交脚本都在
        src/components/ContactForm.astro，皮肤在 contact-form.css。
        此处不再传 class —— 因它身处 .stage 内，hero.css 的 `.stage .outro-contact`
-       自动接管首页专属的绝对定位与升起动画（本页是唯一消费者）。 -->
-  <ContactForm />
+       自动接管首页专属的绝对定位与升起动画（本页是唯一消费者）。
+       locale 必须透传：表单文案（标题/说明/勾选/按钮/toast）全在 profile.json，
+       不传会退回中文。 -->
+  <ContactForm locale={locale} />
 
   <!-- 顶部控件栏（2026-09-13 第二轮改版）：
        与 .chrome 平级、**不在 .chrome 内部** —— .chrome 是 aria-hidden 且
@@ -157,10 +204,13 @@ const cardsWithDepth = cards.map((card) => ({
       <SiteMark />
     </div>
 
-    <!-- 右上：公告 + 昼夜切换章（两件都是真控件） -->
+    <!-- 右上：语言切换 + 公告 + 昼夜切换章（三件都是真控件）。
+         顺序与 PageHead 的 .head__end 保持一致（返回链/语言 → 公告 → 章），
+         两处页头的右簇是同一套视觉语言，用户跨页不需要重新学习位置。 -->
     <div class="top-bar__end">
-      <Announce />
-      <ThemeToggle />
+      <LangSwitch locale={locale} />
+      <Announce locale={locale} />
+      <ThemeToggle locale={locale} />
     </div>
   </div>
 
@@ -169,12 +219,12 @@ const cardsWithDepth = cards.map((card) => ({
 
     <div class="side-index">
       <span class="matrix"></span>
-      <span class="row"><i class="dash"></i><small>{hero.indexLabel}</small></span>
+      <span class="row"><i class="dash"></i><small>{heroIndexLabel}</small></span>
       <span class="ruler"></span>
     </div>
 
     <div class="mark-br">
-      <span class="script">{hero.script}</span>
+      <span class="script">{heroScript}</span>
       <span class="underline"></span>
       <span class="row">
         <i class="lead"></i>
@@ -193,7 +243,7 @@ const cardsWithDepth = cards.map((card) => ({
     {
       // 左右两组：黑条在人物之下（z 4 < 5），居中排布会被人物躯干压住，
       // 拆成两簇分置两侧，让文字从人物身边露出。每组内用红色竖线分隔。
-      [infoBar.slice(0, 2), infoBar.slice(2)].map((group) => (
+      [infoBarItems.slice(0, 2), infoBarItems.slice(2)].map((group) => (
         <div class="group">
           {group.map((item, index) => (
             <Fragment>
@@ -212,8 +262,9 @@ const cardsWithDepth = cards.map((card) => ({
 <!-- 基本信息档案抽屉（#basic，2026-09-13）：必须是 .stage 的**兄弟节点**而不是
      后代——touch-action 按命中链取交集，.stage 的 none 会吞掉手机档 sheet 的
      滚动手势；站到 .stage 外面天然豁免（见 BasicDrawer.astro 头注）。
-     打开时给 :root 打 data-file-open，scrub / 指针驱动见标记让位。 -->
-<BasicDrawer />
+     打开时给 :root 打 data-file-open，scrub / 指针驱动见标记让位。
+     locale 必须透传：抽屉里的档案文案（姓名/身份/技能/性格）全在 profile.json。 -->
+<BasicDrawer locale={locale} />
 
 <script>
   /* ── 收尾区块的「到位」标记 ────────────────────────────────────────

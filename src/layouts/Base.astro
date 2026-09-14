@@ -6,6 +6,8 @@
 // og-image 静态端点已建成，文章详情页会自动传入）。
 import '../styles/global.css';
 import ScrollDock from '../components/ScrollDock.astro';
+import { LOCALES, localeMeta, switchLocalePath, DEFAULT_LOCALE, useTranslations } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
 
 interface Props {
   title: string;
@@ -25,6 +27,10 @@ interface Props {
       短页/锁滚页不需要特殊处理：靠可见性阈值淡入，不滚就永不出现。
       横向位置不自带 20px，而是对齐 --chrome-axis（见上方脚本注释）。 */
   dock?: boolean;
+  /** 页面语言。中文页（src/pages/ 根）**不传**，走缺省 'zh'——这样现有
+      中文页面的调用点一行都不用改。英文页（src/pages/en/）传 locale="en"。
+      影响三处：<html lang>、og:locale、hreflang alternate 集合。 */
+  locale?: Locale;
 }
 
 const {
@@ -36,7 +42,11 @@ const {
   modifiedTime,
   noindex = false,
   dock = true,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+const meta = localeMeta(locale);
+const t = useTranslations(locale);
 
 // canonical：Astro 静态构建下 pathname 为生成路由（directory format 带尾斜杠），
 // 保险起见统一补齐；中文路径由 URL 构造器按规范百分号编码。
@@ -45,12 +55,31 @@ const normPath = rawPath.endsWith('/') ? rawPath : `${rawPath}/`;
 const canonical = new URL(normPath, Astro.site).href;
 const rssHref = new URL('rss.xml', Astro.site).href;
 
+/* ── hreflang alternate 集合（2026-09-14 i18n）──────────────────────────
+ * 为当前页的每种语言各输出一条 <link rel="alternate" hreflang>，加上
+ * x-default 指向默认语言。Google 要求**双向声明**（中文页要指英文页、
+ * 英文页也要指回中文页），两侧互为 alternate 才算完整声明——因为本站
+ * 两种语言一一对应（不做 fallback 回退），所以这里能无条件生成全集。
+ *
+ * ⚠️ 将来若出现「某页只有中文、没有英文对页」的情况，这里会声明一个
+ *    不存在的 URL → 必须改为按实际存在的对页过滤（配合 i18n.fallback
+ *    的 rewrite 策略）。当前保持全集声明是正确的，因为英文树与中文树
+ *    页面一一对应。
+ *
+ * 尾斜杠：与 canonical 同源（normPath），保证 alternate 与 canonical
+ * 指向同一个规范化地址。 */
+const alternates = LOCALES.map((loc) => ({
+  hreflang: localeMeta(loc).htmlLang,
+  href: new URL(switchLocalePath(normPath, loc), Astro.site).href,
+}));
+const xDefault = alternates.find((a) => a.hreflang === localeMeta(DEFAULT_LOCALE).htmlLang);
+
 const iso = (d?: Date) => d?.toISOString();
 const ogImage = image ? new URL(image, Astro.site).href : undefined;
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang={meta.htmlLang}>
   <head>
     <meta charset="UTF-8" />
     <!-- 主题初始化：必须在首帧前同步执行（防 FOUC）。
@@ -84,12 +113,21 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
       title="Daidai 档案馆"
       href={rssHref}
     />
+    <!-- hreflang 双向声明（2026-09-14 i18n）：每门语言一条 + x-default。
+         x-default 指向默认语言（中文），符合 Google 对「未匹配用户语言时的
+         兜底版本」的定义。 -->
+    {
+      alternates.map((a) => (
+        <link rel="alternate" hreflang={a.hreflang} href={a.href} />
+      ))
+    }
+    {xDefault && <link rel="alternate" hreflang="x-default" href={xDefault.href} />}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content={type} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:site_name" content="Daidai 档案馆" />
-    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content={meta.siteName} />
+    <meta property="og:locale" content={meta.ogLocale} />
     {type === 'article' && publishedTime && (
       <meta property="article:published_time" content={iso(publishedTime)} />
     )}
@@ -97,9 +135,17 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
       <meta property="article:modified_time" content={iso(modifiedTime)} />
     )}
     {ogImage && <meta property="og:image" content={ogImage} />}
+    <!-- icon 标签图片更换-->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
   </head>
   <body>
+    <!-- 键盘跳转链接（2026-09-14 无障碍补课，即 Cactus 的 SkipLink 同职能）：
+         视觉隐藏，Tab 聚焦时从视口上方落下，点击跳过页头直达 <main id="main">。
+         文案过 t() 走 i18n 字典；颜色全部消费 --c-*，暗色模式自动翻转——
+         不含 data-theme 祖先选择器，因此可以留在本组件的 scoped 样式里。
+         各页面的 <main> 已统一带 id="main"（HeroStage 舞台与全部内页，共 20 处）。 -->
+    <a class="skip-link" href="#main">{t('a11y.skip')}</a>
     <!-- 昼夜切换章不再由壳层渲染（2026-09-13 第二轮，用户裁定 Q10(b)）：
          首页 = HeroStage 的固定顶栏 .top-bar 里；内页 = PageHead 的 .head__end
          里。标记与样式见 src/components/ThemeToggle.astro。壳层只保留下面这份
@@ -147,6 +193,37 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
       });
     </script>
     <slot />
-    {dock && <ScrollDock />}
+    {dock && <ScrollDock locale={locale} />}
   </body>
 </html>
+
+<style>
+  /* 键盘跳转链接（仅键盘用户可见）：平时停在视口上方，:focus-visible 落下。
+     层级 900 > 全站已知最高 860（global.css 的 .dock/.rope 一族），盖住一切
+     浮动控件。纸片底 + 红章描边 + 6px 圆角，与页头 chip / PostActions 按钮
+     同一视觉语言；颜色全走 --c-*，暗色模式自动换肤。 */
+  .skip-link {
+    position: fixed;
+    top: -64px;
+    left: 16px;
+    z-index: 900;
+    padding: 9px 14px;
+    background: var(--c-paper);
+    border: 1.5px solid var(--c-red);
+    border-radius: 6px;
+    color: var(--c-ink);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-decoration: none;
+    transition: top 0.15s ease;
+  }
+  .skip-link:focus-visible {
+    top: 12px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skip-link {
+      transition: none;
+    }
+  }
+</style>

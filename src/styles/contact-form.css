@@ -182,6 +182,22 @@
   border-left: 2px solid var(--red);
   padding-left: 8px;
 }
+/* 行内错误提示文字（2026-09-14 第 2 期加）：文案由脚本写在 data-msg 上，
+   经 content: attr() 渲染。好处是文案随语言走（脚本从 data-msgs 取当前
+   语言的字符串），而 CSS 不需要知道自己处于哪种语言。 */
+.outro-consent.is-error::after {
+  content: attr(data-msg);
+  display: block;
+  flex-basis: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--red);
+}
+.outro-consent.is-error[data-msg=""]::after,
+.outro-consent.is-error:not([data-msg])::after {
+  content: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .outro-consent.is-error {
     animation: none;

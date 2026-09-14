@@ -2,8 +2,12 @@
 // 标签索引页（2026-09-12）：/tags/ —— 全部标签 + 文章计数，行式档案风。
 // 计数按已发布文章统计（draft 在生产构建被过滤）；排序：文章数降序，同数按名称。
 import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
 import PageHead from '../../components/PageHead.astro';
 import { getSortedPosts } from '../../data/posts';
+import '../../styles/sheet.css';
+import '../../styles/archive-chrome.css';
+import '../../styles/tags-index.css';
 
 const posts = await getSortedPosts();
 
@@ -16,18 +20,21 @@ for (const p of posts) {
 const tags = [...counts.entries()].sort(
   (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
 );
+const t = useTranslations('zh');
+
 ---
 
-<Base title="标签索引 · Daidai档案馆" description="博客板块 · 全部标签归档">
-  <main class="sheet">
+<Base title={`${t('section.tags.title')} · ${t('site.title')}`} description={t('section.tags.desc')}>
+  <main class="sheet" id="main">
     <PageHead
       no="NO.03"
       chips={[
-        { label: '索引', variant: 'red' },
+        { label: 'INDEX', variant: 'red' },
+        { label: '全部分类', href: '/categories/' },
         // 「博客」chip 与右侧的「← 返回博客」同一目的地，2026-09-13 按用户裁定删除
         { label: 'RSS', href: '/rss.xml' },
       ]}
-      back={{ label: '← 返回博客', href: '/blog/' }}
+      back={{ label: t('head.backBlog'), href: '/blog/' }}
     />
 
     {/* 页头（2026-09-12 晚参考 temp/标签索引.jpeg 重构）：左侧插画 =
@@ -45,18 +52,18 @@ const tags = [...counts.entries()].sort(
       />
       <div class="hero__text">
         <p class="en" aria-hidden="true">TAGS</p>
-        <h1>标签索引</h1>
+        <h1>{t('section.tags.title')}</h1>
       </div>
     </section>
 
     {
       tags.length === 0 ? (
-        <section class="stamp" aria-label="暂无标签">
-          <strong>暂无标签</strong>
-          <small>NO TAGS · 文章归档后在此建立索引</small>
+        <section class="stamp" aria-label={t('empty.noTags')}>
+          <strong>{t('empty.noTags')}</strong>
+          <small>{t('empty.noTagsNote')}</small>
         </section>
       ) : (
-        <section class="list-section" aria-label="标签列表">
+        <section class="list-section" aria-label={t('tags.list')}>
           <ul class="list" role="list">
             {tags.map(([name, count], i) => (
               <li>
@@ -85,7 +92,7 @@ const tags = [...counts.entries()].sort(
          手机档就没有通往 /blog/ 的站内路径了（只剩 站名 → 首页 → 03 卡 三跳）。
          这里把那一环补回来。桌面档不显示（页头 .head 是 sticky，返回链全程可见），
          两条入口严格互斥——与文章页 .postback 同一套机制与命名。 -->
-    <a class="postback" href="/blog/">← 返回博客</a>
+    <a class="postback" href="/blog/">{t('head.backBlog')}</a>
 
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
@@ -95,201 +102,6 @@ const tags = [...counts.entries()].sort(
 </Base>
 
 <style>
-  .sheet {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--c-paper);
-    color: var(--c-ink);
-    font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
-      'Microsoft YaHei', sans-serif;
-  }
-
-  /* 页头构图（参考 temp/标签索引.jpeg）：插画左，文字块右。
-     纸带 = 主题不变量 var(--c-band) 固定浅纸底（2026-09-12 晚用户裁定：深色主题下
-     页头保留白底，同博客横幅做法）；带内文字颜色因此钉死为浅色主题原值，
-     不消费会翻转的 --c-ink/--c-ghost */
-  .hero {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(10px, 3vw, 44px);
-    width: 100%;
-    background: var(--c-band);
-    padding: clamp(18px, 3.5vw, 44px) 20px 6px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  }
-  .hero__art {
-    /* 桌面上限 368px（2026-09-12 晚用户裁定：400px 时页头高 ~376px 偏高，矮 30px）；
-       移动端走下限 150px 不受影响 */
-    width: clamp(150px, 36vw, 368px);
-    height: auto;
-    flex-shrink: 0;
-  }
-  .hero__text {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(4px, 1vw, 12px);
-  }
-  .hero .en {
-    margin: 0;
-    font-family: 'Anton', Impact, sans-serif;
-    font-size: clamp(30px, 6vw, 82px);
-    line-height: 1;
-    letter-spacing: 0.04em;
-    color: transparent;
-    /* 描边色钉死浅色主题值 #c3c1be（纸带不翻转） */
-    -webkit-text-stroke: 1.2px #c3c1be;
-    user-select: none;
-    padding-left: clamp(0px, 1.5vw, 22px);
-  }
-  .hero h1 {
-    margin: 0;
-    font-weight: 900;
-    font-size: clamp(36px, 7.5vw, 104px);
-    line-height: 1;
-    letter-spacing: 0.02em;
-    /* 墨色钉死浅色主题值 #131211（纸带不翻转） */
-    color: #131211;
-  }
-
-  .list-section {
-    flex: 1;
-    padding: 26px clamp(20px, 4vw, 48px) 6px;
-  }
-  .list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .row {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 18px;
-    align-items: center;
-    padding: 16px 2px;
-    border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
-    color: inherit;
-    text-decoration: none;
-  }
-  .lead {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 120px;
-  }
-  .no {
-    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--c-red);
-  }
-  .count {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--c-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .name {
-    font-weight: 900;
-    font-size: 17px;
-    letter-spacing: 0.01em;
-    line-height: 1.35;
-  }
-  .arrow {
-    font-size: 16px;
-    color: var(--c-ink);
-    transition: transform 0.18s ease, color 0.18s ease;
-  }
-  .row:hover .name {
-    text-decoration: underline;
-    text-decoration-color: var(--c-red);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-  }
-  .row:hover .arrow {
-    color: var(--c-red);
-    transform: translateX(4px);
-  }
-
-  .stamp {
-    align-self: center;
-    margin-bottom: 40px;
-    padding: 14px 26px;
-    border: 2px solid var(--c-red);
-    border-radius: 6px;
-    color: var(--c-red);
-    text-align: center;
-    transform: rotate(-2.5deg);
-  }
-  .stamp strong {
-    display: block;
-    font-size: 18px;
-    font-weight: 900;
-    letter-spacing: 0.22em;
-  }
-  .stamp small {
-    display: block;
-    margin-top: 6px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-  }
-
-  /* ── 收尾导航（手机档专用，2026-09-13 第八轮）─────────────────────────
-     基类 display:none 让桌面档**字节级零变化**：display:none 的 flex item
-     不生成盒子，也不影响上面 .list-section 的 flex:1 分配。
-     ⚠️ .sheet 是 flex column → 必须 align-self:flex-start（配 width:fit-content）
-     才能收缩到文字宽，否则交叉轴 stretch 会把下划线拉成整行宽——作品页
-     .backhome 踩过同一个坑。左右 margin 取与 .list-section / .foot 相同的
-     水平内缩，保证与列表内容、页脚色块同一条轴。 */
-  .postback {
-    display: none;
-    align-self: flex-start;
-    width: fit-content;
-    align-items: center;
-    gap: 6px;
-    margin: 6px clamp(20px, 4vw, 48px) 22px;
-    padding-bottom: 2px;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-  .postback:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-  @media (max-width: 640px) {
-    .postback {
-      display: flex;
-    }
-  }
-
-  .foot {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 clamp(20px, 4vw, 48px) 26px;
-  }
-  .foot .dash {
-    width: 34px;
-    height: 5px;
-    background: var(--c-red);
-  }
-  .foot .barcode {
-    height: 14px;
-    width: 64px;
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--c-ink) 0 1px,
-      transparent 1px 2.4px,
-      var(--c-ink) 2.4px 4.4px,
-      transparent 4.4px 5.4px,
-      var(--c-ink) 5.4px 6.4px,
-      transparent 6.4px 8.4px
-    );
-  }
+  /* 版式已抽到 src/styles/tags-index.css（i18n 时为英文版共享）。
+     本页如需页面专有样式，写在这里。 */
 </style>

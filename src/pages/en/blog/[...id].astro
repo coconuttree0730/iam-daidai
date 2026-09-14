@@ -1,0 +1,141 @@
+---
+// 英文博客详情页（2026-09-14 i18n 第 1 期）：/en/blog/<post.id>/
+// 中文对应物 = src/pages/blog/[...id].astro。
+//
+// ⚠️ 内容回退策略（第 1 期，用户裁定「暂不做英文正文」）：
+//    正文渲染的是**中文原文**，界面外壳为英文。这不是遗漏，是刻意的阶段划分。
+//    页面上挂一条常驻说明（.fallback-note）明确告知，比静默显示中文诚实。
+//    英文正文的翻译是独立一期（content collections 加 lang 字段 / .md+.en.md 成对）。
+//
+// ⚠️ data-pagefind-body 这一期**不挂**：Pagefind 索引里只有中文正文，本页若
+//    标记为可检索正文，会把同一份中文内容重复索引一遍（且挂在与索引语言不符的
+//    /en/ URL 下）。等英文正文就位时连索引一起加。
+//
+// ⚠️ 订阅 / RSS 指向中文版 /rss.xml（源只有一个）。标签链接指向**中文** /tags/<t>/
+//    ——英文标签页是 noindex 的重复内容（见 en/tags/[tag].astro）。
+import { render } from 'astro:content';
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import ArticleToc from '../../../components/ArticleToc.astro';
+import { getSortedPosts, getFormattedDate } from '../../../data/posts';
+import { useTranslations, interpolate } from '../../../i18n/utils';
+import '../../../styles/post-detail.css';
+
+const t = useTranslations('en');
+
+export async function getStaticPaths() {
+  const posts = await getSortedPosts();
+  return posts.map((post, i) => ({
+    params: { id: post.id },
+    props: {
+      post,
+      newer: posts[i - 1] ?? null,
+      older: posts[i + 1] ?? null,
+    },
+  }));
+}
+
+const { post, newer, older } = Astro.props;
+const { Content, headings, remarkPluginFrontmatter } = await render(post);
+const minutes = remarkPluginFrontmatter?.minutes;
+const iso = post.data.publishDate.toISOString();
+---
+<Base
+  title={`${post.data.title} · ${t('site.title')}`}
+  description={post.data.description}
+  type="article"
+  publishedTime={post.data.publishDate}
+  modifiedTime={post.data.updatedDate}
+  locale="en"
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.03"
+      chips={[{ label: t('post.archiveChip'), variant: 'red' }]}
+      back={{ label: t('head.backBlog'), href: '/en/blog/' }}
+      locale="en"
+    />
+
+    <article class="post">
+      <div class="post-grid">
+        <header class="post-head">
+          <p class="en" aria-hidden="true">{t('post.notes')}</p>
+          <h1>{post.data.title}</h1>
+          <div class="meta">
+            <time datetime={iso}>{getFormattedDate(post.data.publishDate)}</time>
+            {minutes && <span class="sep" aria-hidden="true">·</span>}
+            {minutes && <span class="read">{interpolate(t('post.minutes'), { n: minutes })}</span>}
+            {post.data.updatedDate && (
+              <>
+                <span class="sep" aria-hidden="true">·</span>
+                <time datetime={post.data.updatedDate.toISOString()}>
+                  {interpolate(t('post.updated'), { d: getFormattedDate(post.data.updatedDate) })}
+                </time>
+              </>
+            )}
+            {post.data.tags.map((tag) => (
+              <a class="chip" href={`/tags/${tag}/`}>#{tag}</a>
+            ))}
+          </div>
+
+          <!-- 内容回退说明：正文是中文原文，明确告知读者。
+               刻意放在 .post-head **内部**（不单占网格行）——.post-grid 的四行
+               已被 post-head(1)/prose(2)/postnav(3)/postback(4) 占满，另起一行
+               需要重排整张网格；贴着页头跟随标题反而语义更顺。 -->
+          <p class="fallback-note">Post content is currently available in Chinese only.</p>
+        </header>
+
+        <ArticleToc headings={headings} locale="en" />
+
+        <div class="prose">
+          <Content />
+        </div>
+
+        {
+          (newer || older) && (
+            <nav class="postnav" aria-label={t('post.navAria')}>
+              {newer ? (
+                <a class="navcard" href={`/en/blog/${newer.id}/`}>
+                  <small>{t('post.newer')}</small>
+                  <strong>{newer.data.title}</strong>
+                </a>
+              ) : (
+                <span class="navcard navcard--ghost" aria-hidden="true" />
+              )}
+              {older ? (
+                <a class="navcard navcard--right" href={`/en/blog/${older.id}/`}>
+                  <small>{t('post.older')}</small>
+                  <strong>{older.data.title}</strong>
+                </a>
+              ) : (
+                <span class="navcard navcard--ghost" aria-hidden="true" />
+              )}
+            </nav>
+          )
+        }
+
+        <!-- 收尾导航：只在 ≤640px 显示，与页头 .back 严格互斥 -->
+        <a class="postback" href="/en/blog/">{t('head.backBlog')}</a>
+      </div>
+    </article>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 版式见 src/styles/post-detail.css。仅本页专有的回退说明条写在这里
+     （.post-head 内部，故不需 grid 定位）。 */
+  .fallback-note {
+    margin: 18px 0 0;
+    padding: 9px 14px;
+    border-left: 3px solid var(--c-red);
+    background: rgba(var(--c-ink-rgb), 0.04);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+</style>

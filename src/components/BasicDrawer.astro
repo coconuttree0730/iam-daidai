@@ -21,23 +21,46 @@
 //
 // 数据全部来自 profile.json 的 basic 节（构建时静态 import，运行时零 fetch）；
 // 占位文案的清单见该节 _todo 字段，改文案只改 JSON。
+//
+// ⚠️ 第 2 期双语化（2026-09-14）：basic 节的文案字段（name/status/identity/
+//    now/skills/label/zodiac/mbti 及两个 *Desc）已改为 {zh,en}，本组件按
+//    locale 取边；结构性字段（fileNo / href / icon / mono / action）保持原样。
 import profile from '../data/profile.json';
+import { pickLocalized, useTranslations, interpolate, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
 import '../styles/basic-drawer.css';
 
+interface Props {
+  /** 页面语言。抽屉挂在首页（HeroStage 透传），中英文共用同一组件。 */
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
+const L = <T,>(v: T): T => pickLocalized(v, locale);
+
 const basic = profile.basic;
-const skills = basic.skills ?? [];
+const skills = (basic.skills ?? []).map((s) => L(s));
 const links = basic.links ?? [];
+const name = L(basic.name);
+const status = L(basic.status);
+const identity = L(basic.identity);
+const now = L(basic.now);
+const zodiac = L(basic.zodiac);
+const zodiacDesc = L(basic.zodiacDesc);
+const mbti = L(basic.mbti);
+const mbtiDesc = L(basic.mbtiDesc);
 ---
 
 <dialog class="file-dialog" id="basic" aria-labelledby="basic-file-title">
-  <h2 class="sr-only" id="basic-file-title">基本信息档案</h2>
+  <h2 class="sr-only" id="basic-file-title">{t('basic.dialogTitle')}</h2>
 
   <header class="file-head">
-    <span class="file-head-label">PERSONAL FILE</span>
+    <span class="file-head-label">{t('basic.fileHeadLabel')}</span>
     <span class="file-head-no">{basic.fileNo}</span>
     <button type="button" class="file-close" data-file-close>
       <span class="file-close-x" aria-hidden="true">×</span>
-      <span>合卷</span>
+      <span>{t('basic.close')}</span>
     </button>
   </header>
 
@@ -52,13 +75,13 @@ const links = basic.links ?? [];
       />
       <span class="tape tape-a" aria-hidden="true"></span>
       <span class="tape tape-b" aria-hidden="true"></span>
-      <span class="file-photo-stamp" aria-hidden="true">已归档<br />2026</span>
-      <figcaption>FIG.01 — 档案照</figcaption>
+      <span class="file-photo-stamp" aria-hidden="true">{t('basic.photoStamp')}<br />2026</span>
+      <figcaption>{t('basic.photoCaption')}</figcaption>
     </figure>
 
     <div class="file-objects">
       <article class="obj file-id" style="--tilt: 0.6deg">
-        <p class="file-id-name">{basic.name}</p>
+        <p class="file-id-name">{name}</p>
         <div class="file-id-social">
           {
             links.map((link) => {
@@ -66,13 +89,14 @@ const links = basic.links ?? [];
                  当前页处理。data-action="contact" 的项由下方脚本接管：
                  不跳页，改为把首页推到收尾态露出内联表单（2026-09-13）。 */
               const external = link.href.startsWith('http');
+              const linkLabel = L(link.label);
               return (
                 <a
                   class:list={["file-social", { "file-social--mono": link.mono }]}
                   href={link.href}
                   data-action={link.action}
-                  title={link.label}
-                  aria-label={link.label}
+                  title={linkLabel}
+                  aria-label={linkLabel}
                   target={external ? '_blank' : undefined}
                   rel={external ? 'noopener noreferrer' : undefined}
                 >
@@ -85,27 +109,27 @@ const links = basic.links ?? [];
       </article>
 
       <article class="obj file-skills" style="--tilt: 0.5deg">
-        <p class="obj-label">INDEX · 技能</p>
+        <p class="obj-label">{t('basic.labelSkills')}</p>
         <ul class="file-skills-list">
           {skills.map((skill) => <li>{skill}</li>)}
         </ul>
       </article>
 
       <article class="obj file-note" style="--tilt: 0.9deg">
-        <p class="obj-label">IDENTITY · 身份</p>
-        <p class="file-note-text">{basic.identity}</p>
+        <p class="obj-label">{t('basic.labelIdentity')}</p>
+        <p class="file-note-text">{identity}</p>
         <span class="tape" aria-hidden="true"></span>
       </article>
 
       <article class="obj file-now" style="--tilt: -0.7deg">
-        <p class="obj-label">NOW · 正在做</p>
-        <p class="file-now-text">{basic.now}</p>
+        <p class="obj-label">{t('basic.labelNow')}</p>
+        <p class="file-now-text">{now}</p>
         <span class="file-now-stamp" aria-hidden="true">NOW<br />2026</span>
       </article>
     </div>
   </div>
 
-  <span class="file-badge" aria-hidden="true">{basic.status}</span>
+  <span class="file-badge" aria-hidden="true">{status}</span>
   <button
     type="button"
     class="file-sticker"
@@ -114,27 +138,27 @@ const links = basic.links ?? [];
     aria-controls="basic-persona"
   >
     <span>
-      <strong>{basic.mbti}</strong>
-      <small>{basic.zodiac}</small>
+      <strong>{mbti}</strong>
+      <small>{zodiac}</small>
     </span>
   </button>
 
   <div class="file-persona" id="basic-persona" hidden>
-    <p class="obj-label">PERSONA · 性格侧写</p>
+    <p class="obj-label">{t('basic.labelPersona')}</p>
     <dl class="file-persona-list">
       <div>
-        <dt>{basic.zodiac}</dt>
-        <dd>{basic.zodiacDesc}</dd>
+        <dt>{zodiac}</dt>
+        <dd>{zodiacDesc}</dd>
       </div>
       <div>
-        <dt>{basic.mbti}</dt>
-        <dd>{basic.mbtiDesc}</dd>
+        <dt>{mbti}</dt>
+        <dd>{mbtiDesc}</dd>
       </div>
     </dl>
   </div>
 
   <footer class="file-foot">
-    <span>FILE {basic.fileNo} · ARCHIVED</span>
+    <span>{interpolate(t('basic.foot'), { no: basic.fileNo })}</span>
     <span class="file-foot-bar" aria-hidden="true"></span>
   </footer>
 </dialog>

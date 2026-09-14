@@ -9,14 +9,30 @@ import { getFormattedDate, type Post } from '../data/posts';
 
 interface Props {
   post: Post;
+  /** 详情页路径前缀，默认中文 `/blog/`；英文列表传 `/en/blog/`。
+      不在这里推导语言，是为了让调用方（页面）显式声明链接落点——
+      卡片组件读不到 URL，硬编码前缀会把英文列表的点击全送进中文详情页。 */
+  base?: string;
+  /** 分类页路径前缀，默认中文 `/categories/`；英文列表传 `/en/categories/`。
+      ⚠️ 与 base 是**两个独立的 prop**：中文站的分类路由在 /categories/，
+      英文站在 /en/categories/，混用会让英文列表的分类 chip 点进中文页
+      （2026-09-14 构建产物实测，与 base 是同一个坑）。 */
+  categoryBase?: string;
+  /** 标签页路径前缀，默认中文 `/tags/`；英文列表传 `/en/tags/`。同上。 */
+  tagBase?: string;
 }
 
-const { post } = Astro.props;
-const href = `/blog/${post.id}/`;
+const {
+  post,
+  base = '/blog/',
+  categoryBase = '/categories/',
+  tagBase = '/tags/',
+} = Astro.props;
+const href = `${base}${post.id}/`;
 const iso = post.data.publishDate.toISOString();
 ---
 
-<a class="row" href={href}>
+<div class="row">
   <span class="lead">
     <time class="date" datetime={iso}>
       {getFormattedDate(post.data.publishDate)}
@@ -24,17 +40,30 @@ const iso = post.data.publishDate.toISOString();
   </span>
   <span class="body">
     <span class="title">
-      {post.data.draft && <span class="draft">(草稿) </span>}
+      {post.data.draft && <span class="flag">(草稿) </span>}
       {post.data.publishDate.getTime() > Date.now() && (
-        <span class="draft">(定时) </span>
+        <span class="flag">(定时) </span>
       )}
-      {post.data.title}
+      {/* 卡片主链接（2026-09-14 重构）：整卡不再是一个 <a>，因为下面要放
+          分类/标签的子链接 —— 嵌套 <a> 是非法 HTML，浏览器会把外层提前闭合，
+          卡片点击区随之碎裂。改用「拉伸链接」模式：主链接只包标题，
+          用 .title__link::after 的绝对定位铺满整张卡（见样式），
+          子链接（分类/标签）用 z-index 抬到覆盖层之上。
+          无 JS、语义正确、整卡可点，且卡片内部链接各自独立可达。 */}
+      <a class="title__link" href={href}>{post.data.title}</a>
     </span>
     <q class="desc">{post.data.description}</q>
-    {post.data.tags.length > 0 && (
+    {(post.data.category || post.data.tags.length > 0) && (
       <span class="tags">
+        {/* 分类排在标签之前，视觉也区分开（2026-09-14）——两者的语义不同
+            （领域 vs 关键词），不该混为一谈。 */}
+        {post.data.category && (
+          <a class="chip chip--cat" href={`${categoryBase}${post.data.category}/`}>
+            {post.data.category}
+          </a>
+        )}
         {post.data.tags.map((t) => (
-          <span class="chip">#{t}</span>
+          <a class="chip" href={`${tagBase}${t}/`}>#{t}</a>
         ))}
       </span>
     )}
@@ -42,10 +71,15 @@ const iso = post.data.publishDate.toISOString();
   <span class="arrow" aria-hidden="true">
     →
   </span>
-</a>
+</div>
 
 <style>
+  /* ── 卡片骨架（2026-09-14 从 <a class="row"> 改为 <div class="row">）────────
+     改为 div 的原因：卡片内现在有分类/标签子链接，而 <a> 不能嵌套 <a>。
+     整卡可点靠「拉伸链接」实现（见 .title__link::after）。
+     position: relative 是拉伸覆盖层的定位参照，**必须有**。 */
   .row {
+    position: relative;
     display: grid;
     grid-template-columns: auto 1fr auto;
     gap: 18px;
@@ -75,6 +109,24 @@ const iso = post.data.publishDate.toISOString();
     line-height: 1.35;
     letter-spacing: 0.01em;
   }
+  /* 主链接：文字本身是链接色（继承），下划线留给 hover；
+     其 ::after 铺满整卡形成点击区（拉伸链接模式）。 */
+  .title__link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .title__link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  /* 子链接（分类/标签）抬到拉伸覆盖层之上，否则点不到 —— 会被整卡链接抢走。
+     z-index: 2 > 覆盖层的 1。 */
+  .tags .chip {
+    position: relative;
+    z-index: 2;
+  }
   /* 描述：<q> 自带弯引号（UA content:open-quote/close-quote）+ 斜体，两行截断 */
   .desc {
     display: -webkit-box;
@@ -100,13 +152,31 @@ const iso = post.data.publishDate.toISOString();
     font-size: 10.5px;
     letter-spacing: 0.06em;
     color: #6f6f6f;
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .chip:hover {
+    color: #cf0a1a;
+    border-color: #cf0a1a;
+  }
+  /* 分类 chip：红边（领域身份强于关键词），与文章页 .chip 同一语言 */
+  .chip--cat {
+    border-color: rgba(207, 10, 26, 0.45);
+    color: #cf0a1a;
+  }
+  .chip--cat:hover {
+    border-color: #cf0a1a;
   }
   .arrow {
     font-size: 16px;
     color: #131211;
     transition: transform 0.18s ease, color 0.18s ease;
   }
-  .row:hover .title {
+  /* hover 触发源从 .row 移到主链接：现在 .row 是 div，hover 仍能冒泡命中，
+     但用 .row:hover 在触屏上会因 :hover 粘滞产生假反馈。
+     ⚠️ 用 :focus-visible 一并覆盖键盘可达性（拉伸链接可 Tab 聚焦）。 */
+  .row:hover .title__link,
+  .title__link:focus-visible {
     text-decoration: underline;
     text-decoration-color: #cf0a1a;
     text-decoration-thickness: 2px;
@@ -116,7 +186,7 @@ const iso = post.data.publishDate.toISOString();
     color: #cf0a1a;
     transform: translateX(4px);
   }
-  .draft {
+  .flag {
     color: #cf0a1a;
     font-weight: 700;
     font-size: 0.85em;

@@ -4,8 +4,12 @@
 // 状态 / 年份全部收进本页——用户裁定「点击进去才是详情」。
 // 数据源同列表页 = profile.json 的 works 节；slug 用条目编号（01…07）。
 import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
 import PageHead from '../../components/PageHead.astro';
 import profile from '../../data/profile.json';
+import '../../styles/sheet.css';
+import '../../styles/archive-chrome.css';
+import '../../styles/work-detail.css';
 
 const works = profile.works.items;
 
@@ -21,13 +25,15 @@ export function getStaticPaths() {
 const { w, idx } = Astro.props;
 const prev = works[(idx - 1 + works.length) % works.length];
 const next = works[(idx + 1) % works.length];
+const t = useTranslations('zh');
+
 ---
-<Base title={`${w.title} · 作品集 · Daidai档案馆`} description={w.desc}>
-  <main class="sheet">
+<Base title={`${w.title} · ${t('section.works.title')} · ${t('site.title')}`} description={w.desc}>
+  <main class="sheet" id="main">
     <PageHead
       no="NO.02"
       chips={[{ label: w.no, variant: 'red' }]}
-      back={{ label: '← 返回作品集', href: '/works/' }}
+      back={{ label: t('head.backWorks'), href: '/works/' }}
     />
 
     <section class="hero">
@@ -52,23 +58,23 @@ const next = works[(idx + 1) % works.length];
       </ul>
       {w.href ? (
         <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
-          {w.href === '/' ? '回到首页体验 →' : w.href.includes('github.com') ? 'GitHub 仓库 →' : '访问项目 →'}
+          {w.href === '/' ? t('work.gotoHome') : w.href.includes('github.com') ? t('work.gotoGithub') : t('work.gotoProject')}
         </a>
       ) : (
-        <span class="go go--none">尚未归档 · 敬请期待</span>
+        <span class="go go--none">{t('work.notArchived')}</span>
       )}
     </section>
 
-    <nav class="pn" aria-label="上一篇 / 下一篇">
-      <a class="pn-link" href={`/works/${prev.no}/`}><small>上一件</small>{prev.title}</a>
-      <a class="pn-link pn-link--r" href={`/works/${next.no}/`}><small>下一件</small>{next.title}</a>
+    <nav class="pn" aria-label={t('work.pnAria')}>
+      <a class="pn-link" href={`/works/${prev.no}/`}><small>{t('work.prev')}</small>{prev.title}</a>
+      <a class="pn-link pn-link--r" href={`/works/${next.no}/`}><small>{t('work.next')}</small>{next.title}</a>
     </nav>
 
     <!-- 收尾导航（2026-09-13 第三轮，用户裁定）：只在 ≤640px 显示。理由同文章页
          的 .postback —— 手机档页头隐藏 .back 后，本页失去唯一的「回作品集」站内
          路径（上面的 .pn 只给兄弟条目，不含列表）。桌面档不显示：页头 .head 是
          sticky 的，返回链全程可见，正文再放一条就是重复入口。两者严格互斥。 -->
-    <a class="backhome" href="/works/">← 返回作品集</a>
+    <a class="backhome" href="/works/">{t('head.backWorks')}</a>
 
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
@@ -78,199 +84,6 @@ const next = works[(idx + 1) % works.length];
 </Base>
 
 <style>
-  .sheet {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--c-paper);
-    color: var(--c-ink);
-    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
-      "Microsoft YaHei", sans-serif;
-  }
-
-  .hero {
-    padding: clamp(28px, 6vh, 64px) clamp(20px, 4vw, 48px) 0;
-  }
-  .hero .en {
-    margin: 0;
-    font-family: "Anton", Impact, sans-serif;
-    font-size: clamp(18px, 3.4vw, 34px);
-    line-height: 1;
-    letter-spacing: 0.05em;
-    color: transparent;
-    -webkit-text-stroke: 1px var(--c-ghost);
-    user-select: none;
-  }
-  .hero h1 {
-    margin: 8px 0 0;
-    font-size: clamp(30px, 5.6vw, 56px);
-    line-height: 1.1;
-    font-weight: 900;
-    letter-spacing: 0.02em;
-  }
-  .meta {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-top: 16px;
-    font-size: 12.5px;
-    letter-spacing: 0.12em;
-    color: var(--c-muted-2);
-    font-variant-numeric: tabular-nums;
-  }
-  .status {
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    padding: 3px 9px;
-    border: 1px solid var(--c-ink);
-    border-radius: 4px;
-    color: var(--c-ink);
-  }
-  .status[data-tone="red"] {
-    border-color: var(--c-red);
-    color: var(--c-red);
-  }
-
-  .preview {
-    padding: 0 clamp(20px, 4vw, 48px);
-    margin-top: 24px;
-  }
-  .preview img {
-    width: 100%;
-    max-width: 800px;
-    height: auto;
-    border-radius: 8px;
-    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
-    box-shadow: 0 8px 24px rgba(var(--c-ink-rgb), 0.1);
-  }
-
-  .detail {
-    flex: 1;
-    padding: clamp(20px, 4vh, 40px) clamp(20px, 4vw, 48px);
-    max-width: 760px;
-  }
-  .desc {
-    margin: 0;
-    font-size: 15px;
-    line-height: 2;
-    color: var(--c-ink-2);
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 22px 0 0;
-    padding: 0;
-    list-style: none;
-  }
-  .chips li {
-    font-size: 12px;
-    padding: 3px 11px;
-    border: 1px solid rgba(var(--c-ink-rgb), 0.28);
-    border-radius: 999px;
-    color: var(--c-muted);
-  }
-  .go {
-    display: inline-block;
-    margin-top: 30px;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 2px solid var(--c-red);
-    padding-bottom: 3px;
-    transition: color 0.15s ease;
-  }
-  .go:hover { color: var(--c-red); }
-  .go--none {
-    border-bottom-style: dashed;
-    border-bottom-color: rgba(var(--c-ink-rgb), 0.3);
-    color: var(--c-muted-3);
-    font-weight: 400;
-    cursor: default;
-  }
-
-  .pn {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 22px clamp(20px, 4vw, 48px);
-    border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
-  }
-  .pn-link {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-width: 46%;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--c-ink);
-    text-decoration: none;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .pn-link small {
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0.12em;
-    color: var(--c-muted-2);
-  }
-  .pn-link:hover { color: var(--c-red); }
-  .pn-link--r { text-align: right; }
-
-  /* ── 收尾导航（手机档专用，2026-09-13 第三轮）────────────────────
-     .sheet 是 flex column，本元素是 flex item：必须 align-self: flex-start
-     才能收缩到文字宽 —— 否则交叉轴默认 stretch 会把它拉成整行宽，下划线
-     跟着变长。基类 display:none 让桌面档不生成盒子，版面与改动前一致。
-     左右外边距与 .pn 用同一组 clamp，保证与「上一件」的左缘对齐。
-     不改 .pn 的 padding：它是上下对称的 22px，动了反而不对称。 */
-  .backhome {
-    display: none;
-    align-self: flex-start;
-    width: fit-content;
-    align-items: center;
-    gap: 6px;
-    margin: 0 clamp(20px, 4vw, 48px) 44px;
-    padding-bottom: 2px;
-    font-size: 13px;
-    color: var(--c-ink);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
-  .backhome:hover {
-    color: var(--c-red);
-    border-color: var(--c-red);
-  }
-  @media (max-width: 640px) {
-    .backhome {
-      display: flex;
-    }
-  }
-
-  .foot {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 clamp(20px, 4vw, 48px) 26px;
-  }
-  .foot .dash {
-    width: 34px;
-    height: 5px;
-    background: var(--c-red);
-  }
-  .foot .barcode {
-    height: 14px;
-    width: 64px;
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--c-ink) 0 1px,
-      transparent 1px 2.4px,
-      var(--c-ink) 2.4px 4.4px,
-      transparent 4.4px 5.4px,
-      var(--c-ink) 5.4px 6.4px,
-      transparent 6.4px 8.4px
-    );
-  }
+  /* 版式已抽到 src/styles/work-detail.css（i18n 时为英文版共享）。
+     本页如需页面专有样式，写在这里。 */
 </style>

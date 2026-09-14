@@ -1,0 +1,167 @@
+---
+// 英文博客列表 = /en/blog/（2026-09-14 i18n 第 1 期）
+//
+// ⚠️ 内容回退策略（第 1 期，用户裁定「暂不做英文正文」）：
+//    文章列表与详情页沿用**中文正文**。这不是遗漏，是刻意的阶段划分——
+//    英文正文的翻译是独立的一期工作（content collections 加 lang 字段、
+//    .md/.en.md 成对）。当前阶段先把「路由 + UI 外壳」跑通。
+//
+//    为了不让访问者困惑，页面上会挂一条常驻说明（见 .fallback-note），
+//    明确告知「文章内容以中文为准」。这比静默显示中文正文诚实。
+//
+// ⚠️ Pagefind 检索框在这一期**不挂**：索引里只有中文正文，挂一个搜出来
+//    全是中文摘要的框会让人以为检索坏了。等英文正文就位时连索引一起加。
+//
+// ⚠️ 与中文版的关系：本页的中文对应物是 src/pages/blog/[...page].astro。
+//    两者的**差异仅在文案**（chips 标签、返回链、h1）+ 本页独有的
+//    .fallback-note。版式骨架（.sheet/.sr-only/.hero-band/.foot）已抽到
+//    src/styles/ 下的共享表，两页共用，不会漂移。
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import Paginator from '../../../components/Paginator.astro';
+import PostCard from '../../../components/PostCard.astro';
+import { getSortedPosts, groupPostsByYear } from '../../../data/posts';
+import { useTranslations } from '../../../i18n/utils';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+
+export async function getStaticPaths({ paginate }) {
+  const posts = await getSortedPosts();
+  return paginate(posts, { params: {}, pageSize: 12 });
+}
+
+const { page } = Astro.props;
+const t = useTranslations('en');
+
+const yearGroups = groupPostsByYear(page.data).map(([year, posts]) => ({
+  year,
+  items: posts,
+}));
+---
+<Base
+  title={`${t('section.blog.title')} · ${t('site.title')}`}
+  description={t('section.blog.desc')}
+  locale="en"
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: 'Tags', href: '/en/tags/' },
+        { label: 'RSS', href: '/rss.xml' },
+      ]}
+      back={{ label: t('head.backHome'), href: '/en/' }}
+      locale="en"
+    />
+
+    <!-- 页头横幅三件套，与中文版同一批素材（素材不分语言，不要复制文件） -->
+    <section class="hero">
+      <h1 class="sr-only">{t('section.blog.title')}</h1>
+      <div class="hero-band">
+        <img class="hero-band__bg" src="/motion/blog-banner.webp" alt="" width="2048" height="1024" loading="eager" decoding="async" />
+        <img class="hero-band__shadow" src="/motion/blog-shadow.webp" alt="" width="760" height="76" loading="eager" decoding="async" />
+        <img class="hero-band__char" src="/motion/blog-character-chibi.webp" alt="" width="1279" height="1950" loading="eager" decoding="async" />
+      </div>
+    </section>
+
+    <!-- 内容回退说明（第 1 期专有）：英文正文尚未提供，列表条目是中文。
+         等英文正文就位后删除本节。 -->
+    <p class="fallback-note">Post content is currently available in Chinese only.</p>
+
+    {
+      page.data.length === 0 ? (
+        <section class="stamp" aria-label={t('empty.archiving')}>
+          <strong>{t('empty.archiving')}</strong>
+          <small>{t('empty.archivingNote')}</small>
+        </section>
+      ) : (
+        <section class="list-section" data-list aria-label="Post list">
+          {yearGroups.map(({ year, items }) => (
+            <section class="year-group">
+              <h2 class="year">{year}</h2>
+              <ul class="list list--archive" role="list">
+                {items.map((post) => (
+                  <li>
+                    {/* ⚠️ categoryBase / tagBase 刻意**不传 /en/** —— 与英文站
+                        「第 1 期不做独立英文分类/标签页」的既定裁定一致（见
+                        src/pages/en/tags/index.astro 文件头）：英文站的标签/分类
+                        一律指回中文页，避免生成内容完全相同的中英重复页。
+                        卡片默认值就是中文前缀，所以这里只需传 base。
+                        （base 必须传，否则点击会落到中文详情页。） */}
+                    <PostCard post={post} base="/en/blog/" />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <Paginator page={page} locale="en" />
+        </section>
+      )
+    }
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 仅本页特有的版式。骨架（.sheet/.sr-only/.foot）已移至 src/styles/。 */
+
+  .hero { padding: 0; }
+
+  .hero-band {
+    position: relative;
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+    aspect-ratio: 2 / 1;
+  }
+  .hero-band__bg, .hero-band__shadow, .hero-band__char {
+    position: absolute; display: block;
+  }
+  .hero-band__bg { inset: 0; width: 100%; height: 100%; }
+  /* 阴影层落点 = 剥离时在横幅 2048x1024 中的原配准矩形（见中文版的 prep 脚本） */
+  .hero-band__shadow { left: 52.7344%; top: 87.8906%; width: 37.1094%; height: 7.4219%; }
+  .hero-band__char { left: calc(56.2012% - 15px); top: 4.4922%; width: 29.8828%; height: 91.1133%; }
+
+  /* 内容回退说明条：左侧红竖线 + 极浅底，语气弱化为提示而非警告 */
+  .fallback-note {
+    margin: 18px clamp(20px, 4vw, 48px) 0;
+    padding: 9px 14px;
+    border-left: 3px solid var(--c-red);
+    background: rgba(var(--c-ink-rgb), 0.04);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+
+  .list-section { flex: 1; padding: 26px clamp(20px, 4vw, 48px) 6px; }
+  .list { margin: 0; padding: 0; list-style: none; }
+  .list--archive { border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16); }
+
+  /* 年份分隔条：Anton 描边数字，与中文版同一视觉语言。
+     收尾线只在末组保留，避免多组时组间出现重复横线。 */
+  .year-group .list--archive { border-bottom: none; }
+  .year-group:last-child .list--archive {
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .year-group + .year-group { margin-top: 14px; }
+  .year {
+    margin: 20px 0 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 24px; line-height: 1; letter-spacing: 0.06em;
+    color: transparent; -webkit-text-stroke: 1px var(--c-ghost);
+    user-select: none;
+  }
+  .year-group:first-child .year { margin-top: 0; }
+
+  .stamp {
+    align-self: center; margin-bottom: 40px; padding: 14px 26px;
+    border: 2px solid var(--c-red); border-radius: 6px; color: var(--c-red);
+    text-align: center; transform: rotate(-2.5deg);
+  }
+  .stamp strong { display: block; font-size: 18px; font-weight: 900; letter-spacing: 0.22em; }
+  .stamp small { display: block; margin-top: 6px; font-size: 11px; letter-spacing: 0.14em; }
+</style>

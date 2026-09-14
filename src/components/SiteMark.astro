@@ -22,14 +22,26 @@
   且不含「祖先来自 html/body」的选择器（那类必须写 global.css）。
 */
 import profile from '../data/profile.json';
+import { pickLocalized, useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
 
 interface Props {
   /** 传则渲染成 <a>，点击回该地址（内页传 "/"） */
   href?: string;
+  /** 页面语言（第 2 期加）：影响 aria 全称（视觉上只印 name，两种语言同形）。 */
+  locale?: Locale;
 }
 
-const { href } = Astro.props;
+const { href, locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
 const { name, aria } = profile.site;
+const siteAria = pickLocalized(aria, locale);
+/* 「返回首页」这个补语也要跟着语言走——否则英文页会读出
+   "Daidai Archive（返回首页）"，中英混读。复用字典里的 backHome 文案、
+   去掉箭头前缀与首尾括号，避免再新增一个只为一处服务的键。
+   连接符用 ASCII 圆括号：中文（全角）与英文（半角）视觉上都成立，
+   读屏软件也不区分全半角。 */
+const backSuffix = t('head.backHome').replace(/^←\s*/, '').replace(/[（）()]/g, '');
 
 /* 动态标签：传 href → <a>（内页，点回首页），否则 <span>（首页，已在此页）。
    ⚠️ 不要在 frontmatter 里写 JSX 字面量存进变量——Astro 的 frontmatter 是
@@ -37,7 +49,7 @@ const { name, aria } = profile.site;
 const Tag = href ? 'a' : 'span';
 ---
 
-<Tag class="site-mark" href={href} aria-label={href ? `${aria}（返回首页）` : aria}>
+<Tag class="site-mark" href={href} aria-label={href ? `${siteAria} (${backSuffix})` : siteAria}>
   <span class="site-mark__text" aria-hidden="true">{name}</span>
   <svg
     class="site-mark__rule"

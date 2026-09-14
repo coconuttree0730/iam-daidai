@@ -8,18 +8,21 @@
 // 两边各自沿用同一套帧随动契约（人物矩形死区 · 方向角 · 姿态重定时 · 圆环 smoothDamp），
 // 只是帧数与载体不同。看左上时两边应同步"看左上"，右侧过渡与停帧更细腻。
 import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
 import PageHead from '../../components/PageHead.astro';
+const t = useTranslations('zh');
+
 ---
 
 <Base title="帧随动对比 · Daidai档案馆">
-  <PageHead no="LAB-02" back={{ label: '← 返回实验室', href: '/lab/' }} />
+  <PageHead no="LAB-02" back={{ label: t('head.backLab'), href: '/lab/' }} />
 
   <header class="page-head">
     <h1>A/B 对比</h1>
     <span class="sub">LAB-02 · 46帧单图 vs 121帧分段LRU · 同一指针驱动</span>
   </header>
 
-  <main class="compare-area">
+  <main class="compare-area" id="main">
     <!-- A：46帧单图 -->
     <div class="panel old">
       <span class="tag">A · 现状 46帧 · 单张图 background-position</span>

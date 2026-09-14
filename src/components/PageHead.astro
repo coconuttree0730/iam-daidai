@@ -13,8 +13,11 @@
   这里所有元素都出自本组件，故安全（注入型 DOM 才需要 :global —— 见 MEMORY 的坑）。
 */
 import Announce from './Announce.astro';
+import LangSwitch from './LangSwitch.astro';
 import SiteMark from './SiteMark.astro';
 import ThemeToggle from './ThemeToggle.astro';
+import { DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
 
 interface Chip {
   label: string;
@@ -30,9 +33,12 @@ interface Props {
   chips?: Chip[];
   /** 右端返回链 */
   back?: { label: string; href: string };
+  /** 页面语言。中文页不传 = 'zh'（现有调用点零改动）；
+      英文页传 'en'。只影响右端那枚语言切换器的指向。 */
+  locale?: Locale;
 }
 
-const { no, chips = [], back } = Astro.props;
+const { no, chips = [], back, locale = DEFAULT_LOCALE } = Astro.props;
 ---
 
 <header class="head">
@@ -40,7 +46,7 @@ const { no, chips = [], back } = Astro.props;
     <!-- 站名徽标（2026-09-13 建）：全站页头最左，内页渲染成链接点回首页。
          与编号 chip 之间用一条细竖线分层——否则「Daidai NO.02 文章」会读成
          一串同级标签，编号的「定位符」身份被稀释。 -->
-    <SiteMark href="/" />
+    <SiteMark href="/" locale={locale} />
     <span class="head__div" aria-hidden="true"></span>
     {no && <span class="tag head__no">{no}</span>}
     {
@@ -58,8 +64,9 @@ const { no, chips = [], back } = Astro.props;
 
   <div class="head__end">
     {back && <a class="back" href={back.href}>{back.label}</a>}
-    <Announce />
-    <ThemeToggle />
+    <LangSwitch locale={locale} />
+    <Announce locale={locale} />
+    <ThemeToggle locale={locale} />
   </div>
 </header>
 

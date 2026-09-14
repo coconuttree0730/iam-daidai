@@ -1,30 +1,17 @@
 ---
 /*
-  右下悬浮栈（2026-09-13 第二批，用户裁定 Q8(a) / Q12(a)）
-  ────────────────────────────────────────────────────────────────────────
-  · 桌面与移动都显示：固定 bottom 24（**右缘与昼夜章圆心对齐**，横向由
-    global.css 的 --chrome-axis 统一，不再自带 20px），竖排圆钮族，与昼夜
-    切换章同形（圆 + 红线性图标，亮色白底、暗色半透明 + 背板模糊）。
-  · 组成：目录（仅 ≤1100px，且本页真有大纲时才出现）/ 音乐 / ▲ 到顶 / ▼ 到底。
-  · 可见性分两段，这是刻意的：
-      - 「音乐 / 到顶 / 到底」这一组在 scrollY > 240 后淡入（顶部不打扰版面，
-        短页因为不会滚动，天然就永远不出现）。
-      - 「目录」钮不受滚动控制——文章一开头正是最需要开大纲的时候。
-  · 锁滚页（「页面不滚动、纵向输入被吃成时间轴」的版式，如首页的 scrub）
-    的「到顶 / 到底」不是 window.scrollTo，而是派发 'scrub:top' /
-    'scrub:outro' 事件（见下方脚本与 scroll-scrub.js），并把整栈抬到黑条
-    （.infobar）之上——黑条两种主题都是深色，白圆钮压上去显脏。
-    ⚠️ 2026-09-13 用户裁定「留右侧回顶绳、去掉右下角」后，**首页已改回
-    dock={false}**（回顶交给 TopRope 的拉绳），所以这条 scrub 分支当前
-    没有任何页面走到它。保留是刻意的：它是"锁滚页 + 悬浮栈"这一组合的完整
-    实现，删掉将来复用还得重写；内页（普通滚动页）走 ① 分支，不受影响。
-  · z-index 850：压在固定 Chrome（800）之上，低于 toast（9999）；移动端的大纲
-    sheet 走 <dialog> 的 top-layer，不参与这个层级竞争。
-  · 音乐钮只切 aria-pressed 与配色，**播放逻辑留 TODO**（仓库里没有任何音频
-    资源，也没有播放器状态机）。日后接入时在这里挂 audio 控制即可。
-  · 无 JS 时整栈不可见：「目录」钮 markup 上带 hidden，淡入组靠脚本打的
-    [data-scrolled] 才显示。
+  ⚠️ 第 2 期（2026-09-14）：文案随 locale 走。本组件由 Base.astro 渲染，
+     Base 已持有 locale，直接透传即可。
 */
+import { useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
 ---
 
 <div class="dock">
@@ -35,8 +22,8 @@
     hidden
     aria-expanded="false"
     aria-controls="toc-sheet"
-    title="文章目录"
-    aria-label="文章目录"
+    title={t('dock.toc')}
+    aria-label={t('dock.toc')}
   >
     <svg
       viewBox="0 0 24 24"
@@ -58,8 +45,8 @@
       type="button"
       data-music
       aria-pressed="false"
-      title="音乐（待接入）"
-      aria-label="音乐播放"
+      title={t('dock.musicSoon')}
+      aria-label={t('dock.music')}
     >
       <svg
         viewBox="0 0 24 24"
@@ -82,8 +69,8 @@
       class="dock__btn"
       type="button"
       data-top
-      title="回到顶部"
-      aria-label="回到顶部"
+      title={t('dock.top')}
+      aria-label={t('dock.top')}
     >
       <svg
         viewBox="0 0 24 24"
@@ -104,8 +91,8 @@
       class="dock__btn"
       type="button"
       data-bottom
-      title="滚到底部"
-      aria-label="滚到底部"
+      title={t('dock.bottom')}
+      aria-label={t('dock.bottom')}
     >
       <svg
         viewBox="0 0 24 24"

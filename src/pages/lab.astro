@@ -9,29 +9,34 @@
 // 单列；卡片本体是 flex-wrap，封面与文字各有 flex-basis，容器一窄就自动堆叠
 // ——不需要为「单列 / 双列 / 并排」分别写断点。
 import Base from '../layouts/Base.astro';
+import { useTranslations } from '../i18n/utils';
 import PageHead from '../components/PageHead.astro';
 import lab from '../data/lab.json';
+import '../styles/sheet.css';
+import '../styles/archive-chrome.css';
 
 const entries = lab.entries;
 const pad2 = (n: number) => String(n).padStart(2, '0');
+const t = useTranslations('zh');
+
 ---
 <Base
-  title="实验室 · Daidai档案馆"
-  description="实验室板块 · 交互实验与教材，每个条目都附可运行的原始演示"
+  title={`${t('section.lab.title')} · ${t('site.title')}`}
+  description={t('section.lab.desc')}
 >
-  <main class="sheet">
-    <PageHead no="NO.04" back={{ label: '← 返回档案馆', href: '/' }} />
+  <main class="sheet" id="main">
+    <PageHead no="NO.04" back={{ label: t('head.backHome'), href: '/' }} />
 
     <section class="hero">
       <p class="en" aria-hidden="true">LAB</p>
-      <h1>实验室</h1>
-      <p class="hero__note">把做过的东西拆开讲 · 每个条目都附可交互的原始演示</p>
+      <h1>{t('section.lab.title')}</h1>
+      <p class="hero__note">{t('lab.heroSub')}</p>
     </section>
 
-    <section class="entries" aria-label="实验与教材">
+    <section class="entries" aria-label={t('lab.heroTitle')}>
       <header class="sec-head">
-        <h2 class="sec-title">实验与教材</h2>
-        <span class="sec-count">收录 {pad2(entries.length)} 项</span>
+        <h2 class="sec-title">{t('lab.heroTitle')}</h2>
+        <span class="sec-count">{t('lab.building')} · {pad2(entries.length)}</span>
       </header>
 
       <ul class="grid" role="list">
@@ -77,9 +82,9 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
       </ul>
     </section>
 
-    <section class="stamp" aria-label="板块持续扩建中">
-      <strong>持续扩建中</strong>
-      <small>IN PROGRESS · 新条目陆续归档</small>
+    <section class="stamp" aria-label={t('lab.building')}>
+      <strong>{t('lab.building')}</strong>
+      <small>{t('lab.buildingNote')}</small>
     </section>
 
     <footer class="foot" aria-hidden="true">
@@ -90,16 +95,6 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 </Base>
 
 <style>
-  .sheet {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--c-paper);
-    color: var(--c-ink);
-    font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
-      'Microsoft YaHei', sans-serif;
-  }
-
   /* ── 页头横幅 ────────────────────────────────────────────────────────
      2026-09-13 第八轮：原先 .hero 带 flex:1 作整屏垂直居中（占位页形态），
      有内容后改为普通横幅——垂直空间让给卡片网格。 */
@@ -347,31 +342,6 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
     margin-top: 6px;
     font-size: 11px;
     letter-spacing: 0.14em;
-  }
-
-  .foot {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 clamp(20px, 4vw, 48px) 26px;
-  }
-  .foot .dash {
-    width: 34px;
-    height: 5px;
-    background: var(--c-red);
-  }
-  .foot .barcode {
-    height: 14px;
-    width: 64px;
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--c-ink) 0 1px,
-      transparent 1px 2.4px,
-      var(--c-ink) 2.4px 4.4px,
-      transparent 4.4px 5.4px,
-      var(--c-ink) 5.4px 6.4px,
-      transparent 6.4px 8.4px
-    );
   }
 
   /* 手机档：内缩收到 20px，卡片内距与间距收紧；封面与文字强制各占整行

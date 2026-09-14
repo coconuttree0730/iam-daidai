@@ -2,6 +2,8 @@
 title: 如何写出 AI Agent 真正遵循的 AGENTS.md / CLAUDE.md
 description: 结合 writing-for-agents 技能原理与 2026 社区实践，提炼一份可操作的 Agent 指令文件写作指南。
 publishDate: 2026-09-13
+category: AI
+featured: true
 tags:
   - ai
   - agents
@@ -10,7 +12,7 @@ tags:
 draft: false
 ---
 
-# 如何写出 AI Agent 真正遵循的 AGENTS.md / CLAUDE.md
+# 如何写出 AI Agent 真正遵循的 AGENTS.md / CLAUDE.md ?
 
 > 同样的规则、同样的长度、同样的结构，换个项目就失效——问题不在 Agent，在你写给它的文档。
 

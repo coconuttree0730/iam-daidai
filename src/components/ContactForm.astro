@@ -14,15 +14,51 @@
 //   → Cloudflare Workers Route iam.daidai.click/api/* → worker/ 的 Worker
 //   → send_email binding 直发收件邮箱。真实邮箱只在 Worker secret，**网页零邮箱明文**。
 import profile from '../data/profile.json';
+import { pickLocalized, useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
 import '../styles/contact-form.css';
 
-const contact = profile.outro.contact;
+interface Props {
+  /** 页面语言。本组件只挂在首页（HeroStage 透传）。 */
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
+const L = <T,>(v: T): T => pickLocalized(v, locale);
+
+const raw = profile.outro.contact;
+const contact = {
+  ...raw,
+  heading: L(raw.heading),
+  note: L(raw.note),
+  consent: L(raw.consent),
+  submit: L(raw.submit),
+  submitZh: L(raw.submitZh),
+  fields: raw.fields.map((f) => ({
+    ...f,
+    label: L(f.label),
+    placeholder: L(f.placeholder),
+  })),
+};
+
+// 脚本里的运行时提示（toast / 表单校验）也走字典：这些字符串在浏览器里
+// 才出现，无法靠 SSR 渲染，只能序列化后交给 script 消费。
+const msgs = {
+  pending: t('contact.pending'),
+  ok: t('contact.ok'),
+  errNetwork: t('contact.errNetwork'),
+  err: t('contact.err'),
+  consentError: t('contact.consentError'),
+  sending: t('contact.sending'),
+};
 ---
 
 <form
   class="outro-contact"
   id="contact"
   data-endpoint="/api/contact"
+  data-msgs={JSON.stringify(msgs)}
   aria-labelledby="outro-contact-title"
 >
   <h2 class="outro-contact-title" id="outro-contact-title">{contact.heading}</h2>
@@ -124,14 +160,26 @@ const contact = profile.outro.contact;
     const consentRow = contactForm.querySelector('.outro-consent');
     const openedAt = performance.now();
 
+    /* 文案由 SSR 写在 data-msgs（JSON）里——script 里不能直接引用
+       frontmatter 的 t()（那是构建期作用域），只能序列化后读回来。
+       解析失败退化为空对象，各取值处都有兜底字符串。 */
+    let M = {};
+    try {
+      M = JSON.parse(contactForm.dataset.msgs || '{}');
+    } catch {
+      M = {};
+    }
+    const interpolateMsg = (tpl, vars) =>
+      String(tpl ?? '').replace(/\{(\w+)\}/g, (w, k) => (k in vars ? String(vars[k]) : w));
+
     /* 提交中禁用按钮防连点：换文案 SENDING…（与 SEND MESSAGE 同风格大写），
-       结束后按 data-label 还原双层结构（<em> 中文副文案在内）。 */
+       结束后按 data-label 还原双层结构（<em> 副文案在内）。 */
     const setBusy = (busy) => {
       if (!submitBtn) return;
       submitBtn.disabled = busy;
       if (busy) {
         submitBtn.dataset.label = submitBtn.innerHTML;
-        submitBtn.textContent = 'SENDING…';
+        submitBtn.textContent = M.sending ?? 'SENDING…';
       } else if (submitBtn.dataset.label) {
         submitBtn.innerHTML = submitBtn.dataset.label;
         delete submitBtn.dataset.label;
@@ -145,11 +193,15 @@ const contact = profile.outro.contact;
       consentRow.classList.remove('is-error');
       void consentRow.offsetWidth;
       consentRow.classList.add('is-error');
+      /* 行内红字提示：文案挂 data-msg，由 CSS 的 ::after 渲染
+         （见 contact-form.css 的 .outro-consent.is-error） */
+      consentRow.dataset.msg = M.consentError ?? '';
       return false;
     };
     consentBox?.addEventListener('change', () => {
       if (!consentBox.checked) return;
       consentRow?.classList.remove('is-error');
+      delete consentRow?.dataset.msg;
     });
 
     contactForm.addEventListener('submit', (event) => {
@@ -170,7 +222,7 @@ const contact = profile.outro.contact;
         _page: location.href,
       };
 
-      const closePending = showToast('pending', '正在发送…');
+      const closePending = showToast('pending', M.pending ?? '正在发送…');
       setBusy(true);
 
       fetch(endpoint, {
@@ -185,13 +237,15 @@ const contact = profile.outro.contact;
           if (!result.ok) throw new Error('rejected');
           closePending();
           contactForm.reset();
-          showToast('ok', '已发送，我会尽快回复。', 3600);
+          showToast('ok', M.ok ?? '已发送，我会尽快回复。', 3600);
         })
         .catch((err) => {
           closePending();
           showToast(
             'error',
-            `发送失败（${err?.message ?? '网络异常'}），请稍后再试。`,
+            interpolateMsg(M.err ?? '发送失败（{msg}），请稍后再试。', {
+              msg: err?.message ?? M.errNetwork ?? '网络异常',
+            }),
             5200,
           );
         })

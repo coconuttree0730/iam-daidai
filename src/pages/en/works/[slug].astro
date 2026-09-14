@@ -1,0 +1,98 @@
+---
+// 英文作品详情页（2026-09-14 i18n 第 2 期）：/en/works/01/ … /en/works/08/。
+// 中文对应物 = src/pages/works/[slug].astro，差异仅在**语言**——版式由
+// src/styles/work-detail.css 共享，界面文案由 ui.ts 共享。
+//
+// ⚠️ 作品文案（title/desc/tags/status/year）来自 profile.json.works，属**内容层**，
+//    按既定阶段划分本期保持中文（外国访客看得到编号、封面与跳转按钮）。
+//    界面外壳（返回链 / 上一篇下一篇 / 按钮文案）已全部英文化。
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import profile from '../../../data/profile.json';
+import { useTranslations } from '../../../i18n/utils';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+import '../../../styles/work-detail.css';
+
+const t = useTranslations('en');
+
+const works = profile.works.items;
+
+export function getStaticPaths() {
+  // getStaticPaths 在预渲染 chunk 里独立求值，闭包引用不到模块顶层 const，
+  // 数据必须在这里重新取（与中文版同一条坑）。
+  return profile.works.items.map((w, idx) => ({
+    params: { slug: w.no },
+    props: { w, idx },
+  }));
+}
+
+const { w, idx } = Astro.props;
+const prev = works[(idx - 1 + works.length) % works.length];
+const next = works[(idx + 1) % works.length];
+---
+<Base
+  title={`${w.title} · ${t('section.works.title')} · ${t('site.title')}`}
+  description={w.desc}
+  locale="en"
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.02"
+      chips={[{ label: w.no, variant: 'red' }]}
+      back={{ label: t('head.backWorks'), href: '/en/works/' }}
+      locale="en"
+    />
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">{w.en}</p>
+      <h1>{w.title}</h1>
+      <div class="meta">
+        <span class="status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
+        <span>{w.year}</span>
+      </div>
+    </section>
+
+    {w.img && (
+      <section class="preview">
+        <img src={w.img} alt={w.title} loading="lazy" decoding="async" />
+      </section>
+    )}
+
+    <section class="detail">
+      <p class="desc">{w.desc}</p>
+      <ul class="chips" role="list">
+        {w.tags.map((tag) => <li>{tag}</li>)}
+      </ul>
+      {w.href ? (
+        <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+          {w.href === '/'
+            ? t('work.gotoHome')
+            : w.href.includes('github.com')
+              ? t('work.gotoGithub')
+              : t('work.gotoProject')}
+        </a>
+      ) : (
+        <span class="go go--none">{t('work.notArchived')}</span>
+      )}
+    </section>
+
+    <nav class="pn" aria-label={t('work.pnAria')}>
+      <a class="pn-link" href={`/en/works/${prev.no}/`}><small>{t('work.prev')}</small>{prev.title}</a>
+      <a class="pn-link pn-link--r" href={`/en/works/${next.no}/`}><small>{t('work.next')}</small>{next.title}</a>
+    </nav>
+
+    <!-- 收尾导航：只在 ≤640px 显示，与 .head .back 严格互斥（桌面档页头
+         sticky，返回链全程可见）。理由同中文版 work-detail 的 .backhome。 -->
+    <a class="backhome" href="/en/works/">{t('head.backWorks')}</a>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 版式见 src/styles/work-detail.css。 */
+</style>

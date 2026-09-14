@@ -1,0 +1,115 @@
+---
+// 英文单标签页 = /en/tags/<tag>/（2026-09-14 i18n 第 1 期）
+//
+// ⚠️ 本页**有意保留**（而不是像 tags/index 那样把链接指回中文），理由：
+//    标签索引页可以「指向中文页」来避免重复内容，但一旦用户在英文站点了
+//    某个标签，就必须有一个能承接的页面——否则会掉进 404。
+//    代价是这些页面与中文 /tags/<tag>/ 内容重复。对策：本页在 Base 里传
+//    noindex（见下），不参与索引，只作为「能看」的落点存在。
+//
+//    等英文正文就位后，本页会自然变成真正的英文内容页，届时去掉 noindex。
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import PostCard from '../../../components/PostCard.astro';
+import { getSortedPosts } from '../../../data/posts';
+import { useTranslations } from '../../../i18n/utils';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+
+export async function getStaticPaths() {
+  const posts = await getSortedPosts();
+
+  const byTag = new Map<string, typeof posts>();
+  for (const p of posts) {
+    for (const t of p.data.tags) {
+      if (!byTag.has(t)) byTag.set(t, []);
+      byTag.get(t).push(p);
+    }
+  }
+
+  return [...byTag.entries()].map(([tag, tagPosts]) => ({
+    params: { tag },
+    props: { tag, posts: tagPosts },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+const t = useTranslations('en');
+---
+
+<Base
+  title={`#${tag} · ${t('site.title')}`}
+  description={`Posts tagged “${tag}”`}
+  locale="en"
+  noindex
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: `${posts.length} ${posts.length === 1 ? 'post' : 'posts'}`, variant: 'red' },
+        { label: 'All tags', href: '/en/tags/' },
+        { label: 'Blog', href: '/en/blog/' },
+      ]}
+      back={{ label: t('head.backTags'), href: '/en/tags/' }}
+      locale="en"
+    />
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">TAG</p>
+      <h1>#{tag}</h1>
+    </section>
+
+    <section class="list-section" aria-label={`Posts tagged ${tag}`}>
+      <ul class="list" role="list">
+        {posts.map((p) => (
+          <li>
+            {/* base 必须显式传（卡片读不到 URL），否则英文列表点进中文详情页。
+                categoryBase/tagBase 刻意用默认（中文前缀）——英文站第 1 期
+                不做独立英文分类/标签页，一律指回中文页以免重复内容，
+                见 src/pages/en/tags/index.astro 文件头注释。 */}
+            <PostCard post={p} base="/en/blog/" />
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 与中文版 tags/[tag].astro 的 .hero 同一视觉语言（居中、描边大字在上） */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: clamp(30px, 5vw, 58px) 20px clamp(16px, 2.4vw, 28px);
+    text-align: center;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: clamp(26px, 5.5vw, 64px);
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: transparent;
+    -webkit-text-stroke: 1.2px var(--c-ghost);
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(26px, 5.5vw, 62px);
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    word-break: break-word;
+  }
+
+  .list-section { flex: 1; padding: 20px clamp(20px, 4vw, 48px) 6px; }
+  .list { margin: 0; padding: 0; list-style: none; }
+</style>

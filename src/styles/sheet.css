@@ -1,0 +1,47 @@
+/* ── 内页纸面骨架（2026-09-14 i18n 时抽出）────────────────────────────────
+ *
+ * `.sheet` 此前在 6 个内页（blog/lab/tags×2/404/works 详情）的 scoped <style>
+ * 里**逐字重复了 6 遍，内容完全一致**。i18n 要为每个页面再加一份英文版，
+ * 会让它变成 12 份——那是必然漂移的写法（改一处忘一处，中英文版面就走形）。
+ *
+ * 现在它是全站唯一一份，由各页 `import '../styles/sheet.css'` 引入。
+ *
+ * ⚠️ 为什么不做成组件（如 `<Sheet>` 包裹层）：各页的 `<main class="sheet">`
+ *    内部结构差异很大（锁滚 / 不锁滚、单列 / 双列），抽成组件要传一堆 slot
+ *    与变体开关，反而比一个 CSS 类难读。这里只统一**共性的那 6 行**。
+ *
+ * ⚠️ 与 global.css 的分工：本文件只管「内页纸面」这一层版式外壳；颜色全部
+ *    消费 --c-* 变量（暗色模式由 global.css 的 [data-theme="dark"] 块统一
+ *    翻转）。本文件不得出现任何硬编码颜色。
+ *
+ * ⚠️ 字体栈：与本项目既有内页一致（中文优先）。英文页沿用同一栈是有意的
+ *    ——Noto Sans CJK SC 的西文字形来自 Source Sans，观感正常，且中英混排
+ *    （英文站里的中文标题）能正确回退到中文字形。独立拉丁字体是第 3 期
+ *    的收尾工作。
+ */
+
+.sheet {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: 'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+}
+
+/* ── 视觉隐藏（可访问性）：各页原本也各写一份，同样收在这里 ──────────────
+ * 用途：h1 用真实文字保语义，但视觉上由图片/描边大字承担（如博客页头横幅）。
+ * 这是标准的 sr-only 实现，不要用 display:none（那会连读屏一起藏掉）。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

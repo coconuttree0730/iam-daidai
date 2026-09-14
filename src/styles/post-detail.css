@@ -1,0 +1,418 @@
+/* ── /blog/<id>/ 文章详情页版式 ────────────────────────────────────────────────────
+ *
+ * 本表由 src/pages/blog/[...id].astro 的 <style> 抽出（2026-09-14 i18n）。
+ * 抽取理由：英文版要复用同一套版式，内联复制会让它变成两份必须手工同步的
+ * CSS——而这一步正是在为每个页面加第二份副本之前做的，所以没有产生新债。
+ *
+ * ⚠️ 本文件是**全站唯一**的一份。改版式改这里，中英文两侧同时生效。
+ * ⚠️ 中英文共用。⚠️ 含 .prose 正文排版，改它会影响所有文章的阅读版式。
+ * ⚠️ .sheet / .sr-only / .foot 不在这里——它们已抽到 sheet.css 与
+ *    archive-chrome.css（所有内页共用）。
+ */
+
+  .sheet {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--c-paper);
+    color: var(--c-ink);
+    font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC",
+      "Microsoft YaHei", sans-serif;
+  }
+
+  .post {
+    flex: 1;
+  }
+  /* 正文区网格（2026-09-13 第二批；2026-09-14 扩到六行）。
+     列宽/列距是页面的职责；栏自己的 grid 定位归 ArticleToc.astro。
+     横向内距从各子件上收到容器，所以 720px 列宽就是「净文本宽」——
+     旧版是 max-width:720 含 20px 内距（实际 680）。
+     grid-template-rows 必须显式写：栏用 grid-row:1/-1 跨满三行，而负数行号
+     是从**显式网格**末端数的，没显式行的话 -1 会解析成第 1 条线。
+
+     ⚠️ 2026-09-14 行序（插了操作条与相关阅读，**行号全体后移**）：
+       1 post-head ｜ 2 prose ｜ 3 post-actions ｜ 4 postnav ｜
+       5 related ｜ 6 postback
+     任何新增块都**不能自己抢 grid-row** —— 抢了就和既有块同行重叠。
+     要加新块：① 追加到本模板末尾；② 在页面里显式给 grid-row。
+     ⚠️ 栏（ArticleToc）的 grid-row: 1 / -1 会随之自动覆盖到新增行，
+     不需要改它 —— 这正是用 -1 而不是写死 3 的收益。 */
+  .post-grid,
+  .comments-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 720px);
+    grid-template-rows: auto auto auto auto auto auto;
+    justify-content: center;
+    padding: 0 clamp(20px, 4vw, 48px);
+  }
+  @media (min-width: 1101px) {
+    .post-grid,
+    .comments-grid {
+      /* 720 + 48 + 216 = 984；1101px 视口减左右内距 96px 还剩 1005，够 */
+      grid-template-columns: minmax(0, 720px) 216px;
+      column-gap: 48px;
+    }
+  }
+  .post-head {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 40px 0 6px;
+  }
+  .post-head .en {
+    margin: 0 0 4px;
+    font-family: "Anton", Impact, sans-serif;
+    font-size: clamp(20px, 3vw, 34px);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--c-ghost);
+    user-select: none;
+  }
+  .post-head h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(26px, 5vw, 48px);
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .meta time {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border: 1px solid rgba(var(--c-red-rgb), 0.45);
+    border-radius: 4px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--c-red);
+  }
+  a.chip {
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  a.chip:hover {
+    border-color: var(--c-red);
+    background: rgba(var(--c-red-rgb), 0.08);
+  }
+  /* 精选标记（2026-09-14）：实心红底，与描边式链接 chip 区分——
+     它是状态不是入口，所以不可点、无 hover。 */
+  .chip--featured {
+    border-color: var(--c-red);
+    background: rgba(var(--c-red-rgb), 0.1);
+    font-weight: 700;
+  }
+  .sep {
+    color: rgba(var(--c-ink-rgb), 0.35);
+  }
+  .read {
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+  }
+
+  /* ── 目录（TOC）已迁出本文件（2026-09-13 第二批）──────────────────
+     原先的文首内联目录（.toc + 脚本扫 h2/h3 注入）整体废弃：
+     桌面改右侧 sticky 栏、移动改底部 sheet，两者都由
+     src/components/ArticleToc.astro 承载（列表在构建时渲染，不再注入 DOM，
+     所以那边也不需要 :global）。 */
+
+  /* ── 分享 / 订阅操作条（2026-09-14）：占第 3 行 ──
+     只给「占哪一格」，内部版式在 PostActions.astro 自己的 scoped 样式里。 */
+  .post-actions {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  /* ── 相邻文章导航（上一篇/下一篇）：第 4 行（2026-09-14 后移）── */
+  .postnav {
+    grid-column: 1;
+    grid-row: 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 0 0 46px;
+  }
+  .navcard {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.25);
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+    min-height: 64px;
+    transition: border-color 0.15s ease;
+  }
+  .navcard small {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--c-muted);
+  }
+  .navcard strong {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+  .navcard:hover {
+    border-color: var(--c-red);
+  }
+  .navcard:hover small {
+    color: var(--c-red);
+  }
+  .navcard--right {
+    text-align: right;
+    align-items: flex-end;
+  }
+  /* 占位空卡：单侧缺相邻文章时保持左右对齐 */
+  .navcard--ghost {
+    visibility: hidden;
+  }
+
+  /* ── 相关阅读（2026-09-14）：第 5 行 ──
+     复用 PostCard 的行式条目（与列表页/标签页同一个卡片组件），
+     所以这里只需要容器与标题，卡片自己的版式不重复实现。 */
+  .related {
+    grid-column: 1;
+    grid-row: 5;
+    padding: 0 0 34px;
+  }
+  .related__label {
+    margin: 0 0 8px;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--c-ghost);
+    user-select: none;
+  }
+  .related__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+
+  /* ── 收尾导航（手机档专用，2026-09-13 第三轮）────────────────────
+     与 .prose/.postnav 同列的第 6 行。基类 display:none 让桌面档完全不受
+     影响：display:none 的网格项不生成盒子，既不占行也不影响显式行模板。
+     用 flex + width:fit-content + justify-self:start，让下划线只到文字宽度
+     （与页头 .back 同形），而不是拉伸成整列宽。
+
+     ⚠️ 2026-09-14 手机档 padding 调整：操作条与相关阅读插入后，原来给
+     postnav 的 18px 底距已经不够分隔「相关阅读 → 回列表」两段，
+     这里把 related 的底距在手机档收到 18px、postnav 的底距交给操作条承担。 */
+  .postback {
+    grid-column: 1;
+    grid-row: 6;
+    display: none;
+    justify-self: start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 44px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .postback:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .postback {
+      display: flex;
+    }
+    /* postnav 的 46px 底距原本让给 postback。2026-09-14 插入了操作条与相关
+       阅读，postback 上方现在是 .related —— 由 related 自己收底距即可，
+       postnav 只留 18px 与操作条分隔。 */
+    .postnav {
+      padding-bottom: 18px;
+    }
+    .related {
+      padding-bottom: 18px;
+    }
+  }
+
+  /* ── 正文 prose（手写，纸感配色）── */
+  .prose {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 14px 0 48px;
+    font-size: 15px;
+    line-height: 1.9;
+  }
+  .prose :global(h2) {
+    font-size: 20px;
+    font-weight: 900;
+    margin: 34px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    /* 大纲锚点跳转的呼吸位（页头 sticky 后高约 64px，留 96px 不被遮住） */
+    scroll-margin-top: 96px;
+  }
+  .prose :global(h3) {
+    font-size: 16.5px;
+    font-weight: 800;
+    margin: 26px 0 10px;
+    scroll-margin-top: 96px;
+  }
+  .prose :global(p) {
+    margin: 0 0 14px;
+  }
+  .prose :global(a) {
+    color: var(--c-red);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  .prose :global(a:hover) {
+    text-decoration-thickness: 2px;
+  }
+  /* 外链标记（2026-09-14）：由 rehype-external-links 给站外链接加的 .ext-link。
+     尾随一个 ↗ 表示「会离开本站」——用 ::after 而非在文本里插字，免得复制正文
+     时把箭头也复制走。⚠️ 用 :global 是**本文件一贯写法**（见上方所有 .prose 规则），
+     本文件被 <style> 内联导入时 Astro 会给它加 cid 后缀，若不 :global 则
+     匹配不上正文里由 Markdown 渲染出的 <a>。 */
+  .prose :global(a.ext-link)::after {
+    content: '↗';
+    display: inline-block;
+    margin-left: 0.15em;
+    font-size: 0.85em;
+    line-height: 1;
+    text-decoration: none;
+  }
+  .prose :global(strong) {
+    font-weight: 800;
+  }
+  .prose :global(blockquote) {
+    margin: 18px 0;
+    padding: 4px 18px;
+    border-left: 3px solid var(--c-red);
+    color: var(--c-muted);
+  }
+  .prose :global(blockquote p) {
+    margin: 8px 0;
+  }
+  .prose :global(ul),
+  .prose :global(ol) {
+    margin: 0 0 14px;
+    padding-left: 24px;
+  }
+  .prose :global(li) {
+    margin-bottom: 6px;
+  }
+  .prose :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.86em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(var(--c-ink-rgb), 0.06);
+    border: 1px dotted rgba(var(--c-ink-rgb), 0.35);
+  }
+  .prose :global(pre) {
+    margin: 18px 0;
+    padding: 16px 18px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .prose :global(pre code) {
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+  }
+  .prose :global(img) {
+    max-width: 100%;
+    border-radius: 8px;
+  }
+  .prose :global(hr) {
+    border: 0;
+    border-top: 1px dashed rgba(var(--c-ink-rgb), 0.3);
+    margin: 30px 0;
+  }
+  .prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 18px 0;
+  }
+  .prose :global(th),
+  .prose :global(td) {
+    border-bottom: 1px dashed rgba(var(--c-ink-rgb), 0.3);
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .prose :global(th) {
+    font-weight: 800;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+  }
+
+  .foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 48px) 26px;
+  }
+  .foot .dash {
+    width: 34px;
+    height: 5px;
+    background: var(--c-red);
+  }
+  .foot .barcode {
+    height: 14px;
+    width: 64px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--c-ink) 0 1px,
+      transparent 1px 2.4px,
+      var(--c-ink) 2.4px 4.4px,
+      transparent 4.4px 5.4px,
+      var(--c-ink) 5.4px 6.4px,
+      transparent 6.4px 8.4px
+    );
+  }
+
+  /* ── 评论区样式已注释掉（2026-09-13）：博客板块不使用评论，规避监管风险。
+       保留样式以便未来按需启用。──
+  .comments {
+    grid-column: 1;
+    padding: 4px 0 44px;
+  }
+  .comments-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .comments-note {
+    margin-left: auto;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+  .comments-host {
+    border: 1px dashed rgba(var(--c-ink-rgb), 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    background: rgba(var(--c-paper-rgb), 0.35);
+    min-height: 140px;
+  }
+  */

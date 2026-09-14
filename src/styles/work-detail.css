@@ -1,0 +1,173 @@
+/* ── /works/<no>/ 作品详情页版式 ────────────────────────────────────────────────────
+ *
+ * 本表由 src/pages/works/[slug].astro 的 <style> 抽出（2026-09-14 i18n）。
+ * 抽取理由：英文版要复用同一套版式，内联复制会让它变成两份必须手工同步的
+ * CSS——而这一步正是在为每个页面加第二份副本之前做的，所以没有产生新债。
+ *
+ * ⚠️ 本文件是**全站唯一**的一份。改版式改这里，中英文两侧同时生效。
+ * ⚠️ 中英文共用（/en/works/<no>/ 复用同一份）。
+ * ⚠️ .sheet / .sr-only / .foot 不在这里——它们已抽到 sheet.css 与
+ *    archive-chrome.css（所有内页共用）。
+ */
+
+  .hero {
+    padding: clamp(28px, 6vh, 64px) clamp(20px, 4vw, 48px) 0;
+  }
+  .hero .en {
+    margin: 0;
+    font-family: "Anton", Impact, sans-serif;
+    font-size: clamp(18px, 3.4vw, 34px);
+    line-height: 1;
+    letter-spacing: 0.05em;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--c-ghost);
+    user-select: none;
+  }
+  .hero h1 {
+    margin: 8px 0 0;
+    font-size: clamp(30px, 5.6vw, 56px);
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    font-size: 12.5px;
+    letter-spacing: 0.12em;
+    color: var(--c-muted-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .status {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 3px 9px;
+    border: 1px solid var(--c-ink);
+    border-radius: 4px;
+    color: var(--c-ink);
+  }
+  .status[data-tone="red"] {
+    border-color: var(--c-red);
+    color: var(--c-red);
+  }
+
+  .preview {
+    padding: 0 clamp(20px, 4vw, 48px);
+    margin-top: 24px;
+  }
+  .preview img {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    box-shadow: 0 8px 24px rgba(var(--c-ink-rgb), 0.1);
+  }
+
+  .detail {
+    flex: 1;
+    padding: clamp(20px, 4vh, 40px) clamp(20px, 4vw, 48px);
+    max-width: 760px;
+  }
+  .desc {
+    margin: 0;
+    font-size: 15px;
+    line-height: 2;
+    color: var(--c-ink-2);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chips li {
+    font-size: 12px;
+    padding: 3px 11px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.28);
+    border-radius: 999px;
+    color: var(--c-muted);
+  }
+  .go {
+    display: inline-block;
+    margin-top: 30px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 2px solid var(--c-red);
+    padding-bottom: 3px;
+    transition: color 0.15s ease;
+  }
+  .go:hover { color: var(--c-red); }
+  .go--none {
+    border-bottom-style: dashed;
+    border-bottom-color: rgba(var(--c-ink-rgb), 0.3);
+    color: var(--c-muted-3);
+    font-weight: 400;
+    cursor: default;
+  }
+
+  .pn {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px clamp(20px, 4vw, 48px);
+    border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .pn-link {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 46%;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-ink);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .pn-link small {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: var(--c-muted-2);
+  }
+  .pn-link:hover { color: var(--c-red); }
+  .pn-link--r { text-align: right; }
+
+  /* ── 收尾导航（手机档专用，2026-09-13 第三轮）────────────────────
+     .sheet 是 flex column，本元素是 flex item：必须 align-self: flex-start
+     才能收缩到文字宽 —— 否则交叉轴默认 stretch 会把它拉成整行宽，下划线
+     跟着变长。基类 display:none 让桌面档不生成盒子，版面与改动前一致。
+     左右外边距与 .pn 用同一组 clamp，保证与「上一件」的左缘对齐。
+     不改 .pn 的 padding：它是上下对称的 22px，动了反而不对称。 */
+  .backhome {
+    display: none;
+    align-self: flex-start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 0 clamp(20px, 4vw, 48px) 44px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .backhome:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .backhome {
+      display: flex;
+    }
+  }
+

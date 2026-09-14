@@ -1,0 +1,151 @@
+---
+// 英文标签索引与单标签页见 src/pages/en/tags/。
+// 本文件是 /en/works/（作品集列表）。
+//
+// ⚠️ 数据源 = profile.json 的 works 节，**与中文版同一份**。作品标题/描述
+//    的英文版本属于第 2 期数据层双语化的工作（字段内联 {zh,en}）；当前阶段
+//    卡片上显示的是中文标题。
+//
+// ⚠️ 这个页面的版式（.stack-* 轨道几何）与 src/lib/works-rail.js 的里程契约
+//    强绑定，样式已抽到 src/styles/works-rail.css，中英文共用同一份。本文件
+//    只保留 markup 与脚本，两者与中文版 works.astro 逐条对应。
+//
+// ⚠️ 脚本里的 href 指向 /en/works/<no>/（英文详情页，2026-09-14 建）。
+import Base from '../../layouts/Base.astro';
+import PageHead from '../../components/PageHead.astro';
+import profile from '../../data/profile.json';
+import { useTranslations } from '../../i18n/utils';
+import '../../styles/works-rail.css';
+
+const t = useTranslations('en');
+const cats = profile.works.cats;
+const works = profile.works.items;
+const byCat = (id: string) => works.filter((w) => w.cat === id);
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const sets = cats
+  .filter((c) => c.id !== 'inbox')
+  .map((cat) => {
+    const items = byCat(cat.id);
+    const cards = [
+      ...items.reverse().map((w) => ({
+        type: 'work' as const,
+        no: w.no,
+        title: w.title,
+        en: w.en,
+        img: w.img,
+        cover: w.cover,
+        href: `/en/works/${w.no}/`,
+      })),
+      ...(cat.img
+        ? [
+            {
+              type: 'cover' as const,
+              letter: cat.letter,
+              name: cat.name,
+              en: cat.en,
+              img: cat.img,
+              imgAlt: cat.imgAlt,
+              count: items.length,
+            },
+          ]
+        : []),
+    ];
+    return { cat, cards };
+  });
+---
+
+<Base
+  title={`${t('section.works.title')} · ${t('site.title')}`}
+  description={t('section.works.desc')}
+  locale="en"
+  dock={false}
+>
+  <main class="sheet" id="main">
+    <PageHead no="NO.02" back={{ label: t('head.backHome'), href: '/en/' }} locale="en" />
+    <h1 class="sr-only">{t('section.works.title')}</h1>
+
+    <section class="stack-viewport" data-stack-viewport tabindex="-1">
+      <div class="stack-rail" data-stack-rail>
+        {sets.flatMap((set, setIdx) => {
+          const items: any[] = [];
+          items.push(
+            <div class="card-set" data-set={set.cat.id}>
+              {set.cards.map((card, cardIdx) => {
+                const isCover = card.type === 'cover';
+                return (
+                  <div
+                    class={`stack-card ${isCover ? 'is-cover' : ''}`}
+                    data-card={cardIdx}
+                    style={`--i: ${cardIdx}; --total: ${set.cards.length}`}
+                  >
+                    <div class="card-inner">
+                      {card.type === 'work' ? (
+                        <a class="card-link" href={card.href}>
+                          {card.img ? (
+                            <img class="card-img" src={card.img} alt={card.title} loading="lazy" decoding="async" />
+                          ) : (
+                            <div class="card-placeholder" data-cover={card.cover}></div>
+                          )}
+                          <div class="card-scrim"></div>
+                          <div class="card-info">
+                            <span class="card-no">{card.no}</span>
+                            <span class="card-title">{card.title}</span>
+                            <span class="card-en">{card.en}</span>
+                          </div>
+                        </a>
+                      ) : (
+                        <>
+                          <img class="card-img" src={card.img} alt={card.imgAlt} loading="lazy" decoding="async" />
+                          <div class="card-scrim"></div>
+                          <div class="card-info">
+                            <span class="card-letter">{card.letter}</span>
+                            <span class="card-title">{card.name}</span>
+                            <span class="card-en">{card.en}</span>
+                            <span class="card-count">{card.count} {card.count === 1 ? 'item' : 'items'}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+          if (setIdx < sets.length - 1) {
+            items.push(<div class="set-gap" aria-hidden="true"></div>);
+          }
+          return items;
+        })}
+        <div class="end-set">
+          <a class="endcard" href="/en/#basic">
+            <span class="endcard-face">
+              <span class="end-zh" aria-hidden="true">{t('works.end')}</span>
+              <span class="end-line">{t('works.endCta')}</span>
+            </span>
+          </a>
+        </div>
+      </div>
+      <div class="scroll-hint" data-scroll-hint aria-hidden="true">
+        <span class="scroll-hint__text">{t('works.scrollHint')}</span>
+        <span class="scroll-hint__line"></span>
+      </div>
+    </section>
+
+    <footer class="dock">
+      <div class="ruler" data-ruler>
+        <span class="ticks">{Array.from({ length: 29 }).map(() => (<i></i>))}</span>
+        <span class="frame" data-frame></span>
+      </div>
+    </footer>
+  </main>
+</Base>
+
+<script>
+  /* 交互逻辑已抽到 src/lib/works-view.js（中英文共用同一份，避免动画算法
+     出现两个副本——2026-09-14 的白屏事故就发生在这段代码上）。
+     本页只负责给 DOM 钩子：[data-stack-viewport] / [data-stack-rail] /
+     [data-ruler] / [data-frame] / .card-set / .end-set，见组件模板。 */
+  import { mountWorksRail } from '../../lib/works-view.js';
+  mountWorksRail();
+</script>

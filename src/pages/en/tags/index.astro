@@ -1,0 +1,188 @@
+---
+// 英文标签索引 = /en/tags/（2026-09-14 i18n 第 1 期）
+//
+// ⚠️ 标签名本身就是内容（来自文章 frontmatter 的 tags 字段，如「随笔」「建站」），
+//    英文站显示的仍是中文标签。这是「英文正文暂不做」裁定的直接后果——
+//    标签依附于文章，文章不翻译，标签自然无从翻译。
+//
+//    页面因此挂一条说明（.fallback-note），并把标签链接指回**中文**标签页
+//    （/tags/<name>/）而不是 /en/tags/<name>/——后者会生成一个内容与中文版
+//    完全相同的重复页面，徒增索引噪声。用一个 301 级的选择避免重复内容。
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import { getSortedPosts } from '../../../data/posts';
+import { useTranslations } from '../../../i18n/utils';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+
+const posts = await getSortedPosts();
+const t = useTranslations('en');
+
+const counts = new Map<string, number>();
+for (const p of posts) {
+  for (const tag of p.data.tags) {
+    counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+}
+const tags = [...counts.entries()].sort(
+  (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+);
+---
+
+<Base
+  title={`${t('section.tags.title')} · ${t('site.title')}`}
+  description={t('section.tags.desc')}
+  locale="en"
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.03"
+      chips={[
+        { label: 'Index', variant: 'red' },
+        { label: 'RSS', href: '/rss.xml' },
+      ]}
+      back={{ label: t('head.backBlog'), href: '/en/blog/' }}
+      locale="en"
+    />
+
+    <section class="hero">
+      <img class="hero__art" src="/motion/tags-cabinet-chibi.webp" alt="" width="723" height="680" loading="eager" decoding="async" />
+      <div class="hero__text">
+        <p class="en" aria-hidden="true">TAGS</p>
+        <h1>{t('section.tags.title')}</h1>
+      </div>
+    </section>
+
+    <p class="fallback-note">
+      Tags are currently in Chinese, following the language of the posts.
+    </p>
+
+    {
+      tags.length === 0 ? (
+        <section class="stamp" aria-label={t('empty.noTags')}>
+          <strong>{t('empty.noTags')}</strong>
+          <small>{t('empty.noTagsNote')}</small>
+        </section>
+      ) : (
+        <section class="list-section" aria-label="Tag list">
+          <ul class="list" role="list">
+            {tags.map(([name, count], i) => (
+              <li>
+                {/* 注意 href 指向**中文**标签页（无 /en 前缀）——见文件头注释 */}
+                <a class="row" href={`/tags/${name}/`}>
+                  <span class="lead">
+                    <span class="no" aria-hidden="true">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span class="count">{count} {count === 1 ? 'post' : 'posts'}</span>
+                  </span>
+                  <span class="body">
+                    <span class="name">#{name}</span>
+                  </span>
+                  <span class="arrow" aria-hidden="true">→</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 页头构图与中文版一致（插画左、文字右；纸带用主题不变量 --c-band，
+     深色主题下保留白底——见中文版 tags/index.astro 的裁定注释）。
+     仅本页特有规则写在这里。 */
+
+  .hero {
+    display: flex;
+    align-items: center;
+    gap: clamp(16px, 3vw, 40px);
+    padding: clamp(28px, 5vw, 54px) clamp(20px, 4vw, 48px) clamp(18px, 2.6vw, 30px);
+    background: var(--c-band);
+  }
+  .hero__art {
+    flex: none;
+    width: clamp(120px, 22vw, 260px);
+    height: auto;
+  }
+  .hero__text { min-width: 0; }
+  .hero__text .en {
+    margin: 0;
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: clamp(22px, 4.5vw, 54px);
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: transparent;
+    -webkit-text-stroke: 1.2px #b9b6ae;
+    user-select: none;
+  }
+  .hero__text h1 {
+    margin: 4px 0 0;
+    font-weight: 900;
+    font-size: clamp(28px, 6vw, 68px);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: #131211;
+  }
+
+  .fallback-note {
+    margin: 18px clamp(20px, 4vw, 48px) 0;
+    padding: 9px 14px;
+    border-left: 3px solid var(--c-red);
+    background: rgba(var(--c-ink-rgb), 0.04);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+
+  .list-section { flex: 1; padding: 20px clamp(20px, 4vw, 48px) 6px; }
+  .list { margin: 0; padding: 0; list-style: none; }
+  .list > li + li { border-top: 1px solid rgba(var(--c-ink-rgb), 0.16); }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 13px 4px;
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .row:hover { color: var(--c-red); }
+  .lead {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex: none;
+  }
+  .lead .no {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--c-red);
+  }
+  .lead .count {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .body { min-width: 0; flex: 1; }
+  .name { font-size: 17px; font-weight: 900; letter-spacing: 0.02em; }
+  .arrow { flex: none; font-size: 15px; color: var(--c-muted); }
+
+  .stamp {
+    align-self: center; margin-bottom: 40px; padding: 14px 26px;
+    border: 2px solid var(--c-red); border-radius: 6px; color: var(--c-red);
+    text-align: center; transform: rotate(-2.5deg);
+  }
+  .stamp strong { display: block; font-size: 18px; font-weight: 900; letter-spacing: 0.22em; }
+  .stamp small { display: block; margin-top: 6px; font-size: 11px; letter-spacing: 0.14em; }
+</style>

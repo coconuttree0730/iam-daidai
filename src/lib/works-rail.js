@@ -18,10 +18,17 @@
 // 帧循环里同时渲染三处：轨道位移（或 onRender）、进度条 scaleX、计数器读数。
 // 新增 onRender 回调：若提供，则替代默认的 rail.style.transform 渲染，
 // 回调签名 (progress, max) => void，progress 为当前逻辑进度 px，max 为总里程。
+//
+// onRender 与 max 的关系（2026-09-14）：当渲染层不是「右对齐撑满」而是
+// 「让最后一屏内容居中」时，两者里程并不相等——居中所需位移可能大于
+// rail.scrollWidth - viewport.clientWidth。此时若仍用后者作 max，最后的
+// 过渡段永远走不完（progress 顶到 1 却离终点还差一截）。为此支持
+// getMax 回调：渲染层返回它自己的里程，rail 以之为 max，保证
+// progress===1 ⇔ 渲染层到达终点。缺省仍用宽度差。
 
 const LINE = 16; // deltaMode === 1（行）时的像素折算
 
-export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, rulerEl, total = 1, onRender }) {
+export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, rulerEl, total = 1, onRender, getMax }) {
   let max = 0;        // 可横移总里程 px
   let frameMax = 0;   // 顶部刻度尺上游标可移动里程 px
   let target = 0;     // 逻辑进度（0..max）
@@ -29,6 +36,8 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
   let raf = 0;
   let lastT = 0;
   let locked = false; // 弹层（分类卷宗）打开时置 true，暂停全部轨道输入
+  let remeasurePending = 0;
+  let retries = 0;    // 「max 仍为 0」的补测次数上限
 
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
@@ -72,7 +81,11 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
   }
 
   function measure() {
-    max = Math.max(0, rail.scrollWidth - viewport.clientWidth);
+    if (typeof getMax === 'function') {
+      max = Math.max(0, getMax() || 0);
+    } else {
+      max = Math.max(0, (rail ? rail.scrollWidth : 0) - viewport.clientWidth);
+    }
     frameMax = frameEl && rulerEl
       ? Math.max(0, rulerEl.clientWidth - frameEl.offsetWidth)
       : 0;
@@ -81,6 +94,26 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
       pos = clamp(pos, 0, max);
       render();
     }
+    // 里程为 0 ⇒ 极可能本次测量早于布局/字体就绪（getMax 读到的几何全是 0）。
+    // 必须补测，否则 max 永久为 0、onRender 停在第一屏、后方内容永不显形。
+    // 用两帧 rAF 覆盖「样式表刚生效」与「图片/字体撑开尺寸」两种情况；
+    // 上限 5 次防止在真正无内容可滚时无限重测。
+    if (max === 0 && retries < 5) {
+      retries++;
+      scheduleRemeasure();
+    } else if (max > 0) {
+      retries = 0;
+    }
+  }
+
+  function scheduleRemeasure() {
+    if (remeasurePending) return;
+    remeasurePending = requestAnimationFrame(() => {
+      remeasurePending = requestAnimationFrame(() => {
+        remeasurePending = 0;
+        measure();
+      });
+    });
   }
 
   // ── 滚轮：竖向为主，横向为辅（触控板双指横扫直接给 deltaX）──
@@ -203,6 +236,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', measure);
       if (raf) cancelAnimationFrame(raf);
+      if (remeasurePending) cancelAnimationFrame(remeasurePending);
     },
   };
 }
