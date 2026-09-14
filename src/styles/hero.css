@@ -146,7 +146,15 @@
 
   position: relative;
   height: 100svh;
-  min-height: 620px;
+  /* min-height:620px 地板已移除（2026-09-14 晚，联系区矮视口事故）：
+     地板会把矮视口的舞台顶出 100svh，制造一段「永远差一截」的文档溢出——
+     焦点归还（抽屉关闭还焦卡 01）/键盘避让的 reveal 滚动会滚动文档且无人
+     拉回，表现为整页停在偏移位（手机端「点击邮箱卡片后页面偏移」的根因），
+     且底部黑条永沉折叠线下。矮视口的构图改由两处承担：横屏 B3 档与
+     「矮视口收尾区重锚定」档（≤900 档之后）的压缩，以及 --design-h 的
+     svh 化（舞台高随视口缩，人物共同尺度必须同基准，见下）。
+     副作用自查：stage = 100svh 后文档恒无溢出 → 根滚动恒 0，
+     HeroStage 脚本里的根滚动钳制只是保险丝，常态不触发。 */
   overflow: hidden;
   isolation: isolate;
   background: var(--paper);
@@ -553,7 +561,8 @@
  *   本图形    top 192.2（旧值 31%）→ 顶边与字顶几乎同高，
  *             与字重叠 75.3px，观感是"图形贴在字上"而不是"在字上方"。
  * 反解：要求 本图形底 ≤ 字顶 − 净空(6px) → 顶 ≤ 187.2 − 高 76.3 = 110.9px
- *   110.9 / 620 = 17.9%（.stage 高；min-height 620px 即本档基准）
+ *   110.9 / 620 = 17.9%（.stage 高；撰写时按 620px 校准——该 min-height
+ *     地板已于 2026-09-14 晚移除，% 随舞台高按比例缩放，校准比例不变）
  * 取 17%，底边落到 181.7，净空 11.5px。
  *
  * 为什么写成 % 而不是 px：.stage 高随视口变（100svh，下限 620px），
@@ -940,7 +949,7 @@
   /* 升起高度：从下方 N vh 处上移到终点。
    * 用 vh 而非 px——矮视口上 px 起手位可能还在屏内（没"从下方来"的观感），
    * 高视口上又移得太远、过渡显得拖沓。 */
-  --outro-rise: 14vh;
+  --outro-rise: 14svh; /* 2026-09-14 晚 vh→svh：舞台高已 svh 基准，升起行程同基准 */
 }
 
 /* ── 左侧：个人语录 + 简短介绍 ────────────────────────────────────── */
@@ -950,12 +959,13 @@
      宽度用 min(38vw, 460px)：窄屏按比例收，宽屏封顶避免行宽过长难读。 */
   left: clamp(24px, 5.6vw, 96px);
   /* ── 锚点口径：stage 百分比，不用 vh ────────────────────────────
-   * 本块定位相对 .stage，而 .stage 高 = max(100svh, 620px)。用 vh 时
-   * 矮视口下 stage 被 min-height 顶到 620px，1vh 却按视口算 → 锚距被
-   * 压缩，同一条规则在不同视口上落点不一致（实测 532px 视口下
-   * `16vh` = 85px，只相当于 stage 的 13.7%）。改成 xxx% 后百分比
-   * 直接相对 .stage 盒高，落点与视口高解耦——与 .mark-br 的
-   * `bottom: calc(var(--bar-h) + 2.4%)` 同一口径。 */
+   * 本块定位相对 .stage（高 = 100svh；2026-09-14 晚起无 min-height 地板）。
+   * 用 vh 时移动端地址栏展开（vh > svh）会把锚距撑大，同一条规则在不同
+   * 视口上落点不一致（实测 532px 视口下 `16vh` = 85px，只相当于 stage 的
+   * 13.7%）。改成百分比后，百分比直接相对 .stage 盒高，落点与视口高解耦
+   * ——与 .mark-br 的 `bottom: calc(var(--bar-h) + 2.4%)` 同一口径。
+   * ⚠️ bottom-% 锚意味着内容向上生长：stage 高度不足时（矮视口）内容会
+   * 越过舞台顶，重锚定见下方「矮视口收尾区重锚定」档（≤900 之后）。 */
   bottom: calc(var(--bar-h) + 51.9676%);
   z-index: 6;
   width: min(38vw, 460px);
@@ -1115,6 +1125,66 @@
   }
 }
 
+/* ── 矮视口收尾区重锚定（2026-09-14 晚，联系区事故）──────────────────
+ * 症状：矮视口（手机横屏 ~495 高、矮桌面窗口）下中英两版收尾区全部顶穿
+ * 舞台上缘——语录/表单都是 bottom-% 锚、内容向上生长，而锚距百分比是按
+ * 900–1080 高的参考舞台调的；stage 落到 100svh（495 一类）后锚点以上只剩
+ * ~200px，EN 文案（语录 2 行 + 介绍 ~9 行、表单含 4 行同意条款 ≈385px）
+ * 直接越顶，与 fixed 的 .top-bar（z100，y20–60 的站名/昼夜章）叠在一起。
+ * zh 同病稍轻（表单 ~347px 仍触顶）——「中英文版同理」的由来。
+ *
+ * 口径：这是**高度维度**的重锚定，宽度档管不了手机横屏，全部按 max-height
+ * 分档，语汇与 ≤900 档一致——语录上锚、表单贴黑条、竖向开销分档压缩：
+ *   ≤730   语录 top 锚（与 ≤900 同式；≤640 会以 11svh 再覆盖）、
+ *          表单 bottom: bar + clamp(16px, 5svh, 44px)；
+ *   ≤520   介绍钳 4 行（≤640 会以 3 行再覆盖）+ 表单轻压缩（EN 385→~318）；
+ *   ≤430   表单再压缩：藏 note、consent 缩字号、textarea 44（→~262）。
+ * 预算按 EN 最坏列校验：375 高（iPhone SE 横屏）C 档表单顶 ≈ y60，恰好
+ * 让开 .top-bar；320 级超短横屏不再保（构图会紧，观感由用户跑 dev 裁定）。
+ * 位置放在 ≤900 之后、≤640 之前：源顺序保证 ≤640 的调参值继续必胜。 */
+@media (max-height: 730px) {
+  .outro {
+    top: clamp(72px, 14svh, 168px);
+    bottom: auto;
+  }
+  .stage .outro-contact {
+    bottom: calc(var(--bar-h) + clamp(16px, 5svh, 44px));
+  }
+}
+@media (max-height: 520px) {
+  .outro-intro {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+  }
+  .stage .outro-contact {
+    gap: 8px;
+  }
+  .stage .field input {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+  .stage .field textarea {
+    min-height: 56px;
+  }
+}
+@media (max-height: 430px) {
+  .stage .outro-contact {
+    gap: 6px;
+  }
+  .stage .outro-contact-note {
+    display: none;
+  }
+  .stage .outro-consent {
+    margin-top: 6px;
+    font-size: 10px;
+  }
+  .stage .field textarea {
+    min-height: 44px;
+  }
+}
+
 /* ≤640：手机上竖排空间更紧，语录在上、表单在下，各锚自己的边。
  *
  * ── 为什么放弃「两个硬百分比」（2026-09-12 修正）─────────────────────
@@ -1135,9 +1205,8 @@
  *   .outro-contact  bottom: calc(var(--bar-h) + clamp(28px, 7svh, 84px))
  *                                                        ← 距黑条顶，偏下
  * 这样两块各自"贴"住自己的边，中间的间隙是剩余量，随屏高自然伸缩，
- * 不会出现固定比例的膨胀。用 svh 而非 %：% 相对 .stage 盒高（含
- * min-height:620px 兜底），矮视口下会被压扁，落点在不同屏上不一致
- * （与 .outro 桌面档注释同一条理由）。
+ * 不会出现固定比例的膨胀。用 svh 而非 %：% 相对 .stage 盒高（2026-09-14
+ * 晚起 = 100svh、无地板，两套基准已合一；保留 svh 写法，语义直白）。
  *
  * ── 为什么语录的 11svh 偏上：为人物留出对话空间 ──────────────────────
  * 终态里人物占满中下部，语录放太低会与头部抢读区。11svh 在 360×640
@@ -1329,10 +1398,11 @@
     --ghost-stretch: 1.2;
     /* 按"两词 11.01em 必须放进 0.90×100vw"反解，见文件头横向预算。 */
     --solid-size: clamp(18px, 7.9vw, 44px);
-    /* 舞台高的 CSS 表达式（.stage 本体 = height:100svh + min-height:620px）。
+    /* 舞台高的 CSS 表达式（.stage 本体 = height:100svh；2026-09-14 晚起
+       无 min-height 地板，两者天然同基准）。
        只在 ≤640 档定义：下面拆两词定位时，`top` 的百分比基准是
        `.title-en` 的盒高（= 0.8·S，太小），拿不到舞台高，必须显式给出。 */
-    --stage-h: max(620px, 100svh);
+    --stage-h: 100svh;
     /* 2026-09-10 深夜修正：上一轮把整个 .title-en（含 ARCHIVE）一起下移了，
        用户指出「只要红色 PERSONAL 下移，ARCHIVE 保留原位」。
        所以 --solid-baseline 恢复原值 68%（= ARCHIVE 所在行），红色 PERSONAL
@@ -1457,5 +1527,39 @@
   }
   .infobar .group {
     gap: 12px;
+  }
+}
+
+/* ── 横屏矮视口（审计 B3，2026-09-14）────────────────────────────────
+ * 问题：横屏手机（如 844×390、641×360）视口高 < 620px，min-height:620px
+ * 把舞台顶出 100svh → 页面级滚动、底部信息条沉到折叠线下。全站此前
+ * 没有任何 orientation/高度维度断点，这是第一个。
+ *
+ * 三件事必须同时做，缺一会更糟：
+ * 1. min-height:0 —— 舞台贴合 100svh，页面不再滚动；
+ * 2. --stage-h: 100svh —— ≤640 档整条公式链（--ghost-top / --solid-drop /
+ *    .w-right top）都锚在 --stage-h 上，只改 min-height 不改它，
+ *    公式仍按 620px 高的舞台定位，元素全部落到可视区外被裁；
+ * 3. --design-h 的 vh→svh —— 与 2026-09-12 弹性化同一手法：舞台高改为
+ *    svh 基准后，人物/扇形/卡片的共同尺度若仍按 vh 算，移动浏览器
+ *    地址栏展开时（vh > svh）人物会比舞台相对偏大。桌面窗口 svh==vh，
+ *    下列公式零影响；只有移动横屏产生差异。
+ * 放在文件最末：与各档 .stage 同特异性，源顺序最后 = 必胜。
+ * 本档是「能看见、不破版」的保底：360px 高度上构图会紧，观感由用户跑 dev 裁定。
+ * ★ 2026-09-14 晚：基础档 620px 地板已整体移除（见基础档 height 注），本档
+ *   第 1/2 条与基础档同值，保留作横屏的显式声明；真正继续生效的是第 3 条
+ *   （--design-h svh 化）。收尾区的矮视口行为另见「矮视口收尾区重锚定」档。 */
+@media (orientation: landscape) and (max-height: 620px) {
+  .stage {
+    min-height: 0;
+    --stage-h: 100svh;
+    /* 基础档公式（>900 宽沿用），仅 vh→svh */
+    --design-h: min(70svh, 790px, calc((50vw - 32px) / 0.9004));
+  }
+  /* 641–900（横屏手机的主场）：沿用 900 档公式，vh→svh */
+  @media (max-width: 900px) {
+    .stage {
+      --design-h: min(62svh, 540px, calc((50vw - 32px) / 0.9004));
+    }
   }
 }

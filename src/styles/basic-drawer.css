@@ -35,7 +35,9 @@
   color: var(--fi);
   padding: 0;
   width: min(680px, calc(100vw - 40px));
-  max-height: min(88vh, 780px);
+  /* 审计 B6（2026-09-14）：vh→dvh——带地址栏的平板/桌面浏览器里，88vh 按
+     大视口算，抽屉底部被工具栏遮住 60–110px；手机档（下方 @media）早已用 dvh。 */
+  max-height: min(88dvh, 780px);
   margin: auto;
   overflow: visible;
   overscroll-behavior: contain;
