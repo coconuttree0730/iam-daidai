@@ -37,9 +37,9 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
       <h1>SCROLL / 滚动帧随动</h1>
       <span class="sub">LAB-01 · 193 FRAMES · 24FPS · RVM MATTING · 20 SEG WEBP</span>
       <p class="lede">
-        把<b>滚动量</b>当时间轴：页面行程被归一化成进度 p，p 线性映射成目标帧号
-        f*，smoothDamp 追帧后拆成「段 + 格」，从分段图集里裁出单格画上 Canvas。
-        左边手机里滑动，下面六张剖图消费同一份数据——<b>全都会实时跟着动</b>。
+        把<b>滚动量</b>当时间轴：行程归一化成进度 p，线性映射目标帧 f*，smoothDamp
+        追帧后按「段 + 格」从分段图集裁切上屏。左边手机里滑动——右侧六张剖图
+        消费同一份数据，<b>全部实时跟着动</b>。
       </p>
     </header>
 
@@ -48,8 +48,8 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
       <div class="stage-col">
         <div class="stage-sticky">
           <div class="phone">
-            <div class="phone__notch" aria-hidden="true"></div>
             <div class="phone__viewport">
+              <div class="phone__notch" aria-hidden="true"></div>
               <iframe
                 class="phone__iframe"
                 src="/lab/scroll-demo.html"
@@ -83,20 +83,20 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
               <div class="probe__bar" aria-hidden="true"><i data-live="pbar"></i></div>
               <dl class="probe__rows">
                 <div>
-                  <dt>滚动进度 p = clamp(scrollY ÷ L)</dt>
-                  <dd>p = <span data-live="p">0.000</span></dd>
+                  <dt>进度 p</dt>
+                  <dd><span data-live="p">0.000</span></dd>
                 </div>
                 <div>
-                  <dt>目标帧 f* = p × 192</dt>
-                  <dd>f* = <span data-live="ftarget">0</span></dd>
+                  <dt>目标帧 f*</dt>
+                  <dd><span data-live="ftarget">0</span></dd>
                 </div>
                 <div>
-                  <dt>落位 段 = ⌊f ÷ 10⌋，格 k = f − 段×10</dt>
-                  <dd>seg <span data-live="seg">00</span> · k <span data-live="cell">0</span></dd>
+                  <dt>落位 段·格</dt>
+                  <dd>s<span data-live="seg">00</span>·k<span data-live="cell">0</span></dd>
                 </div>
                 <div>
-                  <dt>缓动 f = round(smoothDamp(f*))</dt>
-                  <dd>Δ <span data-live="delta">0.0</span> 帧</dd>
+                  <dt>缓动 Δ</dt>
+                  <dd><span data-live="delta">0.0</span> 帧</dd>
                 </div>
               </dl>
             </div>
@@ -288,18 +288,18 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
             <text class="dstat" data-live="dstat" x="656" y="227" text-anchor="end">已收敛</text>
           </svg>
         </figure>
+
+        <footer class="specs" aria-label="技术规格">
+          <span>时间轴 <b>线性钳制（wrap:false）</b></span>
+          <span>映射 <b>f = round(p × 192) → smoothDamp</b></span>
+          <span>分段 <b>20 段 × 10 格（2×5）</b></span>
+          <span>单格 <b>966×720 · 零缩放</b></span>
+          <span>抠图 <b>RVM resnet50 + despill</b></span>
+          <span>体积 <b>20 × WebP ≈ 11MB</b></span>
+          <span>位图 <b>LRU 2–3 段 ≈ 28MB/段</b></span>
+        </footer>
       </div>
     </div>
-
-    <footer class="specs" aria-label="技术规格">
-      <span>时间轴 <b>线性钳制（wrap:false）</b></span>
-      <span>映射 <b>f = round(p × 192) → smoothDamp</b></span>
-      <span>分段 <b>20 段 × 10 格（2×5）</b></span>
-      <span>单格 <b>966×720 · 零缩放</b></span>
-      <span>抠图 <b>RVM resnet50 + despill</b></span>
-      <span>体积 <b>20 × WebP ≈ 11MB</b></span>
-      <span>位图 <b>LRU 2–3 段 ≈ 28MB/段</b></span>
-    </footer>
 
     <p class="outro"><a href="/lab/">{t('scroll.backLab')}</a></p>
   </main>
@@ -341,6 +341,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
       dbar: Q('[data-live="dbar"]'),
       dval: Q('[data-live="dval"]'),
       dstat: Q('[data-live="dstat"]'),
+      delta: Q('[data-live="delta"]'),
     };
 
     /* 与 SVG 几何保持同一组数（见上方常量注释） */
@@ -390,6 +391,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
       el.segcell.textContent = `s${pad2(seg)}·k${f - base}`;
       el.scrollpx.textContent = String(Math.round(d.scrollY ?? 0));
       el.pbar.style.width = `${(p * 100).toFixed(1)}%`;
+      el.delta.textContent = delta.toFixed(1);
 
       /* 02 映射曲线游标 */
       const x = PX0 + p * PW;
@@ -490,10 +492,10 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
   .layout {
     flex: 1;
     display: grid;
-    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-    gap: clamp(20px, 3vw, 42px);
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: clamp(18px, 2.4vw, 34px);
     align-items: start;
-    padding: clamp(14px, 2vw, 24px) clamp(20px, 4vw, 48px) 10px;
+    padding: clamp(14px, 2vw, 22px) clamp(20px, 4vw, 48px) 10px;
   }
 
   .stage-sticky {
@@ -512,30 +514,31 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
     text-align: center;
   }
 
-  /* 手机外壳：高度优先（钉在视口内不溢出），宽度由 375:667 比例推出 */
+  /* 手机外壳：堆叠档宽度优先（375:667 比例推出高），桌面档高度优先填满左列 */
   .phone {
     position: relative;
-    height: min(72vh, 620px); /* 老浏览器降级 */
-    height: min(72svh, 620px);
+    width: min(100%, 330px);
     aspect-ratio: 375 / 667;
     display: flex;
     flex-direction: column;
   }
+  /* 刘海做成屏内「岛」：viewport 四边全边框 + 全圆角，顶部轮廓不再缺失 */
   .phone__notch {
-    flex-shrink: 0;
-    width: min(140px, 40%);
-    height: 16px;
-    margin: 0 auto;
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(110px, 34%);
+    height: 14px;
     background: var(--c-ink);
-    border-radius: 0 0 10px 10px;
+    border-radius: 8px;
     z-index: 2;
   }
   .phone__viewport {
     flex: 1;
     position: relative;
     border: 3px solid var(--c-ink);
-    border-top: none;
-    border-radius: 0 0 22px 22px;
+    border-radius: 24px;
     overflow: hidden;
     /* 屏内恒保浅纸底（--c-band 裁定）：iframe 内容也按浅底绘制 */
     background: var(--c-band);
@@ -573,12 +576,12 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
   .anatomy {
     display: flex;
     flex-direction: column;
-    gap: clamp(14px, 1.8vw, 22px);
+    gap: 12px;
     min-width: 0;
   }
   .anat {
     margin: 0;
-    padding: clamp(12px, 1.5vw, 18px);
+    padding: 12px 14px;
     border: 1px solid rgba(var(--c-ink-rgb), 0.14);
     border-radius: 8px;
     background: var(--c-card);
@@ -587,7 +590,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
     display: flex;
     align-items: baseline;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
   .anat figcaption b {
     font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
@@ -597,7 +600,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
     color: var(--c-red);
   }
   .anat figcaption .t {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.02em;
   }
@@ -620,7 +623,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
   .probe {
     display: flex;
     align-items: center;
-    gap: clamp(16px, 2.4vw, 30px);
+    gap: 16px;
     flex-wrap: wrap;
   }
   .probe__frame {
@@ -630,7 +633,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
     line-height: 1;
   }
   .probe__f {
-    font-size: clamp(40px, 5vw, 58px);
+    font-size: clamp(32px, 4vw, 46px);
     font-weight: 600;
     letter-spacing: -0.02em;
   }
@@ -661,8 +664,8 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
   }
   .probe__rows {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-    gap: 2px 22px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 20px;
     margin: 0;
   }
   .probe__rows div {
@@ -910,7 +913,7 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
     display: flex;
     flex-wrap: wrap;
     gap: 8px 10px;
-    padding: 10px clamp(20px, 4vw, 48px) 6px;
+    padding: 4px 2px 12px;
   }
   .specs span {
     padding: 4px 10px;
@@ -941,17 +944,68 @@ const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
     border-color: var(--c-red);
   }
 
-  /* ── 平板/手机档：单列，手机框不再 sticky ────────────────────────── */
-  @media (max-width: 960px) {
+  /* ── 桌面档：锁一屏高，左手机自适应填满，右栏内部滚动 ────────────── */
+  @media (min-width: 1101px) {
+    .lab {
+      height: calc(100vh - 65px); /* PageHead sticky 高约 65px */
+      height: calc(100svh - 65px);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .lab-head {
+      padding-top: 20px;
+    }
+    .lab-head .lede {
+      margin-top: 8px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .layout {
+      grid-template-columns: auto minmax(380px, 560px);
+      justify-content: center;
+      align-items: stretch;
+      min-height: 0;
+    }
+    .layout > * {
+      min-height: 0;
+    }
+    .stage-col {
+      display: flex;
+    }
+    .stage-sticky {
+      position: static;
+      height: 100%;
+      justify-content: center;
+    }
+    .phone {
+      width: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: 700px;
+    }
+    .anatomy {
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(var(--c-ink-rgb), 0.25) transparent;
+    }
+    .outro {
+      display: none;
+    }
+  }
+
+  /* ── 平板/手机档：单列堆叠，整页自然滚动 ────────────────────────── */
+  @media (max-width: 1100px) {
     .layout {
       grid-template-columns: 1fr;
     }
     .stage-sticky {
       position: static;
-    }
-    .phone {
       height: auto;
-      width: min(100%, 340px);
+    }
+    .anat {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
     }
   }
   @media (max-width: 640px) {

@@ -5,15 +5,16 @@
 //    英文站显示的仍是中文标签。这是「英文正文暂不做」裁定的直接后果——
 //    标签依附于文章，文章不翻译，标签自然无从翻译。
 //
-//    页面因此挂一条说明（.fallback-note），并把标签链接指回**中文**标签页
-//    （/tags/<name>/）而不是 /en/tags/<name>/——后者会生成一个内容与中文版
-//    完全相同的重复页面，徒增索引噪声。用一个 301 级的选择避免重复内容。
+//    页面因此挂一条说明（.fallback-note）。行链接指向 /en/tags/<name>/ 落点页
+//    （noindex）——英文树内的标签导航留在树内，不再跨语言跳中文页；
+//    zh 页仍是 canonical（索引/sitemap/hreflang 不变）。2026-09-14 用户反馈后统一。
 import Base from '../../../layouts/Base.astro';
 import PageHead from '../../../components/PageHead.astro';
 import { getSortedPosts } from '../../../data/posts';
 import { useTranslations } from '../../../i18n/utils';
 import '../../../styles/sheet.css';
 import '../../../styles/archive-chrome.css';
+import '../../../styles/tags-index.css';
 
 const posts = await getSortedPosts();
 const t = useTranslations('en');
@@ -38,8 +39,9 @@ const tags = [...counts.entries()].sort(
     <PageHead
       no="NO.03"
       chips={[
-        { label: 'Index', variant: 'red' },
-        { label: 'RSS', href: '/rss.xml' },
+        // 自指「Index」chip 随中文版同批删除；「RSS」亦移除（2026-09-14，
+        // Base <head> autodiscovery 已覆盖订阅发现）。
+        { label: 'Categories', href: '/en/categories/' },
       ]}
       back={{ label: t('head.backBlog'), href: '/en/blog/' }}
       locale="en"
@@ -68,8 +70,8 @@ const tags = [...counts.entries()].sort(
           <ul class="list" role="list">
             {tags.map(([name, count], i) => (
               <li>
-                {/* 注意 href 指向**中文**标签页（无 /en 前缀）——见文件头注释 */}
-                <a class="row" href={`/tags/${name}/`}>
+                {/* 指向 /en/tags/<name>/ 落点页（noindex）——见文件头注释 */}
+                <a class="row" href={`/en/tags/${name}/`}>
                   <span class="lead">
                     <span class="no" aria-hidden="true">
                       {String(i + 1).padStart(2, '0')}
@@ -88,6 +90,10 @@ const tags = [...counts.entries()].sort(
       )
     }
 
+    <!-- 收尾导航（手机档专用）：与中文 /tags/ 同一机制，页头 .back 在 ≤640px
+         隐藏时补回通往 /en/blog/ 的站内路径，两档严格互斥。 -->
+    <a class="postback" href="/en/blog/">{t('head.backBlog')}</a>
+
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
       <span class="barcode"></span>
@@ -96,42 +102,10 @@ const tags = [...counts.entries()].sort(
 </Base>
 
 <style>
-  /* 页头构图与中文版一致（插画左、文字右；纸带用主题不变量 --c-band，
-     深色主题下保留白底——见中文版 tags/index.astro 的裁定注释）。
-     仅本页特有规则写在这里。 */
-
-  .hero {
-    display: flex;
-    align-items: center;
-    gap: clamp(16px, 3vw, 40px);
-    padding: clamp(28px, 5vw, 54px) clamp(20px, 4vw, 48px) clamp(18px, 2.6vw, 30px);
-    background: var(--c-band);
-  }
-  .hero__art {
-    flex: none;
-    width: clamp(120px, 22vw, 260px);
-    height: auto;
-  }
-  .hero__text { min-width: 0; }
-  .hero__text .en {
-    margin: 0;
-    font-family: 'Anton', Impact, sans-serif;
-    font-size: clamp(22px, 4.5vw, 54px);
-    line-height: 1;
-    letter-spacing: 0.06em;
-    color: transparent;
-    -webkit-text-stroke: 1.2px #b9b6ae;
-    user-select: none;
-  }
-  .hero__text h1 {
-    margin: 4px 0 0;
-    font-weight: 900;
-    font-size: clamp(28px, 6vw, 68px);
-    line-height: 1;
-    letter-spacing: 0.02em;
-    color: #131211;
-  }
-
+  /* 版式全部来自共享表 tags-index.css（大字页头、两行式 lead、postback），
+     与中文版同一份——此前本页漏导共享表、手抄了一份旧版式，正是
+     「中英标签页长得不一样」的根因（2026-09-14 用户截图暴露）。
+     仅本页特有的回退说明条写在这里。 */
   .fallback-note {
     margin: 18px clamp(20px, 4vw, 48px) 0;
     padding: 9px 14px;
@@ -141,48 +115,4 @@ const tags = [...counts.entries()].sort(
     letter-spacing: 0.04em;
     color: var(--c-muted);
   }
-
-  .list-section { flex: 1; padding: 20px clamp(20px, 4vw, 48px) 6px; }
-  .list { margin: 0; padding: 0; list-style: none; }
-  .list > li + li { border-top: 1px solid rgba(var(--c-ink-rgb), 0.16); }
-
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 13px 4px;
-    color: inherit;
-    text-decoration: none;
-    transition: color 0.15s ease;
-  }
-  .row:hover { color: var(--c-red); }
-  .lead {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex: none;
-  }
-  .lead .no {
-    font-family: 'Archivo Black', sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    color: var(--c-red);
-  }
-  .lead .count {
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: var(--c-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .body { min-width: 0; flex: 1; }
-  .name { font-size: 17px; font-weight: 900; letter-spacing: 0.02em; }
-  .arrow { flex: none; font-size: 15px; color: var(--c-muted); }
-
-  .stamp {
-    align-self: center; margin-bottom: 40px; padding: 14px 26px;
-    border: 2px solid var(--c-red); border-radius: 6px; color: var(--c-red);
-    text-align: center; transform: rotate(-2.5deg);
-  }
-  .stamp strong { display: block; font-size: 18px; font-weight: 900; letter-spacing: 0.22em; }
-  .stamp small { display: block; margin-top: 6px; font-size: 11px; letter-spacing: 0.14em; }
 </style>

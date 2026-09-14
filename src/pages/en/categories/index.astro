@@ -1,31 +1,27 @@
 ---
 /*
-  分类索引页（2026-09-14 建）：/categories/ —— 领域分类 + 文章计数。
+  英文分类索引页（2026-09-14 英文档补齐）：/en/categories/
   ────────────────────────────────────────────────────────────────────────
-  与 /tags/ 的关键差异（刻意的，两者不是同一件事）：
+  中文对应物 = src/pages/categories/index.astro（版式同构：sheet + archive-chrome
+  + tags-index.css 三件共享表，与中文页逐像素同款）。
 
-  · **排序 = 清单顺序，不是文章数**。标签页按「多少篇」降序排（标签是热度的
-    自然表达）；分类页按 CATEGORIES 数组顺序（分类是目录，不该因为某类文章
-    多了就往上跳）。
-  · **登记了但暂无文章的分类照样列出**（0 篇）。这是「骨架先立、内容后填」的
-    落点——分类是承诺，空目录也要可见，否则读者不知道这个站有哪几个方向。
-  · **未登记的分类（frontmatter 写了但不在清单里）排在末尾**，不报错但在页面上
-    可见。比硬 enum 断路更宽容，也比静默吞掉更容易发现。
-
-  版式复用 tags-index.css（行式档案风与标签页逐像素同构——它们本来就是
-  「同一张目录的两种切法」，视觉应该一致）。页头插画沿用文件柜那张。
+  与 /en/tags/ 同一套落点页策略：
+  · 行链接指向 /en/categories/<name>/ 落点页（noindex）——英文树内的分类
+    导航留在树内，不再跨语言跳中文页；zh 页仍是 canonical
+    （索引/sitemap/hreflang 不变）。2026-09-14 用户反馈后统一。
+  · 分类名 / desc 渲染的仍是中文（「英文正文暂不做」裁定的直接后果），
+    页面挂 .fallback-note 明确告知，不静默。
 */
-import Base from '../../layouts/Base.astro';
-import PageHead from '../../components/PageHead.astro';
-import { getSortedPosts } from '../../data/posts';
-import { CATEGORIES, categoryOrder, findCategory } from '../../data/categories';
-import { useTranslations, interpolate } from '../../i18n/utils';
-import '../../styles/sheet.css';
-import '../../styles/archive-chrome.css';
-import '../../styles/tags-index.css';
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import { getSortedPosts } from '../../../data/posts';
+import { CATEGORIES, categoryOrder, findCategory } from '../../../data/categories';
+import { useTranslations, interpolate } from '../../../i18n/utils';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+import '../../../styles/tags-index.css';
 
-const t = useTranslations('zh');
-
+const t = useTranslations('en');
 const posts = await getSortedPosts();
 
 /* 按 category 计数（只统计已发布文章；draft 在生产构建已被 getSortedPosts 过滤） */
@@ -61,15 +57,20 @@ const rows = [...registered, ...unregistered].sort(
 const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
 ---
 
-<Base title={`${t('section.cats.title')} · ${t('site.title')}`} description={t('section.cats.desc')}>
+<Base
+  title={`${t('section.cats.title')} · ${t('site.title')}`}
+  description={t('section.cats.desc')}
+  locale="en"
+>
   <main class="sheet" id="main">
     <PageHead
       no="NO.03"
       chips={[
         { label: t('cats.index'), variant: 'red' },
-        { label: t('cats.chipAllTags'), href: '/tags/' },
+        { label: t('cats.chipAllTags'), href: '/en/tags/' },
       ]}
-      back={{ label: t('head.backBlog'), href: '/blog/' }}
+      back={{ label: t('head.backBlog'), href: '/en/blog/' }}
+      locale="en"
     />
 
     <section class="hero">
@@ -88,6 +89,8 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
       </div>
     </section>
 
+    <p class="fallback-note">{t('cats.fallbackNote')}</p>
+
     {
       rows.length === 0 ? (
         <section class="stamp" aria-label={t('cats.none')}>
@@ -99,7 +102,8 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
           <ul class="list" role="list">
             {rows.map((c, i) => (
               <li>
-                <a class="row" href={`/categories/${c.name}/`}>
+                {/* 行链接指向 /en/ 落点页（noindex）——见文件头注释 */}
+                <a class="row" href={`/en/categories/${c.name}/`}>
                   <span class="lead">
                     <span class="no" aria-hidden="true">
                       {String(i + 1).padStart(2, '0')}
@@ -122,10 +126,9 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
       )
     }
 
-    <!-- 收尾导航（手机档专用）：与 /tags/ 同一机制。页头 .back 在 ≤640px 隐藏，
-         这里补回通往 /blog/ 的站内路径。桌面档页头 sticky、返回链全程可见，
-         两条入口严格互斥。 -->
-    <a class="postback" href="/blog/">{t('head.backBlog')}</a>
+    <!-- 收尾导航（手机档专用）：页头 .back 在 ≤640px 隐藏时的补偿入口，
+         通往 /en/blog/，与页头 .back 同目的地、两档严格互斥。 -->
+    <a class="postback" href="/en/blog/">{t('head.backBlog')}</a>
 
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>
@@ -135,9 +138,9 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
 </Base>
 
 <style>
-  /* 版式复用 src/styles/tags-index.css。这里只补分类页特有的两处：
-     .desc（分类说明）与 .lede（底部统计行）——不往共享表里塞，
-     它们只有分类页用，进共享表等于给标签页增加无用规则。 */
+  /* 版式复用 src/styles/tags-index.css（与中文分类页同一份共享表）。
+     这里只写本页特有规则：.desc / .lede（分类说明与统计行）、
+     .fallback-note（内容语言说明）、.postback（手机档收尾导航）。 */
   .body {
     display: flex;
     flex-direction: column;
@@ -155,5 +158,42 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
     letter-spacing: 0.04em;
     line-height: 1.7;
     color: var(--c-muted);
+  }
+
+  .fallback-note {
+    margin: 18px clamp(20px, 4vw, 48px) 0;
+    padding: 9px 14px;
+    border-left: 3px solid var(--c-red);
+    background: rgba(var(--c-ink-rgb), 0.04);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+
+  /* 手机档收尾导航：.sheet 是 flex column，必须 align-self:flex-start +
+     width:fit-content，否则交叉轴 stretch 会把下划线拉成整行宽
+     （与中文分类页 / tags-index.css 注释里同一个坑）。 */
+  .postback {
+    display: none;
+    align-self: flex-start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 6px clamp(20px, 4vw, 48px) 22px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .postback:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .postback {
+      display: flex;
+    }
   }
 </style>

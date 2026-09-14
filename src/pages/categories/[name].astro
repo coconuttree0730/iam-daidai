@@ -18,9 +18,12 @@ import PageHead from '../../components/PageHead.astro';
 import PostCard from '../../components/PostCard.astro';
 import { getSortedPosts } from '../../data/posts';
 import { CATEGORIES, findCategory } from '../../data/categories';
+import { useTranslations, interpolate } from '../../i18n/utils';
 import '../../styles/sheet.css';
 import '../../styles/archive-chrome.css';
 import '../../styles/tag-detail.css';
+
+const t = useTranslations('zh');
 
 export async function getStaticPaths() {
   // 只给**清单里登记的**分类生成路由 —— 未登记的分类不出页（它们在索引页
@@ -50,11 +53,11 @@ const def = findCategory(name);
     <PageHead
       no="NO.03"
       chips={[
-        { label: `${posts.length} 篇`, variant: 'red' },
-        { label: '全部分类', href: '/categories/' },
-        { label: '全部标签', href: '/tags/' },
+        { label: interpolate(t('cats.count'), { n: posts.length }), variant: 'red' },
+        { label: t('cats.chipAll'), href: '/categories/' },
+        { label: t('cats.chipAllTags'), href: '/tags/' },
       ]}
-      back={{ label: '← 返回分类索引', href: '/categories/' }}
+      back={{ label: t('cats.back'), href: '/categories/' }}
     />
 
     <section class="hero">
@@ -65,12 +68,12 @@ const def = findCategory(name);
 
     {
       posts.length === 0 ? (
-        <section class="stamp" aria-label="该分类暂无文章">
-          <strong>暂无文章</strong>
-          <small>EMPTY · 这个方向还没开始写</small>
+        <section class="stamp" aria-label={t('cats.empty')}>
+          <strong>{t('cats.empty')}</strong>
+          <small>{t('cats.emptyNote')}</small>
         </section>
       ) : (
-        <section class="list-section" aria-label={`分类 ${name} 的文章列表`}>
+        <section class="list-section" aria-label={interpolate(t('cats.detailAria'), { name })}>
           <ul class="list" role="list">
             {posts.map((p) => (
               <li>
@@ -85,7 +88,7 @@ const def = findCategory(name);
     <!-- 收尾导航（手机档专用）：同上，页头 .back 在 ≤640px 隐藏时的补偿入口。
          本页的 chips 里已有「全部分类」，但那是另一目的地（索引页）；
          这里补的是通往 /blog/ 的路径，与 .back 同一目的地。 -->
-    <a class="postback" href="/blog/">← 返回博客</a>
+    <a class="postback" href="/blog/">{t('head.backBlog')}</a>
 
     <footer class="foot" aria-hidden="true">
       <span class="dash"></span>

@@ -29,10 +29,10 @@ const t = useTranslations('zh');
     <PageHead
       no="NO.03"
       chips={[
-        { label: 'INDEX', variant: 'red' },
+        // 「INDEX」自指 chip 与「博客」chip 同批删除（2026-09-14 用户裁定）：
+        // 页头编号 NO.03 + 高亮状态已足以标识当前页，自指链接是冗余。
+        // 「RSS」chip 亦移除（2026-09-14）：Base <head> 已有 autodiscovery。
         { label: '全部分类', href: '/categories/' },
-        // 「博客」chip 与右侧的「← 返回博客」同一目的地，2026-09-13 按用户裁定删除
-        { label: 'RSS', href: '/rss.xml' },
       ]}
       back={{ label: t('head.backBlog'), href: '/blog/' }}
     />

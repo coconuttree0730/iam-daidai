@@ -80,7 +80,7 @@ function pagefindIndexer() {
 // ⚠️ 语言切换器不能用「当前路径删/加 /en 前缀」的字符串拼接：中文与英文的
 //    URL 层级不对齐（/works/ ↔ /en/works/）。必须走 src/i18n/utils.ts 的
 //    显式映射（内部用 getRelativeLocaleUrl 保证与配置同源）。
-const SITE_URL = 'https://daidai.click';
+const SITE_URL = 'https://iam.daidai.click';
 const I18N = {
   locales: ['zh', 'en'],
   defaultLocale: 'zh',
@@ -123,7 +123,7 @@ export default defineConfig({
        ⚠️ Astro.site 在配置对象内尚不可用（就是本对象自己在定义它），
        所以直接写字面量；**改 site 时这一行要同改**。 */
     rehypePlugins: [
-      [rehypeExternalLinks, { siteOrigin: 'https://daidai.click' }],
+      [rehypeExternalLinks, { siteOrigin: 'https://iam.daidai.click' }],
     ],
   },
   server: {

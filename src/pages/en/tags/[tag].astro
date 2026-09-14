@@ -1,11 +1,10 @@
 ---
 // 英文单标签页 = /en/tags/<tag>/（2026-09-14 i18n 第 1 期）
 //
-// ⚠️ 本页**有意保留**（而不是像 tags/index 那样把链接指回中文），理由：
-//    标签索引页可以「指向中文页」来避免重复内容，但一旦用户在英文站点了
-//    某个标签，就必须有一个能承接的页面——否则会掉进 404。
-//    代价是这些页面与中文 /tags/<tag>/ 内容重复。对策：本页在 Base 里传
-//    noindex（见下），不参与索引，只作为「能看」的落点存在。
+// ⚠️ 本页是**英文树内标签导航的落点页**：/en/tags/ 索引行、英文卡片与详情页
+//    上的标签 chip 都指到这里——树内点击不跨语言。代价是这些页面与中文
+//    /tags/<tag>/ 内容重复。对策：本页在 Base 里传 noindex（见下），
+//    不参与索引；zh 页仍是 canonical（索引/sitemap/hreflang 不变）。
 //
 //    等英文正文就位后，本页会自然变成真正的英文内容页，届时去掉 noindex。
 import Base from '../../../layouts/Base.astro';
@@ -65,10 +64,15 @@ const t = useTranslations('en');
         {posts.map((p) => (
           <li>
             {/* base 必须显式传（卡片读不到 URL），否则英文列表点进中文详情页。
-                categoryBase/tagBase 刻意用默认（中文前缀）——英文站第 1 期
-                不做独立英文分类/标签页，一律指回中文页以免重复内容，
-                见 src/pages/en/tags/index.astro 文件头注释。 */}
-            <PostCard post={p} base="/en/blog/" />
+                categoryBase/tagBase 传 /en/ 前缀：英文树内分类/标签导航一律
+                留在树内（落点页 noindex，zh 页仍是 canonical）——2026-09-14
+                用户反馈后统一，不再指回中文页。 */}
+            <PostCard
+              post={p}
+              base="/en/blog/"
+              categoryBase="/en/categories/"
+              tagBase="/en/tags/"
+            />
           </li>
         ))}
       </ul>

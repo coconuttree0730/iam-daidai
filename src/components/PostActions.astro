@@ -23,6 +23,9 @@
   （MEMORY 的「会复现的坑」有这一条）。这里的做法是作为独立一格插在
   prose 与 postnav 之间——见页面里它被包在 .post-actions-row 中并显式占行。
 */
+import { useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
+
 interface Props {
   /** 文章永久链接（绝对地址，由页面用 Astro.site + 路径拼好传进来） */
   url: string;
@@ -30,17 +33,26 @@ interface Props {
   title: string;
   /** RSS 订阅源地址 */
   rssHref: string;
+  /** 语言（2026-09-14 英文档补齐）：决定全部界面文案；缺省 zh，
+      中文调用点（blog/[...id].astro）零改动。 */
+  locale?: Locale;
 }
 
-const { url, title, rssHref } = Astro.props;
+const { url, title, rssHref, locale = DEFAULT_LOCALE } = Astro.props;
+const t = useTranslations(locale);
 ---
 
+<!-- 脚本所需文案经 data 属性传入：运行时注入的按钮与 flash 反馈
+     都发生在 <script> 里，那里拿不到 t()，只能读 dataset。 -->
 <section
   class="post-actions"
-  aria-label="分享与订阅"
+  aria-label={t('post.actionsAria')}
   data-post-actions
   data-share-url={url}
   data-share-title={title}
+  data-label-copied={t('post.copied')}
+  data-label-copy-fail={t('post.copyFail')}
+  data-label-share={t('post.share')}
 >
   <div class="act">
     <button type="button" class="btn" data-copy-link>
@@ -64,12 +76,12 @@ const { url, title, rssHref } = Astro.props;
           stroke-width="1.4"
           stroke-linecap="round"></path>
       </svg>
-      <span class="btn__label" data-copy-label>复制链接</span>
+      <span class="btn__label" data-copy-label>{t('post.copy')}</span>
     </button>
 
     <noscript>
       <p class="act__fallback">
-        复制此链接分享：
+        {t('post.noscriptCopy')}
         <span class="act__url">{url}</span>
       </p>
     </noscript>
@@ -95,7 +107,7 @@ const { url, title, rssHref } = Astro.props;
           stroke-width="1.5"
           stroke-linecap="round"></path>
       </svg>
-      <span class="btn__label">订阅更新</span>
+      <span class="btn__label">{t('post.subscribe')}</span>
     </a>
   </div>
 
@@ -110,6 +122,11 @@ const { url, title, rssHref } = Astro.props;
   if (root) {
     const url = root.dataset.shareUrl ?? location.href;
     const title = root.dataset.shareTitle ?? document.title;
+    /* 文案由模板经 data 属性传入（见上方模板注释）——脚本拿不到 t()，
+       两个 locale 的字符串都在 dataset 里，这里只做回退兜底。 */
+    const labelCopied = root.dataset.labelCopied ?? 'Copied';
+    const labelCopyFail = root.dataset.labelCopyFail ?? 'Copy failed';
+    const labelShare = root.dataset.labelShare ?? 'Share';
 
     /* ① 复制链接：优先 async clipboard，降级 execCommand，再降级提示手动复制。
        成功后在按钮文字上给 1.8s 的「已复制」反馈（不换整个按钮，避免布局跳动）。 */
@@ -160,7 +177,7 @@ const { url, title, rssHref } = Astro.props;
       } catch {
         ok = legacyCopy(url);
       }
-      flash(ok ? '已复制' : '复制失败');
+      flash(ok ? labelCopied : labelCopyFail);
     });
 
     /* ② 系统分享：只有 runtime 支持才注入按钮。
@@ -174,7 +191,7 @@ const { url, title, rssHref } = Astro.props;
         '<svg class="btn__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">' +
         '<path d="M8 10.5V2.5M8 2.5L4.8 5.7M8 2.5l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
         '<path d="M3 9.5v3.2c0 .4.3.8.8.8h8.4c.5 0 .8-.4.8-.8V9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>' +
-        '</svg><span class="btn__label">分享</span>';
+        '</svg><span class="btn__label">' + labelShare + '</span>';
       shareBtn.addEventListener('click', async () => {
         try {
           await navigator.share({ title, url });

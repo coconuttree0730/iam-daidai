@@ -30,7 +30,7 @@ function getHref(node) {
 }
 
 /**
- * 判定是否外链。origin 形如 'https://daidai.click'（无尾斜杠）。
+ * 判定是否外链。origin 形如 'https://iam.daidai.click'（无尾斜杠）。
  * 拿不到 origin（Astro.site 未配置）时退化为「协议开头即外链」。
  */
 function isExternal(href, origin) {

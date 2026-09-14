@@ -6,7 +6,11 @@
 <title>滚动帧演示 · 同款驱动</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { overscroll-behavior: none; }
+  /* 隐藏滚动条：手机屏内不露出桌面式滚动条（滚动交互本身保留） */
+  html { overscroll-behavior: none; scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
+  body { scrollbar-width: none; }
+  body::-webkit-scrollbar { display: none; }
   body {
     height: 420vh;
     background: #eeedeb;

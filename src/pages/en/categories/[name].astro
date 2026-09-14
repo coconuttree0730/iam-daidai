@@ -1,0 +1,160 @@
+---
+/*
+  英文单分类文章列表页（2026-09-14 英文档补齐）：/en/categories/<name>/
+  ────────────────────────────────────────────────────────────────────────
+  中文对应物 = src/pages/categories/[name].astro。
+
+  与 /en/tags/<tag>/ 同一套保留策略：本页**有意保留**而不是把索引行链接指过来
+  ——一旦用户在英文站点了某个分类（或直接敲 URL），必须有一个能承接的页面。
+  代价是与中文 /categories/<name>/ 内容重复。对策：Base 传 noindex，不参与索引，
+  只作为「能看」的落点存在（同 en/tags/[tag].astro 文件头的论证，不再重复）。
+
+  分类名 / 说明文字是文章语言的内容，本页渲染中文原文；页面挂 .fallback-note。
+  卡片 base 指向英文详情页 /en/blog/；categoryBase 指向 /en/categories/
+  （本页已存在，chip 留在英文壳内）；tagBase 维持中文 /tags/（canonical，
+  与 en/blog/[...id] 详情页的标签链接同一口径）。
+*/
+import Base from '../../../layouts/Base.astro';
+import PageHead from '../../../components/PageHead.astro';
+import PostCard from '../../../components/PostCard.astro';
+import { getSortedPosts } from '../../../data/posts';
+import { CATEGORIES, findCategory } from '../../../data/categories';
+import { useTranslations, interpolate } from '../../../i18n/utils';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+import '../../../styles/tag-detail.css';
+
+export async function getStaticPaths() {
+  // 只给**清单里登记的**分类生成路由（与中文页同一契约）：未登记的分类不出页，
+  // 索引页上的每个链接都保证有落点，反之也不多出隐形路由。
+  const posts = await getSortedPosts();
+  return CATEGORIES.map((c) => ({
+    params: { name: c.name },
+    props: {
+      name: c.name,
+      en: c.en,
+      desc: c.desc,
+      posts: posts.filter((p) => p.data.category === c.name),
+    },
+  }));
+}
+
+const { name, en, desc, posts } = Astro.props;
+const def = findCategory(name);
+const t = useTranslations('en');
+---
+
+<Base
+  title={`${name} · ${t('section.cats.title')} · ${t('site.title')}`}
+  description={`Category "${name}" — all posts filed under this domain.`}
+  locale="en"
+  noindex
+>
+  <main class="sheet" id="main">
+    <PageHead
+      no="NO.03"
+      chips={[
+        {
+          label: `${posts.length} ${posts.length === 1 ? 'post' : 'posts'}`,
+          variant: 'red',
+        },
+        { label: t('cats.chipAll'), href: '/en/categories/' },
+        { label: t('cats.chipAllTags'), href: '/en/tags/' },
+      ]}
+      back={{ label: t('cats.back'), href: '/en/categories/' }}
+      locale="en"
+    />
+
+    <section class="hero">
+      <p class="en" aria-hidden="true">{en || 'CATEGORY'}</p>
+      <h1>{name}</h1>
+      {desc && <p class="hero__desc">{desc}</p>}
+    </section>
+
+    <p class="fallback-note">{t('cats.fallbackNote')}</p>
+
+    {
+      posts.length === 0 ? (
+        <section class="stamp" aria-label={t('cats.empty')}>
+          <strong>{t('cats.empty')}</strong>
+          <small>{t('cats.emptyNote')}</small>
+        </section>
+      ) : (
+        <section
+          class="list-section"
+          aria-label={interpolate(t('cats.detailAria'), { name })}
+        >
+          <ul class="list" role="list">
+            {posts.map((p) => (
+              <li>
+                <PostCard
+                  post={p}
+                  base="/en/blog/"
+                  categoryBase="/en/categories/"
+                  tagBase="/en/tags/"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <!-- 收尾导航（手机档专用）：页头 .back 在 ≤640px 隐藏时的补偿入口，
+         通往 /en/blog/，与页头 .back 同目的地、两档严格互斥。 -->
+    <a class="postback" href="/en/blog/">{t('head.backBlog')}</a>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  /* 版式复用 src/styles/tag-detail.css（与中文分类页同一份共享表）。
+     这里只写本页特有规则：.hero__desc / .fallback-note / .postback。 */
+  .hero__desc {
+    margin: 8px 0 0;
+    max-width: 46ch;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--c-muted);
+  }
+
+  .fallback-note {
+    margin: 18px clamp(20px, 4vw, 48px) 0;
+    padding: 9px 14px;
+    border-left: 3px solid var(--c-red);
+    background: rgba(var(--c-ink-rgb), 0.04);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+
+  /* 手机档收尾导航：.sheet 是 flex column，必须 align-self:flex-start +
+     width:fit-content，否则交叉轴 stretch 会把下划线拉成整行宽。 */
+  .postback {
+    display: none;
+    align-self: flex-start;
+    width: fit-content;
+    align-items: center;
+    gap: 6px;
+    margin: 6px clamp(20px, 4vw, 48px) 22px;
+    padding-bottom: 2px;
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .postback:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  @media (max-width: 640px) {
+    .postback {
+      display: flex;
+    }
+  }
+</style>

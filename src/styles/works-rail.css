@@ -15,9 +15,9 @@
  *    不会报错，但会改变轨道里程与「完」卡能否居中（2026-09-14 事故的根因就在
  *    这条链上）。改动前先读那段注释。
  *
- * ⚠️ 卡宽的单一来源 = --card-w（定义在 .sheet 上）：works-view.js 的 intro
- *    停靠点按实测 offsetWidth 计算，不消费这个变量；但 .scroll-hint 的定位
- *    需要「卡左缘距视口右缘」的 CSS 值，两边必须同步——改卡宽公式时两处一起改。
+ * ⚠️ 卡宽的单一来源 = --card-w（定义在 .sheet 上）：works-view.js 的停靠点
+ *    按实测 offsetWidth 计算，不消费这个变量；但 .scroll-hint 的定位需要
+ *    「卡左缘位置」的 CSS 值，两边必须同步——改卡宽公式时两处一起改。
  */
 
 
@@ -38,10 +38,11 @@
   .stack-viewport:active { cursor: grabbing; }
   .stack-rail { position: relative; display: flex; align-items: center; padding-inline: clamp(20px, 8vw, 110px); will-change: transform; }
 
-  /* 首屏提示：位于首卡左侧（卡左缘再退 48px），随 progress 淡出（JS 写 opacity） */
+  /* 首屏提示：位于首卡左侧（组 0 居中后卡左缘 = (100%-卡宽)/2，再退 48px），
+     随 progress 淡出（JS 写 opacity） */
   .scroll-hint {
     position: absolute; z-index: 2; pointer-events: none;
-    right: calc(var(--card-w) + 88px); /* 卡右缘距右 40px + 卡宽 + 48px 间距 */
+    right: calc((100% + var(--card-w)) / 2 + 48px);
     top: 50%; transform: translateY(-50%);
     display: flex; align-items: center; gap: 14px;
     opacity: 1; will-change: opacity;

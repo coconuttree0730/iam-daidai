@@ -11,12 +11,13 @@
 //    标记为可检索正文，会把同一份中文内容重复索引一遍（且挂在与索引语言不符的
 //    /en/ URL 下）。等英文正文就位时连索引一起加。
 //
-// ⚠️ 订阅 / RSS 指向中文版 /rss.xml（源只有一个）。标签链接指向**中文** /tags/<t>/
-//    ——英文标签页是 noindex 的重复内容（见 en/tags/[tag].astro）。
+// ⚠️ 订阅 / RSS 指向中文版 /rss.xml（源只有一个）。分类/标签链接指向 /en/
+//    落点页（noindex，树内自洽）；zh 页仍是 canonical（见 en/tags/index.astro 头注释）。
 import { render } from 'astro:content';
 import Base from '../../../layouts/Base.astro';
 import PageHead from '../../../components/PageHead.astro';
 import ArticleToc from '../../../components/ArticleToc.astro';
+import PostActions from '../../../components/PostActions.astro';
 import { getSortedPosts, getFormattedDate } from '../../../data/posts';
 import { useTranslations, interpolate } from '../../../i18n/utils';
 import '../../../styles/post-detail.css';
@@ -39,6 +40,12 @@ const { post, newer, older } = Astro.props;
 const { Content, headings, remarkPluginFrontmatter } = await render(post);
 const minutes = remarkPluginFrontmatter?.minutes;
 const iso = post.data.publishDate.toISOString();
+
+/* 分享用的绝对地址：与 Base.astro canonical 同口径（尾斜杠 + site 拼接）。
+   英文页分享**英文页自己**的 URL（对等页已存在，这才是访客所在的位置）；
+   RSS 仍是中文单一源 /rss.xml（见文件头注释）。 */
+const shareUrl = new URL(`/en/blog/${post.id}/`, Astro.site).href;
+const rssHref = new URL('rss.xml', Astro.site).href;
 ---
 <Base
   title={`${post.data.title} · ${t('site.title')}`}
@@ -51,7 +58,12 @@ const iso = post.data.publishDate.toISOString();
   <main class="sheet" id="main">
     <PageHead
       no="NO.03"
-      chips={[{ label: t('post.archiveChip'), variant: 'red' }]}
+      chips={[
+        ...(post.data.category
+          ? [{ label: post.data.category, href: `/en/categories/${post.data.category}/` }]
+          : []),
+        { label: t('post.archiveChip'), variant: 'red' },
+      ]}
       back={{ label: t('head.backBlog'), href: '/en/blog/' }}
       locale="en"
     />
@@ -74,14 +86,15 @@ const iso = post.data.publishDate.toISOString();
               </>
             )}
             {post.data.tags.map((tag) => (
-              <a class="chip" href={`/tags/${tag}/`}>#{tag}</a>
+              <a class="chip" href={`/en/tags/${tag}/`}>#{tag}</a>
             ))}
           </div>
 
           <!-- 内容回退说明：正文是中文原文，明确告知读者。
-               刻意放在 .post-head **内部**（不单占网格行）——.post-grid 的四行
-               已被 post-head(1)/prose(2)/postnav(3)/postback(4) 占满，另起一行
-               需要重排整张网格；贴着页头跟随标题反而语义更顺。 -->
+               刻意放在 .post-head **内部**（不单占网格行）——.post-grid 的行位
+               由 post-detail.css 按 class 显式分配（head1/prose2/actions3/
+               nav4/related5/back6），2026-09-14 操作条补进第 3 行后，自由
+               行位已所剩无几；贴着页头跟随标题反而语义更顺。 -->
           <p class="fallback-note">Post content is currently available in Chinese only.</p>
         </header>
 
@@ -90,6 +103,12 @@ const iso = post.data.publishDate.toISOString();
         <div class="prose">
           <Content />
         </div>
+
+        {/* 分享 / 订阅操作条（2026-09-14 英文档补齐）：与中文详情页同位——
+            post-detail.css 的显式行模板里这是**第 3 行**（prose 与 postnav 之间），
+            本页此前一直空着这行，挂上后自然落位，任何行号都不用改。
+            文案过 locale="en"（PostActions 内部走 t()）。 */}
+        <PostActions url={shareUrl} title={post.data.title} rssHref={rssHref} locale="en" />
 
         {
           (newer || older) && (

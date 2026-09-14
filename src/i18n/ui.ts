@@ -153,8 +153,8 @@ export const ui = {
     'blog.clearAria': '清空检索',
     'blog.searching': '检索中…',
     'blog.searchErr': '检索出错，请重试',
-    'blog.noResult': '没有与「{term}」匹配的结果',
-    'blog.count': '{n} 个结果 ·「{term}」',
+    'blog.noResult': '没有与「[SEARCH_TERM]」匹配的结果',
+    'blog.count': '[COUNT] 个结果 ·「[SEARCH_TERM]」',
     'blog.filter': '过滤',
     'blog.loadMore': '加载更多',
     'blog.listAria': '文章列表',
@@ -168,6 +168,34 @@ export const ui = {
     'post.newer': '← 上一篇（更新）',
     'post.older': '下一篇（更旧） →',
     'post.archiveChip': '归档',
+
+    // ── 文章页操作条（PostActions.astro，2026-09-14 收编硬编码文案）──
+    'post.actionsAria': '分享与订阅',
+    'post.copy': '复制链接',
+    'post.copied': '已复制',
+    'post.copyFail': '复制失败',
+    'post.share': '分享',
+    'post.subscribe': '订阅更新',
+    'post.noscriptCopy': '复制此链接分享：',
+
+    // ── 分类索引页（/categories/ 与 /en/categories/ 共用，2026-09-14 英文档补齐）──
+    'section.cats.title': '分类索引',
+    'section.cats.desc': '博客板块 · 按领域归档',
+    'cats.index': '索引',
+    'cats.chipAllTags': '全部标签',
+    'cats.chipAll': '全部分类',
+    'cats.back': '← 返回分类索引',
+    'cats.listAria': '分类列表',
+    'cats.detailAria': '分类 {name} 的文章列表',
+    'cats.none': '暂无分类',
+    'cats.noneNote': 'NO CATEGORIES · 建站方向确定后在此登记',
+    'cats.uncategorized': '未登记分类 · 请在 src/data/categories.ts 补充说明',
+    'cats.lede':
+      '已归类 {a} / {b} 篇 · 分类是「领域」，标签是「关键词」——两套并行的检索入口',
+    'cats.count': '{n} 篇',
+    'cats.empty': '暂无文章',
+    'cats.emptyNote': 'EMPTY · 这个方向还没开始写',
+    'cats.fallbackNote': '分类名与说明跟随文章语言（中文），界面外壳为英文。',
 
     // ── 无障碍（Base.astro 键盘跳转链接）──
     'a11y.skip': '跳到正文',
@@ -324,6 +352,35 @@ export const ui = {
     'post.newer': '← Newer',
     'post.older': 'Older →',
     'post.archiveChip': 'Archive',
+
+    // ── Post actions bar (PostActions.astro, hardcoded strings collected 2026-09-14) ──
+    'post.actionsAria': 'Share and subscribe',
+    'post.copy': 'Copy link',
+    'post.copied': 'Copied',
+    'post.copyFail': 'Copy failed',
+    'post.share': 'Share',
+    'post.subscribe': 'Subscribe via RSS',
+    'post.noscriptCopy': 'Copy this link to share:',
+
+    // ── Categories pages (/categories/ + /en/categories/, added with the EN shell 2026-09-14) ──
+    'section.cats.title': 'Categories',
+    'section.cats.desc': 'Blog · posts grouped by domain',
+    'cats.index': 'Index',
+    'cats.chipAllTags': 'Tags',
+    'cats.chipAll': 'All categories',
+    'cats.back': '← Back to categories',
+    'cats.listAria': 'Category list',
+    'cats.detailAria': 'Posts in category {name}',
+    'cats.none': 'No categories',
+    'cats.noneNote': 'NO CATEGORIES · domains appear here once registered',
+    'cats.uncategorized': 'Unregistered · document it in src/data/categories.ts',
+    'cats.lede':
+      '{a} of {b} posts categorized · Categories are domains, tags are keywords — two parallel ways in',
+    'cats.count': '{n} posts',
+    'cats.empty': 'No posts yet',
+    'cats.emptyNote': 'EMPTY · nothing filed under this domain yet',
+    'cats.fallbackNote':
+      'Category names and descriptions follow the language of the posts (Chinese).',
 
     // ── Accessibility (keyboard skip link in Base.astro) ──
     'a11y.skip': 'Skip to content',

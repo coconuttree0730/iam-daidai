@@ -49,7 +49,9 @@ const t = useTranslations('zh');
       chips={[
         { label: '分类', href: '/categories/' },
         { label: '标签', href: '/tags/' },
-        { label: 'RSS', href: '/rss.xml' },
+        // 「RSS」chip 已移除（2026-09-14 用户裁定）：页头 chip 语义是站内导航，
+        // RSS 是订阅动作；Base.astro 的 <link rel="alternate" type="application/rss+xml">
+        // 已全站 autodiscovery，阅读器不依赖页头链接。
       ]}
       back={{ label: t('head.backHome'), href: '/' }}
     />
