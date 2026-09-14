@@ -321,4 +321,16 @@ const infoBarItems = infoBar.map((item) => ({
     attributeFilter: ['style'],
   });
 
+  /* ── 根滚动钳制（2026-09-14 晚，联系区事故的保险丝）─────────────────
+   * 设计契约是「首页不滚动」：舞台 height:100svh 且 min-height 地板移除后，
+   * 文档在任何视口下都不该有溢出，scrub 的进度也从不经过文档滚动。但真实
+   * 机型五花八门（键盘避让策略、WebView 的 resizes-content、系统字体缩放），
+   * 一旦有任何机制把根滚动推离 0（焦点 reveal、#锚点、输入法规避），整页
+   * 就会停在偏移位——用户报告的「点击邮箱卡片后页面偏移」。这里把任何根
+   * 滚动一律压回原点；正常机型上它永不触发，属于零成本的兜底断言。 */
+  const clampRootScroll = () => {
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+  };
+  window.addEventListener('scroll', clampRootScroll, { passive: true });
+
 </script>

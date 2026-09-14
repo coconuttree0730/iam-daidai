@@ -14,6 +14,10 @@ import { getSortedPosts } from '../../../data/posts';
 import { useTranslations } from '../../../i18n/utils';
 import '../../../styles/sheet.css';
 import '../../../styles/archive-chrome.css';
+// 版式消费共享表 tags-index.css（其文件头契约：中英文共用、全站唯一一份）。
+// 本页此前自带的整套 scoped 副本（.hero/.row/.stamp 等，数值与共享表分歧）
+// 已删——两份并存会形成混合级联，且那份副本是抽取前的旧草稿，从未校版。
+// 详见本文件底部 scoped 块的说明。审计 A2（2026-09-14）。
 import '../../../styles/tags-index.css';
 
 const posts = await getSortedPosts();
@@ -102,10 +106,14 @@ const tags = [...counts.entries()].sort(
 </Base>
 
 <style>
-  /* 版式全部来自共享表 tags-index.css（大字页头、两行式 lead、postback），
-     与中文版同一份——此前本页漏导共享表、手抄了一份旧版式，正是
-     「中英标签页长得不一样」的根因（2026-09-14 用户截图暴露）。
-     仅本页特有的回退说明条写在这里。 */
+  /* 版式已统一消费 tags-index.css（中英文共用，见文件头契约）。
+     本页只保留 EN 特有规则——fallback 说明条（zh 页无此元素）：
+
+     审计 A2 追记（2026-09-14）：本页原有整套 scoped 版式副本（.hero/.row/
+     .stamp 等），数值与 tags-index.css 分歧（插画 120–260 vs 150–368、
+     flex 行 vs grid 行）——那是共享表抽取前的旧草稿。补上 import 后若保留
+     两份，scoped 的高特异性会压过共享表、非冲突属性又混入共享表行为，
+     形成不可预测的混合级联。故删副本、只留本页特有规则。 */
   .fallback-note {
     margin: 18px clamp(20px, 4vw, 48px) 0;
     padding: 9px 14px;

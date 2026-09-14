@@ -140,6 +140,10 @@
    是浏览器内部 UI，CSS 无法定制）。配色沿用角标小字灰，勾选态反相黑。 */
 .outro-consent {
   display: flex;
+  /* 必须 wrap：is-error 的行内提示 ::after 以 flex-basis:100% 独占一行。
+     没有 wrap 时它挤进同一行，把文案 span 压到 min-content 宽——
+     英文呈现为「一个词一行」的竖窄列（2026-09-14 用户截图实锤）。 */
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
   margin-top: clamp(10px, 1vw, 14px);
@@ -187,9 +191,9 @@
    语言的字符串），而 CSS 不需要知道自己处于哪种语言。 */
 .outro-consent.is-error::after {
   content: attr(data-msg);
-  display: block;
-  flex-basis: 100%;
-  margin-top: 4px;
+  /* 0 0 100% + 容器 flex-wrap:wrap = 提示独占第二行，不挤压正文 span */
+  flex: 0 0 100%;
+  margin-top: 0; /* 行距由容器的 gap 统一供给，不再手动补 */
   font-size: 12px;
   letter-spacing: 0.02em;
   color: var(--red);

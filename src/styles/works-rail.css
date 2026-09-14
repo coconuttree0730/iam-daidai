@@ -26,7 +26,12 @@
     background: var(--c-paper); color: var(--c-ink);
     font-family: "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
     overflow: hidden;
-    --card-w: clamp(760px, 45vw, 920px); /* 卡宽单一来源，见文件头注释 */
+    --card-w: clamp(min(760px, 92vw), 45vw, 920px); /* 卡宽单一来源，见文件头注释。
+       审计 A1（2026-09-14）：下限从 760px 改为 min(760px, 92vw)——原公式在
+       641–800px 视口（分屏/窄窗口）钳出比视口还宽的卡片（intro 停靠右缘 40px
+       时左缘出屏）。826px 以下改为 92vw，≥826px 行为与旧公式完全一致。
+       works-view.js 的停靠点按实测 offsetWidth 计算，改此值对 JS 几何安全；
+       .scroll-hint 消费本变量，自动跟随。 */
   }
   .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
@@ -58,7 +63,9 @@
   .card-set {
     position: relative; flex: none;
     width: var(--card-w);
-    height: clamp(440px, 62vh, 560px);
+    height: clamp(min(440px, 78dvh), 62dvh, 560px); /* 审计 A1（2026-09-14）：下限
+       440px→min(440px,78dvh)、中值 vh→dvh——横屏手机（如 641×360）原被 440px 底垫
+       撑出锁滚视口、纵向裁切；≥564px 高的视口行为与旧公式一致（78dvh≥440 即不变）。 */
   }
 
   /* 组间隙：桌面 14vw 沿用 HEAD 0c7eb21 的节奏（停靠时邻组只露 ~80px 边），
@@ -135,7 +142,7 @@
     .endcard-face { width: 140px; height: 200px; }
     .end-zh { font-size: 36px; padding: 6px 10px; }
     .end-line { font-size: 11px; }
-    .dock { padding: 8px 16px; bottom: 16px; }
+    .rail-dock { padding: 8px 16px; bottom: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .stack-card { transition: none !important; } }
 

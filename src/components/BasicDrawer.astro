@@ -164,7 +164,7 @@ const mbtiDesc = L(basic.mbtiDesc);
 </dialog>
 
 <script>
-  const dialog = document.getElementById('basic');
+    const dialog = document.getElementById('basic');
   const root = document.documentElement;
 
   if (dialog instanceof HTMLDialogElement) {
@@ -172,6 +172,12 @@ const mbtiDesc = L(basic.mbtiDesc);
     const sticker = dialog.querySelector('#basic-sticker');
     const persona = dialog.querySelector('#basic-persona');
     let opener = null;
+    /* 邮箱链路还焦开关（2026-09-14 晚）：点「邮箱」收抽屉时，收尾态已把
+       版式推到 --sc→1，卡 01 随飞散态飞出屏外。close 时若照常 opener.focus()，
+       浏览器的 reveal 滚动会为"露出"这枚不可见卡片滚动文档——在存在文档
+       溢出的机型上就是用户报告的「页面偏移」；且把焦点放进一枚透明度 0.15
+       的屏外卡片本身就不成立。此链路跳过还焦（焦点落回 body）。 */
+    let skipOpenerFocus = false;
 
     /* 贴纸 → 性格侧写便签：点贴纸开合，点便签外/关抽屉收起 */
     const setPersona = (open) => {
@@ -254,6 +260,7 @@ const mbtiDesc = L(basic.mbtiDesc);
     dialog.querySelectorAll('[data-action="contact"]').forEach((el) => {
       el.addEventListener('click', (event) => {
         event.preventDefault();
+        skipOpenerFocus = true; /* 本链路不还焦：卡 01 已飞散出屏，见上注 */
         closeAnimated();
         document.dispatchEvent(new CustomEvent('scrub:outro'));
       });
@@ -268,7 +275,8 @@ const mbtiDesc = L(basic.mbtiDesc);
     dialog.addEventListener('close', () => {
       delete root.dataset.fileOpen;
       setPersona(false);
-      opener?.focus();
+      if (!skipOpenerFocus) opener?.focus();
+      skipOpenerFocus = false;
       opener = null;
     });
 
