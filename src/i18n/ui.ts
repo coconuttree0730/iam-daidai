@@ -130,6 +130,29 @@ export const ui = {
     'lab.buildingNote': 'IN PROGRESS · 新条目陆续归档',
     'lab.entryCount': '收录 {n} 项',
 
+    // ── 游乐场板块 tab 条 + AI 新闻页（2026-09-15，LAB-NEWS）──
+    // 范围提醒：**新闻内容本身不进字典**（它是数据，见 src/data/ai-news/）——
+    // 这里只放界面控件与结构文案。`{time}` / `{period}` / `{year}` 由页面用
+    // Intl.DateTimeFormat 按 locale 生成，故字典里不列月份名。
+    'lab.tabsAria': '游乐场板块切换',
+    'lab.tabExperiments': '实验',
+    'lab.tabNews': '新闻',
+    'section.news.title': 'AI 新闻',
+    'section.news.desc': '游乐场板块 · AI 领域外部新闻时间线，英文原文配中文摘要',
+    'news.heroSub': '外部信息入口 · 按天排列，可回看的历史时间线',
+    'news.timelineAria': '新闻时间线',
+    'news.empty': '时间线还是空的',
+    'news.emptyNote': 'TIMELINE EMPTY · 下一次抓取完成后，条目会出现在这里',
+    'news.emptyEnOnly':
+      'TIMELINE EMPTY · 英文页只收录原文为英文的条目，中文源条目请见中文版时间线',
+    'news.updated': '最后更新 {time}',
+    'news.neverFetched': '尚未抓取',
+    'news.untranslated': '未翻译',
+    'news.itemAria': '{title} · 来源 {source} · {time}',
+    'news.yearNav': '年份',
+    'news.yearLink': '{year} 年',
+    'news.periodAria': '{period} 的条目',
+
     // ── 标签索引页（tags/index.astro）──
     'tags.list': '标签列表',
 
@@ -315,6 +338,28 @@ export const ui = {
     'lab.building': 'Under construction',
     'lab.buildingNote': 'IN PROGRESS · new entries being archived',
     'lab.entryCount': '{n} entries',
+
+    // ── Playground tab bar + AI news page (2026-09-15, LAB-NEWS) ──
+    // Key set is mirrored 1:1 with the `zh` bag above — the `satisfies` check
+    // at the bottom of this file fails the build on any asymmetry.
+    'lab.tabsAria': 'Playground sections',
+    'lab.tabExperiments': 'Lab',
+    'lab.tabNews': 'News',
+    'section.news.title': 'AI News',
+    'section.news.desc': 'Playground · a timeline of AI news from around the web',
+    'news.heroSub': 'An external feed — grouped by day, browsable back through time',
+    'news.timelineAria': 'News timeline',
+    'news.empty': 'The timeline is empty',
+    'news.emptyNote': 'TIMELINE EMPTY · entries appear here after the next fetch',
+    'news.emptyEnOnly':
+      'TIMELINE EMPTY · this page lists English-language sources only — see the Chinese timeline for the rest',
+    'news.updated': 'Last updated {time}',
+    'news.neverFetched': 'Not fetched yet',
+    'news.untranslated': 'Untranslated',
+    'news.itemAria': '{title} · {source} · {time}',
+    'news.yearNav': 'Year',
+    'news.yearLink': '{year}',
+    'news.periodAria': 'Entries from {period}',
 
     // ── Tags index page ──
     'tags.list': 'Tag list',

@@ -1,0 +1,531 @@
+/* ── AI 新闻时间线（LAB-NEWS 01，2026-09-15）────────────────────────────────
+ *
+ * 本文件是**普通 CSS**（不走 Astro scoped 编译），因此：
+ *   · 绝不写 scoped 风格的穿透选择器 —— 那是 <style> 作用域里的语法，普通 CSS 里是无效选择器，
+ *     浏览器会整条丢弃该规则（历史已发过的线上 bug，本文件不再重蹈）；
+ *   · 所有颜色消费既有的 --c-* 主题变量，明暗两套主题自动换肤，不硬编码色值；
+ *   · 类名全部加 news- / lab-tabs- 前缀，避免与全站其它页面的全局规则冲突。
+ *
+ * 覆盖断点沿用项目既有三档：1100 / 900 / 640 px。
+ *
+ * ⚠️ 2026-09-15 版式改版：原「横向轨道」（一个月一条 320px 卡片列、overflow-x 滚动、
+ * ‹ › 箭头）在实测下不成立 —— 抓取窗口 72h、冷启动快照只跨 23.3h，**永远只有 1 个月
+ * = 1 列**，960px 容器里约 600px 恒为空，且归档生长后月份列会变成几百条的超长竖列。
+ * 现改为纵向时间线，形态两套、DOM 一套：
+ *   >900px   中央轴 + 左右错位两列
+ *   ≤900px   左轴 + 单栏（两列并排时每列只剩 ~150px、汉字一行 8–10 字，不可读）
+ * 横向机制（滚动容器 / 拖拽 / 箭头 / 可聚焦 region）已整块删除，见 ai-news-timeline.js。
+ */
+
+/* ── 游乐场板块 tab 条 ───────────────────────────────────────────────────────
+   实验 / 新闻两板块互为链接；选中态（红字 + 红下边）与 hover 态（墨字 + 浅下边）
+   全部消费 --c-*，两套主题下都清晰可读。英文页复用同一套样式，仅需换 locale。 */
+.lab-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 48px);
+  border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
+}
+
+.lab-tabs__item {
+  position: relative;
+  padding: 12px 18px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--c-muted);
+  text-decoration: none;
+  /* 负 margin 让选中下边压在容器底边之上，形成一条连续的选中线 */
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.lab-tabs__item:hover {
+  color: var(--c-ink);
+  border-bottom-color: rgba(var(--c-ink-rgb), 0.32);
+}
+
+.lab-tabs__item.is-active {
+  color: var(--c-red);
+  border-bottom-color: var(--c-red);
+  font-weight: 700;
+}
+
+.lab-tabs__item:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── 新闻页 hero ────────────────────────────────────────────────────────────
+   中文 h1 上方叠一层拉丁描边大字（透明填充 + 细描边），与 lab.astro 的
+   .hero .en 同一手法；类名用 news- 前缀，避免与首页 / 其它页的 .hero 全局冲突。 */
+.news-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: clamp(30px, 5vw, 58px) 20px clamp(16px, 2.4vw, 28px);
+  text-align: center;
+}
+
+.news-hero__en {
+  margin: 0;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: clamp(28px, 6vw, 72px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: transparent;
+  -webkit-text-stroke: 1.2px var(--c-ghost);
+  user-select: none;
+}
+
+.news-hero h1 {
+  margin: 0;
+  font-weight: 900;
+  font-size: clamp(34px, 7vw, 84px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.news-hero__note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--c-muted);
+}
+
+/* ── 时间线骨架 ───────────────────────────────────────────────────────────── */
+.news {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(20px, 3vw, 32px) clamp(20px, 4vw, 48px) 0;
+}
+
+/* .news-rail 是**运行时挂载点**（年份切换把 .news-list 换进换出，见
+   ai-news-timeline.js），自身不承担版式 —— 不要给它 padding / 宽度，
+   否则 .news-list::before 的 50% 中线会与两列间隙的实际中心错开。 */
+.news-rail {
+  width: 100%;
+}
+
+/* ── 中轴线：贯穿整年，日期标题用不透明底色在线上「打孔」───────────────────
+   left:50% 是相对 .news-list 的 padding box；两列等宽 + 列间距对称 ⇒
+   容器中线 = 两列间隙中线 = 刻度点所在的那条线。
+   ⚠️ 改 .news-day__items 的 column-gap 不必改这里（中线居中不变），
+      但必须同步改 .news-item 伪元素的偏移量（= column-gap ÷ 2）。 */
+.news-list {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.news-list::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 1px;
+  /* 半像素补偿：1px 线的视觉中心落在 50% 上，而不是从 50% 向右铺 1px */
+  margin-left: -0.5px;
+  background: rgba(var(--c-ink-rgb), 0.16);
+  pointer-events: none;
+}
+
+/* ── 年份切换（仅多年份数据时出现）──────────────────────────────────────── */
+.news-yearnav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 2px 0 14px;
+}
+
+.news-yearnav__label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.news-yearnav__btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.news-yearbtn {
+  appearance: none;
+  border: 1px solid rgba(var(--c-ink-rgb), 0.2);
+  background: transparent;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.news-yearbtn:hover {
+  border-color: rgba(var(--c-ink-rgb), 0.42);
+}
+
+.news-yearbtn[aria-pressed='true'] {
+  background: rgba(var(--c-red-rgb), 0.12);
+  border-color: var(--c-red);
+  color: var(--c-red);
+  font-weight: 700;
+}
+
+.news-yearbtn:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 2px;
+}
+
+/* ── 日期分组（一天一组）──────────────────────────────────────────────────
+   分组粒度是「天」而不是「月」（2026-09-15 改）：窗口 72h，冷启动实测跨度
+   23.3h，按月分组恒为 1 组、是个没有信息量的标题。 */
+.news-day {
+  list-style: none;
+}
+
+.news-day + .news-day {
+  margin-top: clamp(22px, 3vw, 36px);
+}
+
+/* 日期标题 = 骑在中轴线上的胶囊。不透明底色把线「切断」，是刻意的打孔效果。
+   ⚠️ background 必须是 .sheet 的底色 var(--c-paper)：写成 transparent 会让
+      中轴线从字中间穿过；写成 var(--c-page) 会在浅色主题下露出色差方块。 */
+.news-day__title {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto clamp(14px, 2vw, 20px);
+  padding: 3px 14px;
+  border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  border-radius: 999px;
+  background: var(--c-paper);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--c-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* <time> 是内联语义标签，样式完全继承胶囊标题 */
+.news-day__title time {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+/* ── 条目区（>900px：两列错位）───────────────────────────────────────────── */
+.news-day__items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 56px;
+  row-gap: 18px;
+  /* 卡片按内容高度落位；错位靠下方位移，不靠拉伸 */
+  align-items: start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.news-item {
+  position: relative;
+  list-style: none;
+}
+
+/* 错位：偶数列（右侧）整体下移半张卡。
+   ⚠️ 必须用 margin，不能用 transform：margin 参与行高计算，会把整行撑高，
+      同列条目因而永不重叠；transform 不参与布局，下一行的卡片会压上来。
+   ⚠️ 也不能改成负 margin-bottom「消除撑高」——那会让右列最后一张卡溢出
+      .news-day__items 的边界，被下一个日期标题盖住。 */
+.news-item:nth-child(even) {
+  margin-top: 56px;
+}
+
+/* ── 刻度：连接线（::before）+ 轴上圆点（::after）────────────────────────────
+   top 值对齐卡片首行「时间戳」的视觉中心（card padding-top 14 + 11px 行高 ÷ 2）。
+   奇数位刻度伸向右侧中线，偶数位镜像 —— 偏移量 = column-gap ÷ 2 = 28。 */
+.news-item::before,
+.news-item::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.news-item::before {
+  top: 20px;
+  width: 28px;
+  height: 1px;
+  background: rgba(var(--c-ink-rgb), 0.3);
+}
+
+.news-item::after {
+  top: 17px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-red);
+}
+
+.news-item:nth-child(odd)::before {
+  right: -28px;
+}
+
+.news-item:nth-child(odd)::after {
+  right: -32px;
+}
+
+.news-item:nth-child(even)::before {
+  left: -28px;
+}
+
+.news-item:nth-child(even)::after {
+  left: -32px;
+}
+
+/* ── 单条新闻 ──────────────────────────────────────────────────────────── */
+.news-item__link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* 高度下限：源站无摘要 / 摘要极短时卡片不至于塌成一条，两列错位的高度差
+     也随之收敛（实测摘要中位 140 字 = 截断满额，绝大多数卡片本来就等高）。 */
+  min-height: 168px;
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--c-ink-rgb), 0.14);
+  border-radius: 10px;
+  background: var(--c-card);
+  color: var(--c-ink);
+  text-decoration: none;
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.news-item__link:hover {
+  border-color: var(--c-red);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(var(--c-ink-rgb), 0.1);
+}
+
+.news-item__link:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 2px;
+}
+
+.news-item__time {
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.news-item__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  /* 英文标题（arXiv）可能带超长无空格串，必须允许任意位置断行，否则撑破卡片 */
+  overflow-wrap: anywhere;
+}
+
+.news-item__summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--c-note-ink);
+  overflow-wrap: anywhere;
+}
+
+/* 英文原文：中文页的对照层，浅色描边小字，不喧宾夺主 */
+.news-item__en {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(var(--c-ink-rgb), 0.16);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}
+
+.news-item__en-title {
+  font-style: italic;
+}
+
+.news-item__en-summary {
+  font-size: 12px;
+}
+
+/* 来源 + 标志的底部行。
+   margin-top:auto 让它在卡片被 min-height 撑高时贴住卡底 —— 空白因此落在
+   摘要与来源之间，而不是把来源顶到半空；两列卡片的来源行也就对齐了。 */
+.news-item__meta {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.news-item__source {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--c-muted);
+}
+
+.news-item__flag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  color: var(--c-warn-ink);
+  background: var(--c-warn-bg);
+  border: 1px solid var(--c-warn-line);
+}
+
+/* ── 空状态：体面的留白提示，基调对齐 lab.astro 的 .stamp 红框 ──────────────── */
+.news-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: clamp(28px, 4vw, 44px) auto 0;
+  padding: 18px 28px;
+  border: 2px solid var(--c-red);
+  border-radius: 6px;
+  color: var(--c-red);
+  text-align: center;
+}
+
+.news-empty strong {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.news-empty small {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--c-muted);
+}
+
+/* 最后更新行 */
+.news-updated {
+  margin: 20px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 平板 / 手机档（≤900px）：中央轴交错在此宽度下不成立，换「左轴 + 单栏」────
+   两列并排时每列只剩约 150px（汉字一行 8–10 字）不可读，所以交错形态只在
+   >900px 存在。DOM 不变 —— 只取消第二列、取消错位、把轴从中心移到左侧 10px，
+   并把刻度伪元素从「伸向右侧中线」镜像为「伸向左侧轴线」。
+   数值口径：条目区左内缩 32px，轴线 10px，圆点 8px（中心落在轴上），
+   连接线从圆点右缘 15px 铺到卡片左缘 32px ⇒ 宽 17px、left -17px。 */
+@media (max-width: 900px) {
+  .news-list::before {
+    left: 10px;
+  }
+
+  .news-day__title {
+    margin-left: 32px;
+    margin-right: auto;
+  }
+
+  .news-day__items {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: 32px;
+  }
+
+  .news-item:nth-child(even) {
+    margin-top: 0;
+  }
+
+  .news-item:nth-child(odd)::before,
+  .news-item:nth-child(even)::before {
+    left: -17px;
+    right: auto;
+    width: 17px;
+  }
+
+  .news-item:nth-child(odd)::after,
+  .news-item:nth-child(even)::after {
+    left: -26px;
+    right: auto;
+  }
+
+  /* 单栏不再有「两列高度差」要收敛，高度下限反而会在短摘要卡里留出大片空白 */
+  .news-item__link {
+    min-height: 0;
+  }
+}
+
+/* ── 手机档（≤640px）：内缩收到 20px，轴线与刻度同步内收 ────────────────── */
+@media (max-width: 640px) {
+  .lab-tabs {
+    padding: 0 20px;
+  }
+  .lab-tabs__item {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .news {
+    padding: 20px 20px 0;
+  }
+  .news-hero {
+    padding: 26px 20px 14px;
+  }
+  /* 轴线 8px，条目区左内缩 26px，圆点 7px（中心落在轴上），
+     连接线从圆点右缘 11.5px 铺到卡片左缘 26px ⇒ 宽 14px、left -14px。 */
+  .news-list::before {
+    left: 8px;
+  }
+  .news-day__title {
+    margin-left: 26px;
+    font-size: 11px;
+    padding: 3px 11px;
+  }
+  .news-day__items {
+    padding-left: 26px;
+    row-gap: 14px;
+  }
+  .news-item:nth-child(odd)::before,
+  .news-item:nth-child(even)::before {
+    left: -14px;
+    width: 14px;
+    top: 19px;
+  }
+  .news-item:nth-child(odd)::after,
+  .news-item:nth-child(even)::after {
+    left: -21px;
+    width: 7px;
+    height: 7px;
+    top: 16px;
+  }
+  .news-item__link {
+    padding: 12px 14px;
+  }
+  .news-item__title {
+    font-size: 14px;
+  }
+}

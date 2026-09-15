@@ -11,10 +11,12 @@
 //    因此本页的卡片 href 直接指向中文演示页。这是刻意的，不是漏配。
 import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
+import LabTabs from '../../components/LabTabs.astro';
 import lab from '../../data/lab.json';
 import { useTranslations, interpolate } from '../../i18n/utils';
 import '../../styles/sheet.css';
 import '../../styles/archive-chrome.css';
+import '../../styles/lab-news.css';
 
 const entries = lab.entries;
 const t = useTranslations('en');
@@ -27,6 +29,8 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 >
   <main class="sheet" id="main">
     <PageHead no="NO.04" back={{ label: t('head.backHome'), href: '/en/' }} locale="en" />
+
+    <LabTabs locale="en" active="experiments" />
 
     <section class="hero">
       {/* ⚠️ 刻意与中文版**不一致**（2026-09-15 daidai 裁定）：中文版 hero 的描边大字

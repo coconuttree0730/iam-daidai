@@ -1,0 +1,39 @@
+---
+// 游乐场板块 tab 条（LAB-NEWS 01，2026-09-15）
+// 实验 / 新闻两板块是各自独立的 URL，用这一条 tab 在视觉上绑成一组、互为链接。
+// 样式全部落在 src/styles/lab-news.css 的 .lab-tabs* 下（组件本身无 <style> 块），
+// 因此英文页（ticket 02）直接复用本组件、传 locale="en" 即可，零额外样式。
+import { useTranslations } from '../i18n/utils';
+import type { Locale } from '../i18n/config';
+
+interface Props {
+  /** 页面语言。中文页不传 = 'zh'，英文页传 'en'。 */
+  locale?: Locale;
+  /** 当前所在板块：决定哪个 tab 带 aria-current 与选中态。 */
+  active: 'experiments' | 'news';
+}
+
+const { locale = 'zh', active } = Astro.props;
+const t = useTranslations(locale);
+
+// 语言树决定 URL 前缀；zh 走站点根（prefixDefaultLocale:false），en 走 /en。
+const prefix = locale === 'en' ? '/en' : '';
+const tabs = [
+  { key: 'experiments', href: `${prefix}/lab/`, label: t('lab.tabExperiments') },
+  { key: 'news', href: `${prefix}/lab/news/`, label: t('lab.tabNews') },
+];
+---
+
+<nav class="lab-tabs" aria-label={t('lab.tabsAria')}>
+  {
+    tabs.map((tab) => (
+      <a
+        class:list={['lab-tabs__item', { 'is-active': active === tab.key }]}
+        href={tab.href}
+        aria-current={active === tab.key ? 'page' : undefined}
+      >
+        {tab.label}
+      </a>
+    ))
+  }
+</nav>

@@ -1,0 +1,515 @@
+{
+  "updated": "2026-09-15T12:26:10.577Z",
+  "items": [
+    {
+      "id": "c9f01c44c7ab",
+      "url": "https://www.ithome.com/1/002/760.htm",
+      "source": "IT之家",
+      "lang": "zh",
+      "title": {
+        "en": "Salesforce 联合英伟达推出 Koa 推理大模型，挑战闭源前沿模型",
+        "zh": "Salesforce 联合英伟达推出 Koa 推理大模型，挑战闭源前沿模型"
+      },
+      "summary": {
+        "en": "<p data-vmark=\"ba6d\">IT之家 9 月 15 日消息，本周在规模盛大的 Dreamforce 技术大会上，Salesforce 最重要的发布成果之一就是一款名叫 Koa 的全新 AI 模型。Koa 是该公司首款推理大模型，基于英伟达开源权重的 Nemotron",
+        "zh": "<p data-vmark=\"ba6d\">IT之家 9 月 15 日消息，本周在规模盛大的 Dreamforce 技术大会上，Salesforce 最重要的发布成果之一就是一款名叫 Koa 的全新 AI 模型。Koa 是该公司首款推理大模型，基于英伟达开源权重的 Nemotron"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T12:25:49.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "09e3f451b760",
+      "url": "https://www.ithome.com/1/002/754.htm",
+      "source": "IT之家",
+      "lang": "zh",
+      "title": {
+        "en": "荣耀MagicOS 11 操作系统正式发布：全新流光通透设计，最高省 60GB 存储空间",
+        "zh": "荣耀MagicOS 11 操作系统正式发布：全新流光通透设计，最高省 60GB 存储空间"
+      },
+      "summary": {
+        "en": "<p data-vmark=\"4b97\">IT之家 9 月 15 日消息，荣耀MagicOS 11 操作系统今日正式发布，新系统主打全新液态玻璃材质，拥有流光通透美学设计，即日起启动正式版不限量尝鲜，适配多款机型。</p><p style=\"text-align: center;",
+        "zh": "<p data-vmark=\"4b97\">IT之家 9 月 15 日消息，荣耀MagicOS 11 操作系统今日正式发布，新系统主打全新液态玻璃材质，拥有流光通透美学设计，即日起启动正式版不限量尝鲜，适配多款机型。</p><p style=\"text-align: center;"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T12:09:26.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "e95c23b7fc41",
+      "url": "https://www.ithome.com/1/002/752.htm",
+      "source": "IT之家",
+      "lang": "zh",
+      "title": {
+        "en": "三星发布 Galaxy A18 4G 手机，搭载 Exynos 1610 处理器",
+        "zh": "三星发布 Galaxy A18 4G 手机，搭载 Exynos 1610 处理器"
+      },
+      "summary": {
+        "en": "<p data-vmark=\"5e81\">IT之家 9 月 15 日消息，三星正在密集推出新款 Galaxy A 系列入门手机。继 Galaxy A07s 与 Galaxy A08 之后，该公司正式发布了 Galaxy A18。这款机型现已在法国开售，售价 279 欧元<span",
+        "zh": "<p data-vmark=\"5e81\">IT之家 9 月 15 日消息，三星正在密集推出新款 Galaxy A 系列入门手机。继 Galaxy A07s 与 Galaxy A08 之后，该公司正式发布了 Galaxy A18。这款机型现已在法国开售，售价 279 欧元<span"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T12:07:20.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "8693e8047d79",
+      "url": "https://www.oschina.net/news/502507",
+      "source": "开源中国",
+      "lang": "zh",
+      "title": {
+        "en": "华为发布全球首个3D数据中心，携手产业共建AIDC新范式",
+        "zh": "华为发布全球首个3D数据中心，携手产业共建AIDC新范式"
+      },
+      "summary": {
+        "en": "9月15日，2026 AIDC产业发展大会暨3D数据中心现场会在安徽芜湖举行。现场华为正式发布全球首个3D数据中心，发行《3D数据中心》专著书籍，并开放《3D数据中心概要设计图库》，携手产业共建AIDC（人工智能数据中心）新范式。 为解决大型AI算力中心的安全性和跨不同代际AI芯",
+        "zh": "9月15日，2026 AIDC产业发展大会暨3D数据中心现场会在安徽芜湖举行。现场华为正式发布全球首个3D数据中心，发行《3D数据中心》专著书籍，并开放《3D数据中心概要设计图库》，携手产业共建AIDC（人工智能数据中心）新范式。 为解决大型AI算力中心的安全性和跨不同代际AI芯"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T11:57:16.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "191f066483a6",
+      "url": "https://www.ithome.com/1/002/750.htm",
+      "source": "IT之家",
+      "lang": "zh",
+      "title": {
+        "en": "OpenAI 内部 Lily 项目曝光：人工审核 ChatGPT 用户聊天记录以优化大模型",
+        "zh": "OpenAI 内部 Lily 项目曝光：人工审核 ChatGPT 用户聊天记录以优化大模型"
+      },
+      "summary": {
+        "en": "<p data-vmark=\"051e\">IT之家 9 月 15 日消息，众所周知，ChatGPT 这类平台的对话日志会被用来优化模型。但在此之前，这套处理机制一直是个谜。404 Media 刚刚发布了一份报道，披露了 OpenAI 对聊天记录开展人工审核的整套流程，介绍了审核如",
+        "zh": "<p data-vmark=\"051e\">IT之家 9 月 15 日消息，众所周知，ChatGPT 这类平台的对话日志会被用来优化模型。但在此之前，这套处理机制一直是个谜。404 Media 刚刚发布了一份报道，披露了 OpenAI 对聊天记录开展人工审核的整套流程，介绍了审核如"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T11:48:13.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "0992deb5d6be",
+      "url": "https://www.oschina.net/news/502506",
+      "source": "开源中国",
+      "lang": "zh",
+      "title": {
+        "en": "6500 美元的双臂人形机械臂，OpenArm 把硬件开源做到能复现",
+        "zh": "6500 美元的双臂人形机械臂，OpenArm 把硬件开源做到能复现"
+      },
+      "summary": {
+        "en": "物理 AI 研究一直卡在一个尴尬的地方：软件栈开源得热火朝天，硬件却始终是实验室里那台没法复现的定制臂。OpenArm 想把这个口子撕开——一台 7 自由度的全开源人形臂，整套 bimanual 系统卖 6500 美元。 这个价格在同类里算激进。更激进的是它的定位：不是给你一台能",
+        "zh": "物理 AI 研究一直卡在一个尴尬的地方：软件栈开源得热火朝天，硬件却始终是实验室里那台没法复现的定制臂。OpenArm 想把这个口子撕开——一台 7 自由度的全开源人形臂，整套 bimanual 系统卖 6500 美元。 这个价格在同类里算激进。更激进的是它的定位：不是给你一台能"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T11:26:10.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "9e40b8ab5c73",
+      "url": "https://www.ithome.com/1/002/740.htm",
+      "source": "IT之家",
+      "lang": "zh",
+      "title": {
+        "en": "曝百度挖来前谷歌 DeepMind 核心成员 Qiyin Wu，曾是 Gemini 2.5 模型官方报告核心作者",
+        "zh": "曝百度挖来前谷歌 DeepMind 核心成员 Qiyin Wu，曾是 Gemini 2.5 模型官方报告核心作者"
+      },
+      "summary": {
+        "en": "<p data-vmark=\"43f9\">IT之家 9 月 15 日消息，据雷峰网今日爆料，前谷歌 DeepMind 主任工程师、Gemini 大模型核心研发成员 Qiyin Wu 已在近期正式加入百度，<strong>负责大模型预训练相关工作</strong>。</p><p d",
+        "zh": "<p data-vmark=\"43f9\">IT之家 9 月 15 日消息，据雷峰网今日爆料，前谷歌 DeepMind 主任工程师、Gemini 大模型核心研发成员 Qiyin Wu 已在近期正式加入百度，<strong>负责大模型预训练相关工作</strong>。</p><p d"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T11:20:16.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "e56989bf824f",
+      "url": "https://www.ithome.com/1/002/734.htm",
+      "source": "IT之家",
+      "lang": "zh",
+      "title": {
+        "en": "12.2\" 轻薄本 mouse X2 发布：质量 981g，至高搭载 AMD 锐龙 AI 7 350",
+        "zh": "12.2\" 轻薄本 mouse X2 发布：质量 981g，至高搭载 AMD 锐龙 AI 7 350"
+      },
+      "summary": {
+        "en": "<p data-vmark=\"e75d\">IT之家 9 月 15 日消息，日本 PC 企业 MouseComputer 今日发布了<strong>屏幕对角线长度仅有 12.2 英寸</strong>的 mouse X2 笔记本电脑。这一机型至高搭载 AMD 锐龙 AI 7 350",
+        "zh": "<p data-vmark=\"e75d\">IT之家 9 月 15 日消息，日本 PC 企业 MouseComputer 今日发布了<strong>屏幕对角线长度仅有 12.2 英寸</strong>的 mouse X2 笔记本电脑。这一机型至高搭载 AMD 锐龙 AI 7 350"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T11:04:54.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "bcee273a2466",
+      "url": "https://www.qbitai.com/2026/09/489389.html",
+      "source": "量子位",
+      "lang": "zh",
+      "title": {
+        "en": "全球AI视频榜单第一梯队再添中国力量：智象发布首款物理规律导向视频模型",
+        "zh": "全球AI视频榜单第一梯队再添中国力量：智象发布首款物理规律导向视频模型"
+      },
+      "summary": {
+        "en": "智象未来（HiDream.ai）正式发布首个原生全模态视频生成模型 HiDream-O1-Video-1.0",
+        "zh": "智象未来（HiDream.ai）正式发布首个原生全模态视频生成模型 HiDream-O1-Video-1.0"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T10:41:06.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "fbaa9e642015",
+      "url": "https://www.qbitai.com/2026/09/489381.html",
+      "source": "量子位",
+      "lang": "zh",
+      "title": {
+        "en": "一张GPU跑10万原子！分子之心用AI把化学反应“拍”成了电影",
+        "zh": "一张GPU跑10万原子！分子之心用AI把化学反应“拍”成了电影"
+      },
+      "summary": {
+        "en": "",
+        "zh": ""
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T09:58:00.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "33ed1795c3bb",
+      "url": "https://www.ifanr.com/1679813?utm_source=rss&utm_medium=rss&utm_campaign=",
+      "source": "爱范儿",
+      "lang": "zh",
+      "title": {
+        "en": "号称人类造的最后一个 AI 要来了，刷屏全网的 RSI 是什么",
+        "zh": "号称人类造的最后一个 AI 要来了，刷屏全网的 RSI 是什么"
+      },
+      "summary": {
+        "en": "AI 开始造 AI，但距离「智能爆炸」还有多远？ #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。",
+        "zh": "AI 开始造 AI，但距离「智能爆炸」还有多远？ #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T09:43:19.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "f01e00230083",
+      "url": "https://www.oschina.net/news/502502/step-audio-3",
+      "source": "开源中国",
+      "lang": "zh",
+      "title": {
+        "en": "阶跃星辰发布 Step Audio 3 系列语音模型，多款上榜全球第一",
+        "zh": "阶跃星辰发布 Step Audio 3 系列语音模型，多款上榜全球第一"
+      },
+      "summary": {
+        "en": "语音大模型的竞争，正在从\"能不能把文字念出来\"换成\"能不能真正理解声音、组织声音\"。阶跃星辰今天放出的 StepAudio 3 系列，就是冲着这个方向去的——五个模型一次全发：Realtime、ASR、TTS、Gen、Music。 最出挑的是 StepAudio 3 Realti",
+        "zh": "语音大模型的竞争，正在从\"能不能把文字念出来\"换成\"能不能真正理解声音、组织声音\"。阶跃星辰今天放出的 StepAudio 3 系列，就是冲着这个方向去的——五个模型一次全发：Realtime、ASR、TTS、Gen、Music。 最出挑的是 StepAudio 3 Realti"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T08:56:24.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "b881768012d7",
+      "url": "http://www.geekpark.net/news/370345",
+      "source": "极客公园",
+      "lang": "zh",
+      "title": {
+        "en": "对话小宇宙 kyth：播客的护城河是真实，AI 无法取代的是人的立场",
+        "zh": "对话小宇宙 kyth：播客的护城河是真实，AI 无法取代的是人的立场"
+      },
+      "summary": {
+        "en": "头图来源：小宇宙 过去一年，播客被推到了内容行业的聚光灯下。 B 站拿出 10 亿元流量扶持视频播客，罗永浩、鲁豫等名人带着数小时的长对谈进入市场。小红书也在持续补齐视频与音频播客能力，抖音精选则通过自制节目试水长对谈。那些原本只在播客听众中流动的内容，被剪成短视频切片，登上热搜",
+        "zh": "头图来源：小宇宙 过去一年，播客被推到了内容行业的聚光灯下。 B 站拿出 10 亿元流量扶持视频播客，罗永浩、鲁豫等名人带着数小时的长对谈进入市场。小红书也在持续补齐视频与音频播客能力，抖音精选则通过自制节目试水长对谈。那些原本只在播客听众中流动的内容，被剪成短视频切片，登上热搜"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T07:10:42.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "46a3d6b28eb4",
+      "url": "https://www.oschina.net/news/502494",
+      "source": "开源中国",
+      "lang": "zh",
+      "title": {
+        "en": "智能体什么该记什么不该记？openKylin专家来答",
+        "zh": "智能体什么该记什么不该记？openKylin专家来答"
+      },
+      "summary": {
+        "en": "2026 年，大模型智能体正从实验室走进办公、研发和个人助理场景。它要长期陪着用户干活，就得记住用户的偏好、常用的路径、习惯用的模板。记不住，每次对话都从头开始，用户很快就失去耐心；记太死，临时信息、敏感内容又一直留在系统里，成了隐患。 什么该记、什么不该记，没有统一答案，却直接",
+        "zh": "2026 年，大模型智能体正从实验室走进办公、研发和个人助理场景。它要长期陪着用户干活，就得记住用户的偏好、常用的路径、习惯用的模板。记不住，每次对话都从头开始，用户很快就失去耐心；记太死，临时信息、敏感内容又一直留在系统里，成了隐患。 什么该记、什么不该记，没有统一答案，却直接"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T06:58:40.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "e8cacbecf179",
+      "url": "https://www.ifanr.com/1680138?utm_source=rss&utm_medium=rss&utm_campaign=",
+      "source": "爱范儿",
+      "lang": "zh",
+      "title": {
+        "en": "豆包工作和飞书，把中国第一个团队 Agent 拉进了工作群",
+        "zh": "豆包工作和飞书，把中国第一个团队 Agent 拉进了工作群"
+      },
+      "summary": {
+        "en": "为团队而生的办公 Agent #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。",
+        "zh": "为团队而生的办公 Agent #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T06:39:55.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "a92e8ca4069c",
+      "url": "http://www.geekpark.net/news/370328",
+      "source": "极客公园",
+      "lang": "zh",
+      "title": {
+        "en": "给 AI 发外设，戴森派摄像头进嘴、绿联给充电宝开了扇窗",
+        "zh": "给 AI 发外设，戴森派摄像头进嘴、绿联给充电宝开了扇窗"
+      },
+      "summary": {
+        "en": "AI 正在把所有硬件重新做一遍，这句话说了三年，这周轮到了一把牙刷。 今天，IFA 柏林开展，一千九百个品牌都在不同角度展示自己的创新力，连戴森都掏出了一款牙刷来告诉行业，我也能用 AI 玩出花样，牙刷 Dyson CameraJe 刷头下藏着一颗 1 毫米的摄像头，每秒盯着你哪",
+        "zh": "AI 正在把所有硬件重新做一遍，这句话说了三年，这周轮到了一把牙刷。 今天，IFA 柏林开展，一千九百个品牌都在不同角度展示自己的创新力，连戴森都掏出了一款牙刷来告诉行业，我也能用 AI 玩出花样，牙刷 Dyson CameraJe 刷头下藏着一颗 1 毫米的摄像头，每秒盯着你哪"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T06:01:55.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "431db6b90963",
+      "url": "http://www.geekpark.net/news/370325",
+      "source": "极客公园",
+      "lang": "zh",
+      "title": {
+        "en": "造物 100 #06｜自动驾驶上轮椅了，口袋相机学会飞行，AI 教练上了雪场",
+        "zh": "造物 100 #06｜自动驾驶上轮椅了，口袋相机学会飞行，AI 教练上了雪场"
+      },
+      "summary": {
+        "en": "硬件创新力正在消失。 9 月 10 日，苹果发布了筹备多年的首款折叠屏 iPhone Duo，又是一款集大成之作，困扰多年的折叠屏折痕有了「苹果」解法。但我们明显发现硬件创新的品类迭代速度开始变得缓慢，这两年「原来还能有这种东西」的哇塞时刻越来越少。大家似乎默认，下一个时代级的硬",
+        "zh": "硬件创新力正在消失。 9 月 10 日，苹果发布了筹备多年的首款折叠屏 iPhone Duo，又是一款集大成之作，困扰多年的折叠屏折痕有了「苹果」解法。但我们明显发现硬件创新的品类迭代速度开始变得缓慢，这两年「原来还能有这种东西」的哇塞时刻越来越少。大家似乎默认，下一个时代级的硬"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T05:54:51.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "cfd433829ef2",
+      "url": "https://www.qbitai.com/2026/09/489288.html",
+      "source": "量子位",
+      "lang": "zh",
+      "title": {
+        "en": "前OpenAI后训练VP回应陶哲轩：说AI毁了数学，可能还是太小瞧AI了",
+        "zh": "前OpenAI后训练VP回应陶哲轩：说AI毁了数学，可能还是太小瞧AI了"
+      },
+      "summary": {
+        "en": "未来的AI不仅能解决问题，还能提出有价值的洞见、建立新的概念框架，让数学家在此基础上继续探索。",
+        "zh": "未来的AI不仅能解决问题，还能提出有价值的洞见、建立新的概念框架，让数学家在此基础上继续探索。"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T05:39:10.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "43b7c8ecad58",
+      "url": "https://www.qbitai.com/2026/09/489277.html",
+      "source": "量子位",
+      "lang": "zh",
+      "title": {
+        "en": "9月21日，深圳前海！聊聊工业AI与生态共创的下一步",
+        "zh": "9月21日，深圳前海！聊聊工业AI与生态共创的下一步"
+      },
+      "summary": {
+        "en": "西门子Xcelerator繁星生态大会，在生态合作中共赢机遇",
+        "zh": "西门子Xcelerator繁星生态大会，在生态合作中共赢机遇"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T05:20:30.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "f19529422178",
+      "url": "https://www.ifanr.com/1680134?utm_source=rss&utm_medium=rss&utm_campaign=",
+      "source": "爱范儿",
+      "lang": "zh",
+      "title": {
+        "en": "iOS 27 正式版体验：Siri AI 终于开窍了，老 iPhone 升级也有新东西",
+        "zh": "iOS 27 正式版体验：Siri AI 终于开窍了，老 iPhone 升级也有新东西"
+      },
+      "summary": {
+        "en": "值得升级。 #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。",
+        "zh": "值得升级。 #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T05:00:50.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "93da384ecdaf",
+      "url": "https://www.oschina.net/news/502492",
+      "source": "开源中国",
+      "lang": "zh",
+      "title": {
+        "en": "DeepSeek 又又又崩了？教你怎么做模型故障转移",
+        "zh": "DeepSeek 又又又崩了？教你怎么做模型故障转移"
+      },
+      "summary": {
+        "en": "这次 DeepSeek 又崩了，而且是在深夜闲时，对于在夜间自动跑任务的小伙伴来说无异于天塌了，无人值守不可能会关注到，但是一晚上的时间就浪费掉了，影响第二天的工作开展。所以能够实现模型故障转移非常重要。 在 Firefly Router，实现故障转移非常简单，一行代码就能实现，",
+        "zh": "这次 DeepSeek 又崩了，而且是在深夜闲时，对于在夜间自动跑任务的小伙伴来说无异于天塌了，无人值守不可能会关注到，但是一晚上的时间就浪费掉了，影响第二天的工作开展。所以能够实现模型故障转移非常重要。 在 Firefly Router，实现故障转移非常简单，一行代码就能实现，"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T04:08:32.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "b589b6a43272",
+      "url": "https://www.oschina.net/news/502491",
+      "source": "开源中国",
+      "lang": "zh",
+      "title": {
+        "en": ":fire::fire:开源接口平台v6.0发布，支持AI办公MCP接入",
+        "zh": ":fire::fire:开源接口平台v6.0发布，支持AI办公MCP接入"
+      },
+      "summary": {
+        "en": "ApiGo 是一款在线接口开发和管理平台，企业项目开发脚手架、SQL2API 、数据预览平台。支持动态数据源、动态 SQL 和标签，持 WorkBuddy、千问办公、Trea Work、豆包等 AI 办公平台 MCP 接入。支持接入（mysql、oracle、达梦、TiDB、Do",
+        "zh": "ApiGo 是一款在线接口开发和管理平台，企业项目开发脚手架、SQL2API 、数据预览平台。支持动态数据源、动态 SQL 和标签，持 WorkBuddy、千问办公、Trea Work、豆包等 AI 办公平台 MCP 接入。支持接入（mysql、oracle、达梦、TiDB、Do"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T04:06:36.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "523157d7fa1c",
+      "url": "https://arxiv.org/abs/2609.11697",
+      "source": "arXiv cs.AI",
+      "lang": "en",
+      "title": {
+        "en": "ActSafeGuard: Differentiable and Training-Aligned Constraint Enforcement for Flow-Matching Policies",
+        "zh": "ActSafeGuard: Differentiable and Training-Aligned Constraint Enforcement for Flow-Matching Policies"
+      },
+      "summary": {
+        "en": "arXiv:2609.11697v2 Announce Type: replace-cross Abstract: Vision-Language-Action (VLA) and World-Action Models (WAMs) have demonstrated stro",
+        "zh": "arXiv:2609.11697v2 Announce Type: replace-cross Abstract: Vision-Language-Action (VLA) and World-Action Models (WAMs) have demonstrated stro"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T04:00:00.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "997cea2e91b0",
+      "url": "https://arxiv.org/abs/2609.08977",
+      "source": "arXiv cs.AI",
+      "lang": "en",
+      "title": {
+        "en": "Multimodal Duplex Interaction Agent",
+        "zh": "Multimodal Duplex Interaction Agent"
+      },
+      "summary": {
+        "en": "arXiv:2609.08977v3 Announce Type: replace-cross Abstract: In this work, we present Gander, a native multimodal duplex interaction model that",
+        "zh": "arXiv:2609.08977v3 Announce Type: replace-cross Abstract: In this work, we present Gander, a native multimodal duplex interaction model that"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T04:00:00.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "af5fc1cb7468",
+      "url": "https://arxiv.org/abs/2609.09075",
+      "source": "arXiv cs.AI",
+      "lang": "en",
+      "title": {
+        "en": "ThinkPrior: Zero-Rollout Difficulty Priors for Cold-Start Prompt Selection in RLVR",
+        "zh": "ThinkPrior: Zero-Rollout Difficulty Priors for Cold-Start Prompt Selection in RLVR"
+      },
+      "summary": {
+        "en": "arXiv:2609.09075v2 Announce Type: replace-cross Abstract: In reinforcement learning with verifiable rewards (RLVR) trained with group relati",
+        "zh": "arXiv:2609.09075v2 Announce Type: replace-cross Abstract: In reinforcement learning with verifiable rewards (RLVR) trained with group relati"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T04:00:00.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "b967ccf4cf93",
+      "url": "https://arxiv.org/abs/2609.12184",
+      "source": "arXiv cs.AI",
+      "lang": "en",
+      "title": {
+        "en": "Agentic TCAD Calibration Workflow for Oxide Semiconductor Transistors",
+        "zh": "Agentic TCAD Calibration Workflow for Oxide Semiconductor Transistors"
+      },
+      "summary": {
+        "en": "arXiv:2609.12184v2 Announce Type: replace-cross Abstract: Experimental TCAD calibration is essential for predictive technology modeling of e",
+        "zh": "arXiv:2609.12184v2 Announce Type: replace-cross Abstract: Experimental TCAD calibration is essential for predictive technology modeling of e"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T04:00:00.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "b2e90388c981",
+      "url": "https://www.qbitai.com/2026/09/489227.html",
+      "source": "量子位",
+      "lang": "zh",
+      "title": {
+        "en": "7名博士生仅用3个月从零训练7B大模型：代码+数据+训练日志全公开",
+        "zh": "7名博士生仅用3个月从零训练7B大模型：代码+数据+训练日志全公开"
+      },
+      "summary": {
+        "en": "",
+        "zh": ""
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T02:17:34.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "72bfcc291eee",
+      "url": "http://www.geekpark.net/news/370306",
+      "source": "极客公园",
+      "lang": "zh",
+      "title": {
+        "en": "iOS 27、MacOS 27 正式发布；豆包手机助手消费者版亮相；李想：「大车」趋势一定会结束",
+        "zh": "iOS 27、MacOS 27 正式发布；豆包手机助手消费者版亮相；李想：「大车」趋势一定会结束"
+      },
+      "summary": {
+        "en": "特朗普抨击 Anthropic CEO：AI 发展不能踩刹车，美国有「高智商总统」就足够 特朗普周一在社交媒体发文，明确表示其不认可 AI 数据中心引发的民众反弹及外界对前沿模型的忧虑。他写道：「AI 所需的唯一『护栏』，就是一位强悍而聪明（高智商！）的总统，而美国恰好拥有这样的",
+        "zh": "特朗普抨击 Anthropic CEO：AI 发展不能踩刹车，美国有「高智商总统」就足够 特朗普周一在社交媒体发文，明确表示其不认可 AI 数据中心引发的民众反弹及外界对前沿模型的忧虑。他写道：「AI 所需的唯一『护栏』，就是一位强悍而聪明（高智商！）的总统，而美国恰好拥有这样的"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T00:17:23.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "a379585d9fff",
+      "url": "https://www.ifanr.com/1680097?utm_source=rss&utm_medium=rss&utm_campaign=",
+      "source": "爱范儿",
+      "lang": "zh",
+      "title": {
+        "en": "早报｜iOS27正式推送/比亚迪高管：燃油车在中国没有未来/iPhone 18 Pro渠道降价900元，苹果称不干预",
+        "zh": "早报｜iOS27正式推送/比亚迪高管：燃油车在中国没有未来/iPhone 18 Pro渠道降价900元，苹果称不干预"
+      },
+      "summary": {
+        "en": "· 广汽一汽签署重组意向协议，一汽拟成第二大股东 · 中国地震台网中心：正与苹果沟通 iOS 地震预警 · 马斯克旗下公司撤回对苹果的反垄断诉讼，继续起诉 OpenAI #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。",
+        "zh": "· 广汽一汽签署重组意向协议，一汽拟成第二大股东 · 中国地震台网中心：正与苹果沟通 iOS 地震预警 · 马斯克旗下公司撤回对苹果的反垄断诉讼，继续起诉 OpenAI #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-15T00:08:20.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    },
+    {
+      "id": "3b7dd37227cc",
+      "url": "https://www.ifanr.com/1680046?utm_source=rss&utm_medium=rss&utm_campaign=",
+      "source": "爱范儿",
+      "lang": "zh",
+      "title": {
+        "en": "在学会数学之前，AI 先学会了大厂的虚荣心",
+        "zh": "在学会数学之前，AI 先学会了大厂的虚荣心"
+      },
+      "summary": {
+        "en": "大厂的数学名题争夺赛 #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。",
+        "zh": "大厂的数学名题争夺赛 #欢迎关注爱范儿官方微信公众号：爱范儿（微信号：ifanr），更多精彩内容第一时间为您奉上。"
+      },
+      "translated": false,
+      "publishedAt": "2026-09-14T13:05:26.000Z",
+      "fetchedAt": "2026-09-15T12:26:10.577Z"
+    }
+  ]
+}

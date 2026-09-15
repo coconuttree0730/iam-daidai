@@ -12,9 +12,11 @@
 import Base from '../layouts/Base.astro';
 import { useTranslations } from '../i18n/utils';
 import PageHead from '../components/PageHead.astro';
+import LabTabs from '../components/LabTabs.astro';
 import lab from '../data/lab.json';
 import '../styles/sheet.css';
 import '../styles/archive-chrome.css';
+import '../styles/lab-news.css';
 
 const entries = lab.entries;
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -27,6 +29,8 @@ const t = useTranslations('zh');
 >
   <main class="sheet" id="main">
     <PageHead no="NO.04" back={{ label: t('head.backHome'), href: '/' }} />
+
+    <LabTabs locale="zh" active="experiments" />
 
     <section class="hero">
       <p class="en" aria-hidden="true">PLAYGROUND</p>

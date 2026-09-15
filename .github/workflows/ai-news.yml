@@ -1,0 +1,84 @@
+# AI 新闻时间线 —— 定时抓取 / 翻译 / 提交
+#
+# 行为边界（来自规格 D33–D37）：
+#   - cron 用 UTC 表达（GitHub Actions 的 schedule 是 UTC，不是本地时区）。
+#   - 只有内容真的变了才提交；脚本在主动跳过时以 0 退出（上一次快照保留）。
+#   - 密钥只来自 GitHub Secret，绝不直接拼进 run: 行。
+#   - 失败仅靠 GitHub 原生失败邮件通知（D22），不接任何额外通道。
+#   - 不做 Cloudflare Worker / KV / Cron Trigger（D38），托管侧唯一动作是「检测 push 后重建」。
+
+name: AI 新闻快照
+
+on:
+  schedule:
+    # 每天 09:00 与 21:00（GMT+8）各跑一次。
+    # GitHub 的 schedule 是 UTC，所以 GMT+8 的 09:00 / 21:00 = UTC 的 01:00 / 13:00。
+    # 注意：这是 UTC！不要按本地时间"修正"它，否则会偏移 8 小时。
+    - cron: "0 1,13 * * *"
+  workflow_dispatch:
+    # 手动触发入口：daidai 不必等待下一个定时点，可随时跑一次。
+
+# 默认令牌是只读的；不显式声明 contents: write，git push 会**静默失败**（不报错但推不上去）。
+permissions:
+  contents: write
+
+# 同一时刻只允许一个运行实例。两个触发器撞到同一刻时，后来的会排队而不会交错写入
+# 同一批数据文件（current.json / archive/*.json），避免半写入状态被另一方读到。
+concurrency:
+  group: ai-news-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    # 单次运行的硬上限。抓取是 6 个固定 GET、每个自带 20s 超时，正常在 1 分钟内结束；
+    # 不设上限时 GitHub 默认给 360 分钟 —— 一旦某个源挂住（TCP 不返回、不是超时），
+    # 那个 run 会白占 6 小时的并发额度，并让 concurrency 队列堵在后面。
+    timeout-minutes: 10
+    steps:
+      # 唯一引入的 action。项目规则要求第三方 action 锁定到完整提交哈希而非可变标签
+      # （可变标签可被上游重指向，等于把仓库控制权交给标签持有者）。
+      # 11d5960a326750d5838078e36cf38b85af677262 = actions/checkout v4 的提交 SHA
+      # （轻量标签，直接指向 commit；上游打新 v4 时不会静默跟随）。
+      # 升级方式：确认新版本后改写此行哈希，不要退回 @v4。
+      - name: 检出仓库
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # 不引入 actions/setup-node：ubuntu-latest 自带现代 Node，且本脚本零依赖。
+      # 改以显式版本断言替代 setup-node 的版本锁定，低于 20 直接失败并退出。
+      - name: 检查 Node 版本（替代 setup-node 的版本锁定）
+        run: |
+          NODE_MAJOR=$(node --version | cut -d. -f1 | tr -d 'v')
+          if [ "$NODE_MAJOR" -lt 20 ]; then
+            echo "::error::需要 Node >= 20，当前为 $(node --version)。ubuntu-latest 应已预装现代 Node。"
+            exit 1
+          fi
+          echo "Node 版本检查通过：$(node --version)"
+
+      # 运行抓取 + 翻译管线。密钥通过 env: 注入，由脚本从 process.env 读取。
+      # 绝不把密钥直接插值进命令行——拼进 run 行的内容可能被写入日志，故只经 env 注入。
+      - name: 运行抓取与翻译管线
+        env:
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+        run: node scripts/ai-news/run.mjs
+
+      # 提交：只暂存 AI 新闻数据目录；无 diff 则判定为「内容无变化」，成功退出、不提交。
+      # 机器人身份；提交信息带稳定可 grep 前缀 + 日期，便于在 git log 快速定位。
+      # 推送若因并发人工推送失败，先 pull --rebase 再重试一次。
+      # 注意：日志只打印「有无变化 / 版本 / 推送结果」等摘要，绝不打印请求头、环境变量或完整错误对象。
+      - name: 提交内容快照（仅当内容变化）
+        run: |
+          git add -A src/data/ai-news/
+          if git diff --cached --quiet; then
+            echo "内容无变化，跳过提交。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TODAY=$(date -u +%F)
+          git commit -m "chore(news): AI 新闻快照 ${TODAY}"
+          if ! git push; then
+            echo "推送被并发推送挡住，尝试 pull --rebase 后重试一次。"
+            git pull --rebase
+            git push
+          fi

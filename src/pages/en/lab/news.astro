@@ -1,0 +1,306 @@
+---
+// AI 新闻时间线 · 英文页（LAB-NEWS 02 + 06，2026-09-15）
+//
+// 与中文页逐结构对齐，但：界面文案走 locale='en'、时间戳用 en-US 格式化；
+// 条目只渲染英文（title.en / summary.en / source），中文对照层不渲染
+// （D6/D7：英文访客只读英文原文，中文数据从「界面」角度不存在）。
+// 2026-09-15 追加：本页**按 lang 门控**，只收「原文为英文」的条目——源白名单
+// 改成单语 RSS 后以中文媒体为主，不门控就会把成段中文渲染进英文界面（见 data 段注释）。
+// 渲染产物不得含任何中文字符（除全站 chrome 的 RSS/语言切换品牌名例外）。
+//
+// 2026-09-15 版式改版（横向轨道 → 纵向时间线）：分组粒度由「月」改为「天」；
+// 渲染层次变为 .news-list > .news-day > (h2 + .news-day__items)。
+// 两套形态（>900px 中央轴左右错位 / ≤900px 左轴单栏）**全部由 CSS 媒体查询决定**，
+// 本页不含任何版式分支。⚠️ 本页条目通常只有几条（语言门控后仅剩英文源），
+// 因此两列错位在本页往往退化为「左列 1–2 张 + 右列 1–2 张」，这是预期形态。
+//
+// 编号语义见规格 D3：本页刻意不带任何板块编号。健壮性基线（D29）同中文页：
+// 数据缺失 / items 缺失 / 锚点非法 → 构建成功并回落空骨架，解析不出者跳过。
+//
+// ⚠️ 不渲染中文描边大字层：本页 h1 已是拉丁词 "AI News"，再加同词描边=冗余。
+import Base from '../../../layouts/Base.astro';
+import { useTranslations, interpolate } from '../../../i18n/utils';
+import PageHead from '../../../components/PageHead.astro';
+import LabTabs from '../../../components/LabTabs.astro';
+import '../../../styles/sheet.css';
+import '../../../styles/archive-chrome.css';
+import '../../../styles/lab-news.css';
+
+const t = useTranslations('en');
+
+const curGlob = import.meta.glob('../../../data/ai-news/current.json', {
+  eager: true,
+  import: 'default',
+});
+const curRaw = curGlob['../../../data/ai-news/current.json'] as
+  | { updated?: string | null; items?: unknown[] }
+  | undefined;
+
+const arcGlob = import.meta.glob('../../../data/ai-news/archive/*.json', {
+  eager: true,
+  import: 'default',
+});
+
+function asItems(bag: unknown): any[] {
+  const arr = bag && typeof bag === 'object' && Array.isArray((bag as any).items)
+    ? (bag as any).items
+    : [];
+  return arr.filter((it: any) => it && typeof it === 'object' && typeof it.url === 'string');
+}
+
+function anchorOf(it: any): Date | null {
+  const tryParse = (s: any) => {
+    if (typeof s !== 'string') return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  return tryParse(it?.publishedAt) ?? tryParse(it?.fetchedAt);
+}
+
+const allRaw = [...asItems(curRaw), ...Object.values(arcGlob).flatMap(asItems)];
+const hasAnyItem = allRaw.length > 0;
+
+// ── 语言门控（2026-09-15 站长裁定）──
+// 本页**只承载「原文为英文」的条目**（`lang === 'en'`）。这是 ticket 02 的验收条款
+// 「英文新闻页只渲染英文原文的标题与摘要，页面内不出现任何中文字段」的直接落地。
+// 裁定背景：源白名单改成内容方自营 RSS 后以中文媒体为主（冷启动实测 26/30 是中文源），
+// 不设这道门就会把成段中文渲染进英文界面。三个备选（标注原文语言照常显示 / 开 zh→en
+// 翻译补齐英文标题）已在 2026-09-15 比过：前者要改写验收条款，后者要引入密钥与
+// 第三条数据流，与「稳定 > 安全 > 合规 > 质量」的优先级相悖。
+// ⚠️ 这是**隐藏不是删除**：中文原文在中文页完整可见，数据层的两个语言袋子都还在。
+// 代价（已知并接受）：英文侧时间线显著比中文侧稀（窗口内通常只有 arXiv 几条）。
+const seen = new Set<string>();
+const prepared: { it: any; d: Date }[] = [];
+for (const it of allRaw) {
+  if (it?.lang !== 'en') continue;
+  if (typeof it.id === 'string') {
+    if (seen.has(it.id)) continue;
+    seen.add(it.id);
+  }
+  const d = anchorOf(it);
+  if (!d) continue;
+  prepared.push({ it, d });
+}
+
+// ── 分组（年降序 → 日降序）── 2026-09-15 由「月」改为「天」（与中文页逐条对齐）
+//
+// ⚠️ 时区口径与中文页一致：按 Asia/Shanghai 显示与切日。本站条目以中文源为主，
+// 用 UTC 会把 17:47(+08:00) 的新闻显示成 09:47、并把 +08:00 深夜的条目切到次日。
+// 两页同源同口径，读者在两页看到的时间与日期分组才是同一件事。
+const TZ = 'Asia/Shanghai';
+
+// en-CA 的短日期格式恰好是 ISO 形状 → 用它取「时区内的日键」，不必手算偏移
+const dtfDayKey = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  timeZone: TZ,
+});
+const dtfDay = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: TZ,
+});
+const dtfWeekday = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  timeZone: TZ,
+});
+const dtfTime = new Intl.DateTimeFormat('en-US', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: TZ,
+});
+
+const byYear = new Map<number, Map<string, { it: any; d: Date }[]>>();
+for (const p of prepared) {
+  const dayKey = dtfDayKey.format(p.d);
+  const year = Number(dayKey.slice(0, 4));
+  if (!byYear.has(year)) byYear.set(year, new Map());
+  const dmap = byYear.get(year)!;
+  if (!dmap.has(dayKey)) dmap.set(dayKey, []);
+  dmap.get(dayKey)!.push(p);
+}
+
+const years = [...byYear.entries()]
+  .sort((a, b) => b[0] - a[0])
+  .map(([year, dmap]) => ({
+    year,
+    days: [...dmap.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([dayKey, ps]) => {
+        // 取当天正午（UTC）作代表时刻：任何时区下都落在同一天，格式化不会漂到邻日
+        const [yy, mm, dd] = dayKey.split('-').map(Number);
+        const rep = new Date(Date.UTC(yy, mm - 1, dd, 12));
+        return {
+          dayKey,
+          label: dtfDay.format(rep),
+          weekday: dtfWeekday.format(rep),
+          items: ps.map(({ it, d: at }) => ({
+            it,
+            time: dtfTime.format(at),
+            // 读屏名补上日期：卡片上只剩时分，长列表里「09:47」本身不足以定位
+            aria: interpolate(t('news.itemAria'), {
+              title: it.title?.en ?? '',
+              source: it.source ?? '',
+              time: `${dtfDay.format(rep)} ${dtfTime.format(at)}`,
+            }),
+          })),
+        };
+      }),
+  }));
+
+const newestYear = years.length ? years[0].year : null;
+const hasData = years.length > 0;
+
+const updated = (curRaw as any)?.updated ?? null;
+let updatedLine: string;
+if (updated) {
+  const du = new Date(updated);
+  if (!Number.isNaN(du.getTime())) {
+    const time = new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: TZ,
+    }).format(du);
+    updatedLine = interpolate(t('news.updated'), { time });
+  } else {
+    updatedLine = t('news.neverFetched');
+  }
+} else {
+  updatedLine = t('news.neverFetched');
+}
+---
+
+<Base
+  title={`${t('section.news.title')} · ${t('site.title')}`}
+  description={t('section.news.desc')}
+  locale="en"
+>
+  <main class="sheet" id="main">
+    <PageHead back={{ label: t('head.backLab'), href: '/en/' }} locale="en" />
+
+    <LabTabs locale="en" active="news" />
+
+    <section class="news-hero">
+      <h1>{t('section.news.title')}</h1>
+      <p class="news-hero__note">{t('news.heroSub')}</p>
+    </section>
+
+    <section class="news">
+      {
+        hasData && years.length > 1 && (
+          <div class="news-yearnav" role="group" aria-labelledby="news-yearnav-label">
+            <span class="news-yearnav__label" id="news-yearnav-label">
+              {t('news.yearNav')}
+            </span>
+            <div class="news-yearnav__btns">
+              {years.map((y) => (
+                <button
+                  type="button"
+                  class="news-yearbtn"
+                  data-year={y.year}
+                  aria-pressed={String(y.year === newestYear)}
+                >
+                  {interpolate(t('news.yearLink'), { year: y.year })}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      }
+
+      {/* 纵向时间线：整块按 hasData 门控（空态下只剩一条无内容的轴线）。
+          层次：.news-list（一年）> .news-day（一天）> h2 + .news-day__items（条目）。
+          版式（中央轴交错 / 左轴单栏）全在 lab-news.css 的两个媒体查询里，
+          这里不出现任何版式判断。 */}
+      {hasData && (
+        <div class="news-rail">
+          {
+            years.map((y) => {
+              const live = y.year === newestYear;
+              const list = (
+                <ol
+                  class="news-list"
+                  role="list"
+                  data-news-year={y.year}
+                  aria-label={t('news.timelineAria')}
+                >
+                  {y.days.map((p) => (
+                    <li class="news-day">
+                      <h2 class="news-day__title">
+                        <time datetime={p.dayKey}>
+                          {p.label} · {p.weekday}
+                        </time>
+                      </h2>
+                      <ol
+                        class="news-day__items"
+                        role="list"
+                        aria-label={interpolate(t('news.periodAria'), {
+                          period: p.label,
+                        })}
+                      >
+                        {p.items.map(({ it, time, aria }) => (
+                          <li class="news-item">
+                            <a
+                              class="news-item__link"
+                              href={it.url}
+                              target="_blank"
+                              rel="nofollow noopener noreferrer"
+                              aria-label={aria}
+                            >
+                              <span class="news-item__time" aria-hidden="true">{time}</span>
+                              <span class="news-item__title">{it.title?.en}</span>
+                              {it.summary?.en ? (
+                                <p class="news-item__summary" aria-hidden="true">
+                                  {it.summary.en}
+                                </p>
+                              ) : null}
+                              <span class="news-item__meta">
+                                <span class="news-item__source">{it.source}</span>
+                              </span>
+                              {/* 本页不渲染「未翻译」标：门控后这里只可能有原文为英文的
+                                  条目，「未翻译」对英文读者不构成任何信息（他读的就是英文）。
+                                  该标是有意义的——但它属于中文页（读者看到英文原文、
+                                  暂无中文时提示一句）。 */}
+                            </a>
+                          </li>
+                        ))}
+                      </ol>
+                    </li>
+                  ))}
+                </ol>
+              );
+              return live ? list : <template data-news-year={y.year}>{list}</template>;
+            })
+          }
+        </div>
+      )}
+
+      {
+        !hasData && (
+          <div class="news-empty" aria-label={t('section.news.title')}>
+            <strong>{t('news.empty')}</strong>
+            {/* 空态两种成因不能混为一谈：数据真的一条都没有 vs 有数据、但没有
+                「原文为英文」的条目（门控滤空）。后者的文案若仍说「下次抓取后
+                条目会出现」，会与紧接着的「最后更新 {time}」自相矛盾。 */}
+            <small>{hasAnyItem ? t('news.emptyEnOnly') : t('news.emptyNote')}</small>
+          </div>
+        )
+      }
+
+      <p class="news-updated">{updatedLine}</p>
+    </section>
+
+    <footer class="foot" aria-hidden="true">
+      <span class="dash"></span>
+      <span class="barcode"></span>
+    </footer>
+  </main>
+</Base>
+
+<script>
+  import { mountNewsTimeline } from '../../../lib/ai-news-timeline.js';
+  const root = document.querySelector('.news');
+  if (root) mountNewsTimeline({ root });
+</script>
