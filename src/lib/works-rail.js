@@ -139,6 +139,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
   let accX = 0;
   let lastVX = 0;
   let lastVT = 0;
+  let vertical = false; // 当前拖拽轴：true = 纵向轨道（移动端），每次 pointerdown 重判
 
   function onDown(e) {
     if (locked) return;
@@ -146,7 +147,10 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     dragging = true;
     moved = false;
     pointerId = e.pointerId;
-    lastX = e.clientX;
+    // 拖拽轴跟随轨道方向：横向轨道（桌面）读 clientX，纵向轨道（移动端 ≤640px）
+    // 读 clientY。判据与 works-view.js 的 vertical 分支、CSS 的 media query 一致。
+    vertical = window.innerWidth < 640;
+    lastX = vertical ? e.clientY : e.clientX;
     accX = 0;
     lastVX = 0;
     lastVT = performance.now();
@@ -154,8 +158,9 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
 
   function onMove(e) {
     if (!dragging || e.pointerId !== pointerId) return;
-    const dx = e.clientX - lastX;
-    lastX = e.clientX;
+    const cur = vertical ? e.clientY : e.clientX;
+    const dx = cur - lastX;
+    lastX = cur;
     accX += dx;
     if (!moved && Math.abs(accX) > 6) {
       moved = true;
@@ -198,13 +203,17 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     }
   }
 
-  // ── 键盘 ──
+  // ── 键盘 ──（纵向轨道用 ↑↓，横向用 ←→；两组都接受，避免窄屏外接键盘无响应）
   function onKey(e) {
     if (locked) return;
     if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const v = window.innerWidth < 640;
+    const step = (v ? viewport.clientHeight : viewport.clientWidth) * 0.35;
+    const fwd = v ? 'ArrowDown' : 'ArrowRight';
+    const back = v ? 'ArrowUp' : 'ArrowLeft';
     let next = null;
-    if (e.key === 'ArrowRight') next = target + viewport.clientWidth * 0.35;
-    else if (e.key === 'ArrowLeft') next = target - viewport.clientWidth * 0.35;
+    if (e.key === fwd) next = target + step;
+    else if (e.key === back) next = target - step;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = max;
     if (next === null) return;

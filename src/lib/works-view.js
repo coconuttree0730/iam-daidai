@@ -21,11 +21,17 @@
 //    点亮，早期测量若把 max 算成 0，短路会让内容永久不可见。max 为 0 时
 //    按首屏停靠渲染（首组卡 0 强制可见），并由 works-rail.js 主动补测。
 //
-// ⚠️ **几何测量依赖 offsetLeft/offsetWidth**：.card-set 的 offsetParent 是
-//    .stack-viewport（position:relative，为 .scroll-hint 的定位基准而设）。
-//    rail 在 viewport 内 x=0 且两者均无 border/padding，相对 rail 测量与
-//    相对 viewport 测量数值相等；transform 不影响布局值，每帧写 rail 位移
-//    不会污染测量。改 rail/viewport 的盒模型时必须重新核对这条等价。
+// ⚠️ **几何测量依赖 offsetLeft/offsetTop（2026-09-15 修正表述）**：.card-set
+//    是 position:relative，其 offsetParent = .stack-rail（position:relative +
+//    will-change，二者都会成为包含块/定位祖先）——**不是** .stack-viewport。
+//    测量值因此是「相对 rail」的；它之所以能当 viewport 坐标用，靠的是等价
+//    契约：**rail 的原点必须钉在 viewport 测量轴的 0 位**——桌面横向时 flex
+//    主轴起点天然 x=0；移动端纵向时靠 .stack-rail 的 align-self:flex-start
+//    （否则 viewport 的 align-items:center 会把比视口高数倍的 rail 垂直居中，
+//     y 原点 ≈ −1000px，所有停靠点错开一屏 → 白屏，2026-09-15 15:00 事故）。
+//    rail 的 padding 会被自动计入 offsetLeft/Top（参照物是 padding box），
+//    两侧一致计入、不影响换算。transform 不影响布局值，每帧写位移不污染测量。
+//    改 rail/viewport 的盒模型或对齐方式时必须重新核对这条等价。
 //
 // ⚠️ **停靠点模型（2026-09-15 v3：加 intro 首站，用户微调）**：
 //    stops = [intro, set0…setN, end, endFly]。intro = 初始态：首卡中心钉在
@@ -78,12 +84,22 @@ const IDLE = 0.08;
 const STAG = 0.25;
 /** 单卡飞入窗口（飞入轴）：与 STAG 联合保证末卡在飞入期结束前完成 */
 const FLY_WIN = 0.35;
-/** 扇形层间阶梯（% 卡宽）与逐层缩小率 */
+/** 层间阶梯与逐层缩小率（桌面：x 轴，% 卡宽） */
 const CARD_GAP_DESKTOP = 10;
 const CARD_GAP_MOBILE = 4;
 const START_X_DESKTOP = 80;
 const START_X_MOBILE = 40;
 const SHRINK = 0.05;
+
+// ── 移动端纵向轨道（2026-09-15 用户裁定：≤640px 换轴）────────────────────
+// 桌面 = 横向轨道：组内卡沿 x 阶梯错开、逐层缩小、自右侧飞入。
+// 移动 = 纵向轨道：**同一机制整体转 90°**——阶梯改 y 轴（向下为后层）、
+// 缩放率与 z 序不变、飞入改自下方。卡片水平居中、左右完全对称，横向零偏移。
+// 判据与桌面同源：卡 0 最大/最下/z 最高，往后每层 −SHRINK 且向下错开。
+/** 移动端纵向阶梯量（% 卡高）：建议区间 8–10%，取 10% 与桌面 10% 同源 */
+const CARD_GAP_MOBILE_Y = 10;
+/** 移动端飞入起点（% 卡高）：新卡自屏幕下方顶入（= 桌面自右侧滑入的竖版） */
+const START_Y_MOBILE = 80;
 
 /** 首屏提示文字淡出速度：progress 达 times[1] 的此比例时完全淡出 */
 const HINT_FADE = 0.8;
@@ -132,20 +148,31 @@ export function mountWorksRail() {
     const sets = Array.from(document.querySelectorAll('.card-set'));
     const endSet = document.querySelector('.end-set');
     const vw = viewport.clientWidth;
+    // 移动端纵向轨道（2026-09-15）：整个坐标系从 x 换成 y。测量用 offsetTop /
+    // offsetHeight——参照物是 offsetParent = .stack-rail（见文件头等价契约），
+    // rail 靠 align-self:flex-start 钉在 y=0，rail 相对测量即 viewport 相对测量；
+    // rail 的 padding-block 被自动计入读数，与桌面 padding-inline 同理。
+    const vh = viewport.clientHeight;
+    const vertical = vw < 640;
+    // 轴适配读取器：纵向取 y 维，横向取 x 维（后续公式共用一套写法）
+    const pos = (el) => (vertical ? el.offsetTop : el.offsetLeft);
+    const extent = (el) => (vertical ? el.offsetHeight : el.offsetWidth);
+    const view = vertical ? vh : vw;
     const raw = [];
 
-    // intro 停靠：要让首卡中心落在视口右缘，需 translate = vw - left - w/2，
-    // 停靠值取其相反数（与 .card-set 的 center 同一约定）。
+    // intro 停靠：横向 = 首卡中心钉在视口右缘（露左半边）；纵向 = 首卡中心
+    // 钉在视口下缘（露上半边，用户裁定「从上到下」的初始态）。
     const firstSet = sets[0];
     if (firstSet) {
-      const left = firstSet.offsetLeft;
-      const width = firstSet.offsetWidth;
-      raw.push({ kind: 'intro', left, width, center: left + width / 2 - vw });
+      const p = pos(firstSet);
+      const size = extent(firstSet);
+      raw.push({ kind: 'intro', left: p, width: size, center: p + size / 2 - view });
     }
 
     sets.forEach((el, i) => {
-      const left = el.offsetLeft; // offsetParent = .stack-viewport，见文件头契约
-      raw.push({ kind: 'set', idx: i, left, width: el.offsetWidth, center: left - (vw - el.offsetWidth) / 2 });
+      const p = pos(el); // offsetParent = .stack-rail，等价契约见文件头
+      const size = extent(el);
+      raw.push({ kind: 'set', idx: i, left: p, width: size, center: p - (view - size) / 2 });
     });
 
     if (endSet) {
@@ -157,16 +184,16 @@ export function mountWorksRail() {
       // 永远到不了站）。.endcard 自身的 offsetParent 稳定是 .stack-rail，
       // 与 .card-set 同一坐标系；它恰好完整包裹 face，几何等价。
       const face = endSet.querySelector('.endcard') || endSet.querySelector('.endcard-face') || endSet;
-      const left = face.offsetLeft;
-      const width = face.offsetWidth;
-      const endCenter = left - (vw - width) / 2;
-      raw.push({ kind: 'end', left, width, center: endCenter });
-      // 虚拟末站：飞入期行程预算 = 一卡宽 + 20% 视口（与普通段的滚轮
+      const p = pos(face);
+      const size = extent(face);
+      const endCenter = p - (view - size) / 2;
+      raw.push({ kind: 'end', left: p, width: size, center: endCenter });
+      // 虚拟末站：飞入期行程预算 = 一卡尺寸 + 20% 视口（与普通段的滚轮
       // 消耗量同量级），不对应任何真实位移——renderCascade 在此段钉住轨道。
-      raw.push({ kind: 'endFly', left, width, center: endCenter + width + vw * 0.2 });
+      raw.push({ kind: 'endFly', left: p, width: size, center: endCenter + size + view * 0.2 });
     }
 
-    return { vw, raw };
+    return { vw, vh, vertical, raw };
   }
 
   function stackMax() {
@@ -188,7 +215,7 @@ export function mountWorksRail() {
   function renderCascade(pos, max) {
     // ⚠️ 不能用 `if (!max) return` 短路：max 为 0 时按首屏停靠渲染，
     // 首组卡 0 强制可见（见文件头契约）。
-    const { vw, raw } = geometry();
+    const { vw, vertical, raw } = geometry();
     const cardSets = document.querySelectorAll('.card-set');
     const setCount = cardSets.length;
     const stopCount = raw.length;
@@ -246,7 +273,10 @@ export function mountWorksRail() {
       railPos = norm[segIdx] + (norm[segIdx + 1] - norm[segIdx]) * smoothstep(t);
     }
 
-    rail.style.transform = `translate3d(${-origin - railPos}px,0,0)`;
+    // 轨道位移：横向写 x 轴，纵向（移动端）写 y 轴——同一里程值换个轴
+    rail.style.transform = vertical
+      ? `translate3d(0,${-origin - railPos}px,0)`
+      : `translate3d(${-origin - railPos}px,0,0)`;
 
     // 首屏提示：progress 达 times[1]×HINT_FADE 前淡完；回滚自动恢复（纯函数）
     if (hintEl) {
@@ -273,6 +303,10 @@ export function mountWorksRail() {
       const isMobile = vw < 640;
       const cardGap = isMobile ? CARD_GAP_MOBILE : CARD_GAP_DESKTOP;
       const startX = isMobile ? START_X_MOBILE : START_X_DESKTOP;
+      // 纵向版：阶梯量与飞入起点都以**卡高百分比**计（横向版以卡宽百分比计），
+      // translateY 的 % 基准就是元素自身高度，因此同一套百分数写法可直接复用。
+      const cardGapY = CARD_GAP_MOBILE_Y;
+      const startY = START_Y_MOBILE;
 
       cards.forEach((card, i) => {
         // 第一组的第一张卡：立即显示
@@ -281,14 +315,25 @@ export function mountWorksRail() {
         const reveal = isImmediate ? 1 : clamp((flyP - i * STAG) / win, 0, 1);
         const eased = 1 - Math.pow(1 - reveal, 3);
 
-        // 飞入：x 从 startX 滑向扇形位 i*cardGap%
-        const targetX = i * cardGap;
-        const x = startX + (targetX - startX) * eased;
-        const y = i * -2 * eased;
         const targetScale = 1 - (n - 1 - i) * SHRINK;
         const scale = 1 - (1 - targetScale) * eased;
+        let transform;
+        if (vertical) {
+          // 纵向（移动端）：水平居中零偏移，y 逐层向下错开（卡 i 越靠后越往下），
+          // 飞入自屏幕下方 startY% 收到 i×cardGapY%。末卡（i=n-1）最靠下、
+          // 最大、z 最高（压住上方各卡）；卡 0 最靠上、最小、被压。
+          const targetY = i * cardGapY;
+          const y = startY + (targetY - startY) * eased;
+          transform = `translateY(${y}%) scale(${scale})`;
+        } else {
+          // 飞入：x 从 startX 滑向扇形位 i*cardGap%
+          const targetX = i * cardGap;
+          const x = startX + (targetX - startX) * eased;
+          const y = i * -2 * eased;
+          transform = `translateX(${x}%) translateY(${y}px) scale(${scale})`;
+        }
 
-        card.style.transform = `translateX(${x}%) translateY(${y}px) scale(${scale})`;
+        card.style.transform = transform;
         card.style.opacity = String(reveal > 0 ? 1 : 0);
         card.style.zIndex = String(i + 1);
       });
@@ -312,7 +357,9 @@ export function mountWorksRail() {
       const eased = 1 - Math.pow(1 - reveal, 3);
       const isMobile = vw < 640;
       const startX = isMobile ? START_X_MOBILE : START_X_DESKTOP;
-      endcardEl.style.transform = `translateX(${startX * (1 - eased)}%)`;
+      endcardEl.style.transform = vertical
+        ? `translateY(${START_Y_MOBILE * (1 - eased)}%)`
+        : `translateX(${startX * (1 - eased)}%)`;
       endcardEl.style.opacity = String(reveal > 0 ? 1 : 0);
     }
   }

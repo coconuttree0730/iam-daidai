@@ -208,9 +208,49 @@
   .count b { color: var(--c-ink); font-weight: 900; }
 
   @media (max-width: 640px) {
-    .card-set { width: min(320px, 78vw); height: clamp(320px, 50vh, 400px); }
-    .scroll-hint { top: 12%; left: auto; right: 50%; transform: translate(50%, 0); gap: 10px; }
-    .scroll-hint__line { height: 32px; }
+    /* ── 移动端纵向轨道（2026-09-15 用户裁定）──────────────────────────
+       桌面 = 横向轨道（rail 横排、卡片沿 x 错层）；移动端整条轨道转 90°：
+       rail 改纵向列排、组沿 y 排列、滚动自上而下。works-view.js 的
+       geometry() 在 ≤640px 时改用 offsetTop/offsetHeight 读几何、轨道位移
+       写 y 轴、卡片改 y 阶梯自下飞入——CSS 这边的 axis 必须与 JS 的 vertical
+       分支严格对应，改一侧必改另一侧。
+
+       ⚠️ 纵向 padding：JS 读的是 .card-set 的 offsetTop，其参照物是
+       offsetParent = .stack-rail（position:relative + will-change，见
+       works-view.js 文件头）——rail 的 padding-block 会被自动计入读数。
+       ⚠️⚠️ rail 必须在测量轴（y）上钉在 viewport 原点：align-self:flex-start。
+       桌面之所以正确，是 rail 在 x 轴天然位于 viewport x=0（flex 主轴起点），
+       「相对 rail 测量 = 相对 viewport 测量」逐点相等；纵向若沿用 viewport 的
+       align-items:center，rail（比视口高数倍）会被垂直居中，y 原点 ≈
+       (视口高−轨道总高)/2 ≈ −1000px，所有停靠点整体错开一屏 → 白屏
+       （2026-09-15 15:00 事故，症状=卡片全部不可见、仅底缘露出首卡一角）。 */
+    .stack-viewport { cursor: grab; touch-action: none; }
+    .stack-rail {
+      flex-direction: column; align-self: flex-start;
+      padding-inline: 0;
+      padding-block: clamp(20px, 8vh, 110px);
+      width: 100%; height: auto;
+    }
+
+    /* 「完」卡前置余量：桌面的 padding-left（6vw）是横向语义，纵向下会把
+       endcard 推离水平中心；改用 block 轴余量，与 set-gap 叠加出进站缓冲。 */
+    .end-set { padding-left: 0; padding-block-start: clamp(24px, 4vh, 60px); }
+
+    /* 卡尺寸：宽 = 视口宽 − 8px（两侧各 4px，2026-09-15 用户裁定「居中展示
+       时几乎和屏幕严丝合缝，边距几 px」）；高按视口高——「可见高度 ≈ 卡高」
+       是停靠密度要求（一组卡居中时几乎占满屏幕，只透出顶端一条边）。 */
+    .card-set { width: calc(100vw - 8px); height: clamp(320px, 62dvh, 560px); }
+
+    /* 组间隙：纵向版是「组与组之间的垂直留白」，取视口高的 14%（对齐桌面
+       14vw 的比例语义），下限 48px 保证可读性。 */
+    .set-gap { width: 100%; height: clamp(48px, 14vh, 180px); }
+
+    /* 首屏提示：纵向版整体竖排（2026-09-15 用户裁定，参考示意图）——文字
+       居中换行成块、红线转竖向垂在文字下方。 */
+    .scroll-hint { flex-direction: column; top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%); gap: 14px; }
+    .scroll-hint__text { white-space: normal; text-align: center; max-width: 7em; line-height: 2; }
+    .scroll-hint__line { width: 1.5px; height: 56px; }
+
     .card-title { font-size: 18px; }
     .card-info { padding: 7px 12px 9px; }
     .card-no, .card-letter { font-size: 11px; }
@@ -222,10 +262,13 @@
     .card-empty__stamp { font-size: 26px; padding: 8px 11px; }
     .card-empty__line { font-size: 11px; }
     .ticks i { height: 10px; }
-    .endcard-face { width: min(320px, 78vw); height: clamp(320px, 50vh, 400px); }
+    .endcard-face { width: calc(100vw - 8px); height: clamp(320px, 62dvh, 560px); }
     .end-zh { font-size: 44px; padding: 9px 14px; }
     .end-line { font-size: 12px; }
-    .rail-dock { padding: 8px 16px; bottom: 16px; }
+    /* 底部进度坞：移动端隐藏（2026-09-15 用户裁定——纵向滑动自身即进度，
+       红方块刻度尺属横向语境）；桌面端保留。footer 内只有 ruler+frame，
+       整体 display:none 即可；JS 侧 frameMax 会取 0，写 transform 无害。 */
+    .rail-dock { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { .stack-card { transition: none !important; } }
 
