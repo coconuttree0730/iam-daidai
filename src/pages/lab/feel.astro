@@ -1,5 +1,5 @@
 ---
-// 游乐场 · 帧随动手感实验室（/lab/feel/，2026-09-15 新增，LAB-03）
+// 游乐园 · 帧随动手感实验室（/lab/feel/，2026-09-15 新增，LAB-03）
 //
 // 目的：把首页 hero 的跟随手感拆成**可调参数**并实时可视化——smoothTime 缓动、
 // 姿态重定时（frameWarp）、死区矩形、象限热区、映射曲线全部摆上台面。
@@ -18,7 +18,7 @@ import PageHead from '../../components/PageHead.astro';
 
 const t = useTranslations('zh');
 ---
-<Base title="帧随动手感实验室 · 游乐场">
+<Base title="帧随动手感实验室 · 游乐园">
   <PageHead no="LAB-03" back={{ label: t('head.backLab'), href: '/lab/' }} />
 
   <main class="lab" id="main">
@@ -302,11 +302,13 @@ const t = useTranslations('zh');
         ay.style.left = `${cx}px`;
         ay.style.height = '100%';
       }
+      /* x/y 既收数字（拼 px）也收现成 CSS 值（如 calc(...)）——别无脑拼后缀，
+         否则字符串值会变成 "calc(100% - 26px)px" 被静默丢弃，标签塌回顶部 */
       const put = (name, x, y, anchor) => {
         const el = ov(name);
         if (!el) return;
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
+        el.style.left = typeof x === 'number' ? `${x}px` : x;
+        el.style.top = typeof y === 'number' ? `${y}px` : y;
         el.style.transform = anchor;
       };
       put('qTL', cx - 10, 14, 'translateX(-100%)');
