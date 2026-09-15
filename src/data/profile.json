@@ -133,7 +133,7 @@
     }
   ],
   "_outroComment": "飞散终态（--sc→1，人物+背景+黑条留白）时从下升起的收尾区块。左=个人语录+简介，右=邮箱联系表单骨架。窗口按素材实测的头部朝向错峰：左侧在人物「看左」窗口（--sc 0.34→0.54，实测看左峰 36.5–57.3%）升起，右侧在「看右」窗口（--sc 0.62→0.82，实测看右峰 67.7–83.3%）升起——人物转头看向哪边，哪边的区块刚好到位。窗口常数写在 hero.css 的 --outro-l-* / --outro-r-*，改这里不动版式。contact 不含任何邮箱字段（2026-09-12 用户裁定：表单旁不展示 hello@，页面零邮箱明文，写信一律走表单；真实收件邮箱只存在于 Worker secret）——不要把任何邮箱地址加回这里。",
-  "_basicComment": "基本信息抽屉（#basic overlay）的唯一数据源，2026-09-13 建。标 _TODO 的值都是编的占位内容，改这里即可、不要改组件。photo 素材是 public/motion/basic-portrait.webp（图集 f0 正脸帧裁切 340×420 透明底，换姿态用 ffmpeg 重裁即可）。**name 例外（2026-09-14 裁定）**：「DAIDAI@饿得快」是艺术化 ID，不计入中英文切换——en 值恒等于 zh，不要译成 Always Hungry。",
+  "_basicComment": "基本信息抽屉（#basic overlay）的唯一数据源，2026-09-13 建。标 _TODO 的值都是编的占位内容，改这里即可、不要改组件。photo 素材是 public/motion/basic-portrait.webp（图集 f0 正脸帧裁切 340×420 透明底，换姿态用 ffmpeg 重裁即可）。**name 例外（2026-09-14 裁定）**：「DAIDAI@饿得快」是艺术化 ID，不计入中英文切换——en 值恒等于 zh，不要译成 Always Hungry。**2026-09-15 扩充**：新增职业定位 / 技术栈 / 工程实践 / 经历 / 教育五个板块，**显隐统一由同节的 blocks 控制**（见 _blocksComment），图标数据在 src/data/tech-icons.ts。",
   "basic": {
     "fileNo": "NO.001",
     "name": {
@@ -152,6 +152,174 @@
       "zh": "正在打磨这个档案馆，顺便计划下一场说走就走。",
       "en": "Polishing this archive, and planning the next spontaneous trip."
     },
+    "_blocksComment": "板块开关（2026-09-15 建）：**这里是抽屉内容的唯一开合入口**，改 true/false 即可控制某个板块是否渲染，数据本身不用删——false 的板块整块不输出，随时改回 true 就恢复。stackStyle 三选一：brand（品牌原色，推荐）/ tile（品牌色 + 淡色底）/ ink（统一墨色，最贴近全站单色线稿）。blocks.level 只影响技术栈是否露出熟练度点阵。",
+    "blocks": {
+      "skills": false,
+      "target": false,
+      "stack": true,
+      "practice": false,
+      "timeline": false,
+      "education": false,
+      "level": false
+    },
+    "stackStyle": "brand",
+    "_targetComment": "TARGET 职业定位卡（2026-09-15 建，blocks.target 控制显隐）。**这是「职业能力」的第一印象，上线前必须逐字核准**。① role = 一句话定位，单行加粗显示（15px/600），组件不做内部高亮，视觉强调交给下面 facts 的红色数字；**年限口径必须与 facts[0] 一致**（这里写「3 年经验」，facts 就写「3+ 年开发」，不要一处写 3 年、一处写 5 年）。② summary = 补充句（12.5px 灰字），回答「做什么、怎么交付」；**技术名词归 stack 板块，这里不要堆砌**。③ facts = 卡片底部的「红色大数字 + 小字标签」串，逐项说明见每条的 _note。④ role、summary 与 facts[].label 都是 {zh,en} 双语袋：改一种语言必须同步另一种（en 不是逐字翻译稿，是给外国访客读的等价表述，允许语序重排）；**facts[].value 是纯数字或符号，中英通用，不要给它加 {zh,en} 分支**。⑤ 版式机制（改数据前务必知道）：facts 是 flex 等分且 **不换行**，每项宽度 = 卡片宽度 ÷ 项数 —— 加一项就等比例压窄所有项，减一项就撑宽所有项；因此 **项数建议保持 3–4**，加减项时必须同时检查 value 与 label 的长度。",
+    "target": {
+      "role": {
+        "zh": "Java 后端开发 · 3 年经验 — 业务系统与 AI 能力落地",
+        "en": "Java Backend · 3 years — business systems and AI delivery"
+      },
+      "summary": {
+        "zh": "把模型能力接进真实业务链路：从接口设计、数据建模到 Agent 编排与检索增强，交付可运维、可迭代的系统。",
+        "en": "Wiring model capabilities into real business flows — from API design and data modeling to agent orchestration and retrieval augmentation, shipping systems that stay operable and iterable."
+      },
+      "facts": [
+        {
+          "_note": "⚠️ 占位数字，待你替换。= 从业年限（从入行或毕业算起）。写法用「3+」「4」这类短式；**不要写区间或带单位的长串**（如「2022–2025」「3-4 年」）—— 该项是 17px 等宽字体，宽度只有卡片宽度的 1/N（当前 4 项 ≈ 1/4），长串会折行或挤到邻项。口径必须与 role 里的「3 年经验」一致。",
+          "value": "3+",
+          "label": { "zh": "年开发", "en": "years" }
+        },
+        {
+          "_note": "⚠️ 占位数字，待你替换。= 独立负责或主力参与的模块数（接口、服务、后台系统都算）。给一个保守整数即可 —— 虚报在面试里一问就穿，得不偿失。",
+          "value": "10+",
+          "label": { "zh": "个模块", "en": "modules" }
+        },
+        {
+          "_note": "⚠️ 占位数字，待你替换。= 真正跑在生产环境的系统数（对外可访问，或内部长期在用的）。只有 1 个就写 1 —— 数字小不丢分，虚报才丢分。",
+          "value": "2",
+          "label": { "zh": "个上线系统", "en": "live systems" }
+        },
+        {
+          "_note": "彩蛋项，不是能力指标（英文侧写成 coffees，与中文「碗米饭」是同一处自嘲）。三种改法：保留 / 换成别的梗 / 整条删掉 —— 删掉后前三项会自动等分铺满，版式不受影响。若要删，请把整个 {} 对象一起删，不要只清空 value（空的 b 标签会留下一个空行）。",
+          "value": "∞",
+          "label": { "zh": "碗米饭", "en": "coffees" }
+        }
+      ]
+    },
+    "_stackComment": "技术栈。slug 对应 src/data/tech-icons.ts 的键；**没有官方图标的（MyBatis / OpenAI / 小程序等）写 slug: null + mono 字母徽标**，不要硬凑别的图标。level 三档 core/used/familiar，词条在 i18n 的 basic.level*。⚠️ 标记 true 的是能从现有作品集推导出来的，false 的是按 Java 后端方向补的候选——逐项过一遍再上线。",
+    "stack": [
+      {
+        "id": "backend",
+        "label": { "zh": "后端开发", "en": "Backend" },
+        "items": [
+          { "name": "Java", "slug": "openjdk", "level": "core", "confirmed": true },
+          { "name": "Spring Boot", "slug": "springboot", "level": "core", "confirmed": true },
+          { "name": "Spring Cloud", "slug": "spring", "level": "used", "confirmed": false },
+          { "name": "Spring Security", "slug": "springsecurity", "level": "used", "confirmed": false },
+          { "name": "MyBatis", "slug": null, "mono": "MB", "level": "used", "confirmed": false },
+          { "name": "Maven", "slug": "apachemaven", "level": "used", "confirmed": false }
+        ]
+      },
+      {
+        "id": "data",
+        "label": { "zh": "数据与中间件", "en": "Data & Middleware" },
+        "items": [
+          { "name": "PostgreSQL", "slug": "postgresql", "level": "core", "confirmed": true },
+          { "name": "MySQL", "slug": "mysql", "level": "used", "confirmed": false },
+          { "name": "Redis", "slug": "redis", "level": "core", "confirmed": true },
+          { "name": "RabbitMQ", "slug": "rabbitmq", "level": "used", "confirmed": false },
+          { "name": "Nginx", "slug": "nginx", "level": "used", "confirmed": false }
+        ]
+      },
+      {
+        "id": "frontend",
+        "label": { "zh": "前端与界面", "en": "Frontend" },
+        "items": [
+          { "name": "Vue 3", "slug": "vuedotjs", "level": "core", "confirmed": true },
+          { "name": "TypeScript", "slug": "typescript", "level": "used", "confirmed": false },
+          { "name": "Astro", "slug": "astro", "level": "used", "confirmed": true },
+          { "name": "Vite", "slug": "vite", "level": "used", "confirmed": false },
+          { "name": { "zh": "UI 设计", "en": "UI Design" }, "slug": "figma", "level": "used", "confirmed": true }
+        ]
+      },
+      {
+        "id": "ai",
+        "label": { "zh": "AI 与智能体", "en": "AI & Agent" },
+        "items": [
+          { "name": "AI Agent", "slug": null, "mono": "AI", "level": "used", "confirmed": true },
+          { "name": { "zh": "RAG 检索增强", "en": "RAG" }, "slug": null, "mono": "RAG", "level": "used", "confirmed": true },
+          { "name": "Python", "slug": "python", "level": "used", "confirmed": false },
+          { "name": "LangChain", "slug": "langchain", "level": "familiar", "confirmed": false }
+        ]
+      },
+      {
+        "id": "tooling",
+        "label": { "zh": "工程化与运维", "en": "Tooling & Ops" },
+        "items": [
+          { "name": "Git", "slug": "git", "level": "core", "confirmed": true },
+          { "name": "GitHub", "slug": "github", "level": "core", "confirmed": true },
+          { "name": "Docker", "slug": "docker", "level": "used", "confirmed": false },
+          { "name": "Linux", "slug": "linux", "level": "used", "confirmed": false },
+          { "name": "Cloudflare", "slug": "cloudflare", "level": "used", "confirmed": true }
+        ]
+      }
+    ],
+    "_practiceComment": "工程实践。head 自动加粗、body 跟随，渲染时两者之间由 CSS 插入分隔符——**不要把标点写进 head**。全部为草稿，按真实做法改写。",
+    "practice": [
+      {
+        "head": { "zh": "接口设计", "en": "API design" },
+        "body": {
+          "zh": "统一响应结构 + 分层校验，OpenAPI 文档与实现同步维护",
+          "en": "Unified response envelope, layered validation, OpenAPI docs kept in sync with the implementation"
+        }
+      },
+      {
+        "head": { "zh": "数据层", "en": "Data layer" },
+        "body": {
+          "zh": "索引与慢查询治理，批量写入与分页规避 N+1",
+          "en": "Index and slow-query tuning, batch writes, pagination without N+1"
+        }
+      },
+      {
+        "head": { "zh": "缓存", "en": "Caching" },
+        "body": {
+          "zh": "Redis 击穿/穿透防护，热点数据分级过期",
+          "en": "Redis stampede and penetration protection, tiered TTL for hot data"
+        }
+      },
+      {
+        "head": { "zh": "AI 落地", "en": "AI delivery" },
+        "body": {
+          "zh": "Prompt 版本化、RAG 召回评测、工具调用边界与降级",
+          "en": "Versioned prompts, RAG recall evaluation, tool-call boundaries with fallbacks"
+        }
+      },
+      {
+        "head": { "zh": "协作", "en": "Collaboration" },
+        "body": {
+          "zh": "小步提交 + Code Review，改动可回滚、可追溯",
+          "en": "Small commits and code review — every change revertible and traceable"
+        }
+      }
+    ],
+    "_timelineComment": "经历时间轴，**刻意去标识**：period 只到年、不写公司全名（用「某互联网公司」），不写具体业务数据。要写详版请另开一页，别塞进抽屉。",
+    "timeline": [
+      {
+        "period": { "zh": "2024 — 至今", "en": "2024 — now" },
+        "role": { "zh": "后端开发工程师", "en": "Backend Engineer" },
+        "note": { "zh": "某互联网公司 · 业务系统 / AI 能力接入", "en": "Internet company · business systems / AI integration" }
+      },
+      {
+        "period": { "zh": "2023 — 2024", "en": "2023 — 2024" },
+        "role": { "zh": "后端开发（实习 → 转正）", "en": "Backend Developer (intern → full-time)" },
+        "note": { "zh": "某软件公司 · 管理系统开发与迭代", "en": "Software company · management system development" }
+      }
+    ],
+    "_educationComment": "教育与证书。学历只写层次 + 专业方向，**不写学校名与入学年份**；证书按真实情况改，没有的整条删掉。",
+    "education": [
+      {
+        "name": { "zh": "本科 · 计算机相关专业", "en": "B.Sc. · Computer Science related" },
+        "note": { "zh": "毕业年份待补", "en": "Graduation year TBD" }
+      },
+      {
+        "name": { "zh": "大学英语六级（CET-6）", "en": "CET-6" },
+        "note": { "zh": "可读技术文档", "en": "Reads technical documentation" }
+      },
+      {
+        "name": { "zh": "软考 / 云厂商认证", "en": "Soft exam / cloud certification" },
+        "note": { "zh": "待补", "en": "TBD" }
+      }
+    ],
     "skills": [
       {
         "zh": "Java后端开发",
@@ -220,7 +388,10 @@
       "zodiac",
       "zodiacDesc",
       "mbtiDesc",
-      "links[].href（其余链接地址待核）"
+      "links[].href（其余链接地址待核）",
+      "target 卡：role 里的「3 年经验」与 facts[].value（3+ / 10+ / 2）全是占位，需替换为真实值并保持两者口径一致 —— 逐项改法见 target.facts[]._note，全区规则见 _targetComment",
+      "stack 五组：confirmed=false 的 19 项是候选，需逐项裁定去留",
+      "practice / timeline / education 三块整体为草稿，blocks 里默认 false"
     ]
   },
   "works": {

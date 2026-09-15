@@ -192,9 +192,14 @@
   pointer-events: none;
 }
 
-/* ── 左栏：档案照（拍立得白框，底边厚）──────────────────────────────── */
+/* ── 左栏：档案照（拍立得白框，底边厚）────────────────────────────────
+   sticky（2026-09-15）：技术栈等板块撑高右栏后 .file-body 要滚动，照片若留在
+   文档流里会直接滚出视野、左栏剩一大片空白。sticky 后照片跟随视口。
+   生效前提是 .file-body 的 `align-items: start`（grid item 高度 = 内容高度），
+   改成 stretch 会让它失效。absolute 子件（胶带 / 图章）不受影响。 */
 .file-photo {
-  position: relative;
+  position: sticky;
+  top: 0;
   margin: 0;
   padding: 8px 8px 30px;
 }
@@ -385,6 +390,299 @@
   color: var(--fr);
 }
 
+/* ══ 扩充板块（2026-09-15）════════════════════════════════════════════
+ * 职业定位 / 技术栈 / 工程实践 / 经历 / 教育。
+ * 显隐由 profile.json 的 basic.blocks 控制——**false 的板块在组件层就不输出
+ * DOM**，所以这里只管版式，不需要知道任何开关状态（也不要给这里加 .is-hidden
+ * 之类的类去配合开关，那是两套机制）。
+ * 颜色一律消费 .file-dialog 上的 --f* 变量，与既有物件同一套语汇。 */
+
+/* 职业定位：暖纸底 + 底部量化数据条 */
+.file-target {
+  padding: 13px 16px 15px;
+  background: var(--c-card-warm);
+}
+.target-line {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.target-sub {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--c-ink-2);
+}
+.target-facts {
+  margin: 12px 0 0;
+  padding: 11px 0 0;
+  border-top: 1px dashed rgba(var(--c-ink-rgb), 0.3);
+  display: flex;
+  gap: 6px;
+  list-style: none;
+}
+.target-facts li {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+.target-facts b {
+  display: block;
+  font-family: var(--fmono);
+  font-size: 17px;
+  line-height: 1.2;
+  color: var(--fr);
+}
+.target-facts span {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--fm);
+}
+
+/* 技术栈：分组 + 图标胶囊。品牌色变量（--brand / --brand-dark / --brand-bg*）
+   由组件在构建期按 src/lib/tech-icon-color.ts 算好内联写入每个 .tech。 */
+.file-stack {
+  padding: 12px 16px 15px;
+}
+.stack-groups {
+  margin-top: 10px;
+  display: grid;
+  gap: 13px;
+}
+.stack-group-label {
+  margin: 0 0 7px;
+  font-family: var(--fmono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--fr);
+}
+.stack-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tech {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 5px;
+  border: 1px solid var(--fh);
+  border-radius: 999px;
+  background: var(--fc);
+  font-size: 12px;
+  line-height: 1;
+}
+.tech-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  flex: none;
+  border-radius: 5px;
+}
+.tech .ti {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+/* 无官方图标的项（MyBatis / OpenAI / 小程序…）走字母徽标降级 */
+.ti--mono {
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: rgba(var(--c-ink-rgb), 0.08);
+  color: var(--fi);
+  font-family: var(--fmono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.tech-name {
+  white-space: nowrap;
+}
+
+/* 图标风格三态：由 <dialog data-icons> 切换（值域 brand / tile / ink，
+   来源 profile.json 的 basic.stackStyle）。暗色版本必须写成
+   `[data-theme="dark"] [data-icons="…"]` 双属性形式——单属性选择器与
+   `[data-theme="dark"] .tech-badge .ti` 同优先级，会被后者盖掉。 */
+[data-icons="brand"] .tech-badge .ti {
+  color: var(--brand, var(--fi));
+}
+[data-icons="tile"] .tech-badge {
+  background: var(--brand-bg);
+}
+[data-icons="tile"] .tech-badge .ti {
+  color: var(--brand, var(--fi));
+}
+[data-icons="ink"] .tech-badge .ti {
+  color: var(--fi);
+  opacity: 0.82;
+}
+[data-theme="dark"] [data-icons="brand"] .tech-badge .ti,
+[data-theme="dark"] [data-icons="tile"] .tech-badge .ti {
+  color: var(--brand-dark, var(--fi));
+}
+[data-theme="dark"] [data-icons="tile"] .tech-badge {
+  background: var(--brand-bg-dark);
+}
+[data-theme="dark"] [data-icons="ink"] .tech-badge .ti {
+  color: var(--fi);
+  opacity: 0.9;
+}
+[data-theme="dark"] [data-icons="ink"] .ti--mono {
+  background: rgba(var(--c-ink-rgb), 0.12);
+  color: var(--fi);
+}
+[data-theme="dark"] .ti--mono {
+  background: var(--brand-bg-dark, rgba(var(--c-ink-rgb), 0.12));
+  color: var(--brand-dark, var(--fi));
+}
+
+/* 熟练度点阵：**是否渲染由 blocks.level 决定**（组件条件渲染），
+   所以这里不需要 display:none 的默认态 */
+.tech-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 1px;
+  padding-left: 7px;
+  border-left: 1px dashed var(--fh);
+}
+.tech-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+.tech-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(var(--c-ink-rgb), 0.22);
+}
+.tech-dots i.on {
+  background: var(--fr);
+}
+.tech-level-word {
+  font-family: var(--fmono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--fm);
+}
+
+/* 技术栈图标 sprite：width/height:0 不占位，只作 symbol 定义容器 */
+.tech-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* 工程实践：红顶线 + 破折号清单，head 自动加粗 */
+.file-practice {
+  padding: 12px 16px 15px;
+}
+.practice-list {
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 2px solid var(--fr);
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+.practice-list li {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+.practice-list li::before {
+  content: "—";
+  color: var(--fr);
+  flex: none;
+}
+.practice-list b {
+  font-weight: 600;
+}
+/* head 与 body 之间的分隔符交给 CSS（JSON 里不写标点）：英文页换半角冒号 */
+.practice-list b::after {
+  content: "：";
+  margin-right: 2px;
+  font-weight: 400;
+  color: var(--fm);
+}
+:lang(en) .practice-list b::after {
+  content: ": ";
+}
+
+/* 经历时间轴：年份列固定宽，正文自适应 */
+.file-timeline {
+  padding: 12px 16px 15px;
+}
+.tl {
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 2px solid var(--fr);
+  display: grid;
+  gap: 9px;
+  list-style: none;
+}
+.tl li {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 9px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.tl-year {
+  padding-top: 1px;
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fr);
+}
+.tl-role {
+  font-weight: 600;
+}
+.tl-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--fm);
+}
+
+/* 教育与证书：左名称右注（只有右注用 mono 小字） */
+.file-edu {
+  padding: 12px 16px 15px;
+}
+.edu-list {
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 2px solid var(--fr);
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+.edu-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.edu-list li > span:last-child {
+  flex: none;
+  font-family: var(--fmono);
+  font-size: 11px;
+  color: var(--fm);
+}
+
 /* ── 压角散布件（圆形，允许更大角度；absolute 挂在 dialog 上）───────── */
 .file-badge {
   position: absolute;
@@ -542,8 +840,19 @@
     padding-bottom: 68px;
   }
   .file-photo {
+    /* 单列档不 sticky：照片会常驻顶部把内容挤走（桌面档才需要跟随） */
+    position: relative;
     width: min(190px, 56%);
     justify-self: center;
+  }
+  .tl li {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .target-facts {
+    flex-wrap: wrap;
+  }
+  .target-facts li {
+    flex: 1 1 40%;
   }
   .file-badge {
     top: -10px;

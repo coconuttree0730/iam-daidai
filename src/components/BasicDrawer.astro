@@ -26,6 +26,8 @@
 //    now/skills/label/zodiac/mbti 及两个 *Desc）已改为 {zh,en}，本组件按
 //    locale 取边；结构性字段（fileNo / href / icon / mono / action）保持原样。
 import profile from '../data/profile.json';
+import { TECH_ICONS } from '../data/tech-icons';
+import { brandFor } from '../lib/tech-icon-color';
 import { pickLocalized, useTranslations, interpolate, DEFAULT_LOCALE } from '../i18n/utils';
 import type { Locale } from '../i18n/config';
 import '../styles/basic-drawer.css';
@@ -50,9 +52,82 @@ const zodiac = L(basic.zodiac);
 const zodiacDesc = L(basic.zodiacDesc);
 const mbti = L(basic.mbti);
 const mbtiDesc = L(basic.mbtiDesc);
+
+/* ── 板块开关（2026-09-15）──────────────────────────────────────────────
+ * 全部显隐由 profile.json 的 basic.blocks 控制：false 的板块整块不渲染，
+ * 数据仍留在 JSON 里，改回 true 即恢复。这里只写默认值对象再展开覆盖，
+ * 不逐项 `?? true`——新增板块时只改这一处与 JSON，组件其余部分无感。 */
+const blocks = {
+  skills: true,
+  target: true,
+  stack: true,
+  practice: false,
+  timeline: false,
+  education: false,
+  level: false,
+  ...(basic.blocks ?? {}),
+};
+const stackStyle = basic.stackStyle ?? 'brand';
+
+/* ── 职业定位 ── */
+const target = {
+  role: L(basic.target.role),
+  summary: L(basic.target.summary),
+  facts: basic.target.facts.map((f) => ({ value: f.value, label: L(f.label) })),
+};
+
+/* ── 技术栈：补图标与品牌色 ─────────────────────────────────────────────
+ * 颜色在构建期算好写进内联 CSS 变量（--brand / --brand-dark / --brand-bg*），
+ * 运行时零计算；没有官方图标的项（slug: null）走 mono 字母徽标降级。 */
+const LEVEL_DOTS: Record<string, number> = { core: 3, used: 2, familiar: 1 };
+const LEVEL_LABEL: Record<string, string> = {
+  core: t('basic.levelCore'),
+  used: t('basic.levelUsed'),
+  familiar: t('basic.levelFamiliar'),
+};
+
+const stackGroups = (basic.stack ?? []).map((group) => ({
+  id: group.id,
+  label: L(group.label),
+  items: group.items.map((item) => {
+    const icon = item.slug ? TECH_ICONS[item.slug] : undefined;
+    const level = item.level ?? 'used';
+    /* 技术栈名两种形态混用（与 links[].label 同一约定）：纯拉丁专名
+       （Java / Spring Boot）直接给字符串；带中文修饰的（UI 设计 /
+       RAG 检索增强 / MCP 协议）给 {zh,en}，统一过 L() 取边。 */
+    const name = typeof item.name === 'string' ? item.name : L(item.name);
+    return {
+      slug: item.slug,
+      name,
+      mono: item.mono ?? name.slice(0, 2).toUpperCase(),
+      icon,
+      color: icon ? brandFor(icon.hex) : null,
+      dots: LEVEL_DOTS[level] ?? 2,
+      levelWord: LEVEL_LABEL[level] ?? LEVEL_LABEL.used,
+    };
+  }),
+}));
+
+/* sprite 只输出真正用到的图标（去重）——整表 56 个全塞进来会白白胖一圈 */
+const usedSlugs = [
+  ...new Set(
+    stackGroups
+      .flatMap((g) => g.items.map((i) => i.slug))
+      .filter((s): s is string => Boolean(s && TECH_ICONS[s]))
+  ),
+];
+
+/* ── 工程实践 / 经历 / 教育（head 与 body 分离，分隔符交给 CSS）── */
+const practice = (basic.practice ?? []).map((p) => ({ head: L(p.head), body: L(p.body) }));
+const timeline = (basic.timeline ?? []).map((r) => ({
+  period: L(r.period),
+  role: L(r.role),
+  note: L(r.note),
+}));
+const education = (basic.education ?? []).map((e) => ({ name: L(e.name), note: L(e.note) }));
 ---
 
-<dialog class="file-dialog" id="basic" aria-labelledby="basic-file-title">
+<dialog class="file-dialog" id="basic" data-icons={stackStyle} aria-labelledby="basic-file-title">
   <h2 class="sr-only" id="basic-file-title">{t('basic.dialogTitle')}</h2>
 
   <header class="file-head">
@@ -108,12 +183,131 @@ const mbtiDesc = L(basic.mbtiDesc);
         </div>
       </article>
 
-      <article class="obj file-skills" style="--tilt: 0.5deg">
-        <p class="obj-label">{t('basic.labelSkills')}</p>
-        <ul class="file-skills-list">
-          {skills.map((skill) => <li>{skill}</li>)}
-        </ul>
-      </article>
+      {
+        blocks.target && (
+          <article class="obj file-target" style="--tilt: 0.5deg">
+            <p class="obj-label">{t('basic.labelTarget')}</p>
+            <p class="target-line">{target.role}</p>
+            <p class="target-sub">{target.summary}</p>
+            <ul class="target-facts">
+              {target.facts.map((fact) => (
+                <li>
+                  <b>{fact.value}</b>
+                  <span>{fact.label}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        )
+      }
+
+      {
+        blocks.skills && (
+          <article class="obj file-skills" style="--tilt: 0.5deg">
+            <p class="obj-label">{t('basic.labelSkills')}</p>
+            <ul class="file-skills-list">
+              {skills.map((skill) => <li>{skill}</li>)}
+            </ul>
+          </article>
+        )
+      }
+
+      {
+        blocks.stack && (
+          <article class="obj file-stack" style="--tilt: -0.4deg">
+            <p class="obj-label">{t('basic.labelStack')}</p>
+            <div class="stack-groups">
+              {stackGroups.map((group) => (
+                <div class="stack-group">
+                  <p class="stack-group-label">{group.label}</p>
+                  <ul class="stack-list">
+                    {group.items.map((item) => (
+                      <li
+                        class="tech"
+                        style={
+                          item.color
+                            ? `--brand:${item.color.brand};--brand-dark:${item.color.brandDark};--brand-bg:${item.color.bg};--brand-bg-dark:${item.color.bgDark}`
+                            : undefined
+                        }
+                      >
+                        <span class="tech-badge">
+                          {item.icon && item.slug ? (
+                            <svg class="ti" aria-hidden="true">
+                              <use href={`#si-${item.slug}`} />
+                            </svg>
+                          ) : (
+                            <span class="ti ti--mono" aria-hidden="true">{item.mono}</span>
+                          )}
+                        </span>
+                        <span class="tech-name">{item.name}</span>
+                        {blocks.level && (
+                          <span class="tech-level">
+                            <span class="tech-dots" aria-hidden="true">
+                              {[0, 1, 2].map((i) => <i class={i < item.dots ? 'on' : ''} />)}
+                            </span>
+                            <span class="tech-level-word">{item.levelWord}</span>
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </article>
+        )
+      }
+
+      {
+        blocks.practice && (
+          <article class="obj file-practice" style="--tilt: 0.7deg">
+            <p class="obj-label">{t('basic.labelPractice')}</p>
+            <ul class="practice-list">
+              {practice.map((item) => (
+                <li>
+                  <b>{item.head}</b>
+                  <span>{item.body}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        )
+      }
+
+      {
+        blocks.timeline && (
+          <article class="obj file-timeline" style="--tilt: -0.6deg">
+            <p class="obj-label">{t('basic.labelTimeline')}</p>
+            <ol class="tl">
+              {timeline.map((row) => (
+                <li>
+                  <span class="tl-year">{row.period}</span>
+                  <span>
+                    <span class="tl-role">{row.role}</span>
+                    <span class="tl-note">{row.note}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </article>
+        )
+      }
+
+      {
+        blocks.education && (
+          <article class="obj file-edu" style="--tilt: 0.5deg">
+            <p class="obj-label">{t('basic.labelEducation')}</p>
+            <ul class="edu-list">
+              {education.map((row) => (
+                <li>
+                  <span>{row.name}</span>
+                  <span>{row.note}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        )
+      }
 
       <article class="obj file-note" style="--tilt: 0.9deg">
         <p class="obj-label">{t('basic.labelIdentity')}</p>
@@ -162,6 +356,23 @@ const mbtiDesc = L(basic.mbtiDesc);
     <span class="file-foot-bar" aria-hidden="true"></span>
   </footer>
 </dialog>
+
+{
+  /* 技术栈图标 sprite（只含实际用到的），放在 dialog 之外：
+     未打开的 <dialog> 是 display:none，<use> 引用其子树内的 symbol 在部分
+     浏览器上不可靠；挂到组件根级 + width/height:0 是最稳的做法。 */
+  blocks.stack && (
+    <svg class="tech-sprite" aria-hidden="true" focusable="false">
+      <defs>
+        {usedSlugs.map((slug) => (
+          <symbol id={`si-${slug}`} viewBox="0 0 24 24">
+            <path fill="currentColor" d={TECH_ICONS[slug].path} />
+          </symbol>
+        ))}
+      </defs>
+    </svg>
+  )
+}
 
 <script>
     const dialog = document.getElementById('basic');
