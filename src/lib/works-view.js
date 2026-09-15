@@ -309,14 +309,20 @@ export function mountWorksRail() {
       const startY = START_Y_MOBILE;
 
       cards.forEach((card, i) => {
-        // 第一组的第一张卡：立即显示
+        // 第一组的第一张卡：首屏立即可见（intro 半卡本体），位移恒在扇形位；
+        // 缩放随 intro 段 [0, times[1]] 从 1 收到 targetScale——与其他卡
+        // 「出现时大、随滚动收小」同语（2026-09-15 用户裁定；此前它恒停在
+        // targetScale，是全组唯一没有收小过程的卡）。
         const isImmediate = setIdx === 0 && i === 0;
         const win = Math.min(FLY_WIN, Math.max(1 - i * STAG, 1e-4));
         const reveal = isImmediate ? 1 : clamp((flyP - i * STAG) / win, 0, 1);
         const eased = 1 - Math.pow(1 - reveal, 3);
+        const introEased = isImmediate
+          ? 1 - Math.pow(1 - clamp(progress / Math.max(times[1], 1e-4), 0, 1), 3)
+          : eased;
 
         const targetScale = 1 - (n - 1 - i) * SHRINK;
-        const scale = 1 - (1 - targetScale) * eased;
+        const scale = 1 - (1 - targetScale) * introEased;
         let transform;
         if (vertical) {
           // 纵向（移动端）：水平居中零偏移，y 逐层向下错开（卡 i 越靠后越往下），
