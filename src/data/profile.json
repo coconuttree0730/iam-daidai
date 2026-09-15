@@ -79,8 +79,8 @@
     {
       "no": "04",
       "title": {
-        "zh": "游乐场",
-        "en": "Playground"
+        "zh": "游乐园",
+        "en": "Playgr..."
       },
       "theta": 46,
       "href": {
@@ -93,22 +93,12 @@
   "infoBar": [
     {
       "label": {
-        "zh": "编号",
-        "en": "NO."
+        "zh": "版权",
+        "en": "COPYRIGHT"
       },
       "value": {
-        "zh": "NO.001",
-        "en": "NO.001"
-      }
-    },
-    {
-      "label": {
-        "zh": "密级",
-        "en": "LEVEL"
-      },
-      "value": {
-        "zh": "密级 公开",
-        "en": "PUBLIC"
+        "zh": "© 2026 DAIDAI · 版权所有",
+        "en": "© 2026 DAIDAI · ALL RIGHTS RESERVED"
       }
     },
     {
@@ -119,16 +109,6 @@
       "value": {
         "zh": "OPEN TO WORK",
         "en": "OPEN TO WORK"
-      }
-    },
-    {
-      "label": {
-        "zh": "署名",
-        "en": "SIGNED"
-      },
-      "value": {
-        "zh": "DAIDAI",
-        "en": "DAIDAI"
       }
     }
   ],
@@ -227,9 +207,7 @@
         "items": [
           { "name": "Vue 3", "slug": "vuedotjs", "level": "core", "confirmed": true },
           { "name": "TypeScript", "slug": "typescript", "level": "used", "confirmed": false },
-          { "name": "Astro", "slug": "astro", "level": "used", "confirmed": true },
-          { "name": "Vite", "slug": "vite", "level": "used", "confirmed": false },
-          { "name": { "zh": "UI 设计", "en": "UI Design" }, "slug": "figma", "level": "used", "confirmed": true }
+          { "name": "Astro", "slug": "astro", "level": "used", "confirmed": true }
         ]
       },
       {
@@ -237,9 +215,7 @@
         "label": { "zh": "AI 与智能体", "en": "AI & Agent" },
         "items": [
           { "name": "AI Agent", "slug": null, "mono": "AI", "level": "used", "confirmed": true },
-          { "name": { "zh": "RAG 检索增强", "en": "RAG" }, "slug": null, "mono": "RAG", "level": "used", "confirmed": true },
-          { "name": "Python", "slug": "python", "level": "used", "confirmed": false },
-          { "name": "LangChain", "slug": "langchain", "level": "familiar", "confirmed": false }
+          { "name": { "zh": "RAG 检索增强", "en": "RAG" }, "slug": null, "mono": "RAG", "level": "used", "confirmed": true }
         ]
       },
       {
@@ -249,8 +225,7 @@
           { "name": "Git", "slug": "git", "level": "core", "confirmed": true },
           { "name": "GitHub", "slug": "github", "level": "core", "confirmed": true },
           { "name": "Docker", "slug": "docker", "level": "used", "confirmed": false },
-          { "name": "Linux", "slug": "linux", "level": "used", "confirmed": false },
-          { "name": "Cloudflare", "slug": "cloudflare", "level": "used", "confirmed": true }
+          { "name": "Linux", "slug": "linux", "level": "used", "confirmed": false }
         ]
       }
     ],
@@ -411,8 +386,17 @@
         "imgAlt": "Chibi character coding at desktop with coffee"
       },
       {
-        "id": "engine",
+        "id": "craft",
         "letter": "B",
+        "name": "绘画爱好",
+        "en": "SKETCHBOOK",
+        "cover": "stripes",
+        "img": "/works/folder-craft.jpeg",
+        "imgAlt": "Chibi artist painting colorful monster on easel"
+      },
+      {
+        "id": "engine",
+        "letter": "C",
         "name": "合作定制",
         "en": "COMMISSION",
         "cover": "bars",
@@ -421,21 +405,12 @@
       },
       {
         "id": "app",
-        "letter": "C",
+        "letter": "D",
         "name": "上线产品",
         "en": "PRODUCTS",
         "cover": "dots",
         "img": "/works/folder-app.jpeg",
         "imgAlt": "Cool chibi character in hoodie giving thumbs up"
-      },
-      {
-        "id": "craft",
-        "letter": "D",
-        "name": "绘画爱好",
-        "en": "SKETCHBOOK",
-        "cover": "stripes",
-        "img": "/works/folder-craft.jpeg",
-        "imgAlt": "Chibi artist painting colorful monster on easel"
       },
       {
         "id": "inbox",

@@ -243,7 +243,8 @@ const infoBarItems = infoBar.map((item) => ({
     {
       // 左右两组：黑条在人物之下（z 4 < 5），居中排布会被人物躯干压住，
       // 拆成两簇分置两侧，让文字从人物身边露出。每组内用红色竖线分隔。
-      [infoBarItems.slice(0, 2), infoBarItems.slice(2)].map((group) => (
+      // 分组（2026-09-15 站长裁定）：左簇 = 版权标识独占；右簇 = 状态 + 署名。
+      [infoBarItems.slice(0, 1), infoBarItems.slice(1)].map((group) => (
         <div class="group">
           {group.map((item, index) => (
             <Fragment>
