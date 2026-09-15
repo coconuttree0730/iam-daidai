@@ -45,6 +45,11 @@ export const CATEGORIES: CategoryDef[] = [
     en: 'ESSAY',
     desc: '建站心情、非技术记录、阶段性的想法',
   },
+  {
+    name: '教程',
+    en: 'TUTORIAL',
+    desc: '从零到上线的完整步骤，含踩坑与验证方法',
+  },
 ];
 
 /** 取分类定义；未登记的分类返回 undefined（调用方自行决定回退文案） */
