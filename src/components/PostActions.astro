@@ -242,9 +242,16 @@ const t = useTranslations(locale);
     overflow-wrap: anywhere;
   }
 
-  /* 按钮与链接共用一套壳：1.5px 描边、小圆角、红章 hover，
-     与页头 chip / 文章标签同一视觉语言。 */
-  .btn {
+  /* ⚠️ 按钮样式必须整条挂在 :global([data-post-actions] …) 下（2026-09-15 修正）
+     原因：系统分享按钮是**运行时 JS 注入**的，DOM 上没有 Astro 的
+     data-astro-cid-* → 普通 scoped 选择器编译成 .btn[data-astro-cid-x]
+     永远匹配不上，按钮裸奔成浏览器默认样式（浅蓝底灰按钮）。
+     早期只给 .btn--share 开了一条 :global 的误判：共享的 .btn 规则虽然
+     由模板元素（复制按钮 / 订阅链接）命中，但注入节点三个类都不带 cid，
+     基础样式一条都吃不到。现在整条包 :global，以根节点独有的
+     [data-post-actions] 作作用域锚——既覆盖注入节点，也不会泄漏到
+     其他页面同名的 .btn（如 lab/stamps.astro）。 */
+  :global([data-post-actions] .btn) {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -261,25 +268,16 @@ const t = useTranslations(locale);
     text-decoration: none;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
-  .btn:hover,
-  .btn:focus-visible {
+  :global([data-post-actions] .btn:hover),
+  :global([data-post-actions] .btn:focus-visible) {
     color: var(--c-red);
     border-color: var(--c-red);
     background: rgba(var(--c-red-rgb), 0.06);
     outline: none;
   }
-  .btn__icon {
+  :global([data-post-actions] .btn__icon) {
     flex: none;
     display: block;
-  }
-
-  /* ⚠️ 系统分享按钮是**运行时 JS 注入**的（见脚本注释），DOM 上没有 Astro 的
-     data-astro-cid-* → 普通 scoped 选择器编译成 .btn--share[data-astro-cid-x]
-     永远匹配不上，按钮会裸奔成默认灰按钮。共享的 .btn 规则本身由模板元素
-     命中（复制按钮与订阅链接都是模板渲染的），但 .btn--share 这个**修饰类**
-     只出现在注入节点上，所以这一条必须 :global 且整条包住。 */
-  :global(.btn--share) {
-    border-style: solid;
   }
 
   @media (max-width: 640px) {
@@ -287,8 +285,9 @@ const t = useTranslations(locale);
       justify-content: flex-start;
       gap: 10px;
     }
-    /* 手机档按钮放大到可点区域（≥40px 高），并允许换行不挤压 */
-    .btn {
+    /* 手机档按钮放大到可点区域（≥40px 高），并允许换行不挤压。
+       同样要 :global —— 注入的分享按钮也吃这条。 */
+    :global([data-post-actions] .btn) {
       padding: 9px 14px;
       font-size: 13px;
     }
