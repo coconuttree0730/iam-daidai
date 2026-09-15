@@ -1,0 +1,475 @@
+/* ── 绘画墙版式（/works/09/ 与 /en/works/09/ 共用，2026-09-15 建）──────────
+ *
+ * 为什么是一份独立表而不是复用 work-detail.css：用户对「绘画爱好」这一类目
+ * 明确要求**单独定制**——「设计的更符合艺术和创意，例如不规则摆放，就像挂
+ * 在墙上、冰箱贴上」，并且点名**不要**和「开源项目」那类详情页一样规整。
+ * 所以 work-detail.css 的 .preview（居中大图）+ .detail（描述流）在这里
+ * 一条都不用，取而代之的是：
+ *
+ *   .sb-wall      —— 可横向拖动的整面墙（固定高、内容横向溢出、双轴居中）
+ *   .sb-piece     —— 一件作品的**定位层**：left/top 百分比钉在墙上、
+ *                    rotate 由数据给（≤14°）、z 由数据给
+ *   .sb-frame     —— 画框本体（纸底 + 窄纸边 + 硬阴影），挂在定位层里
+ *   .sb-caption   —— 手写体标题 + 年份，贴在画框下方
+ *
+ * ⚠️ **位移与旋转分属性，不合并进 transform**（全站契约，见 MEMORY）：
+ *    transform 被「指针跟随 / 视差 / 入场动画」消费时，叠加位移必须走独立的
+ *    translate / rotate / scale 属性，否则两方互相覆盖。本表的：
+ *      · 定位层 .sb-piece  —— 只写 left/top（布局）+ rotate（姿态）
+ *      · 画框 .sb-frame     —— 只做 hover 的 translateY（独立属性）
+ *    两处都**不碰 transform**，未来若要给这面墙加视差动画可以安全接管。
+ *
+ * ⚠️ 定位数值全部来自 profile.json → works.items[].sketchbook.pieces[]，
+ *    由页面写成内联样式。改摆放**只改数据**，不要在这张表里加 nth-child。
+ *
+ * ⚠️ 墙体高度是**单一来源** --sb-h：页面的墙宽计算也读它（同一组常量），
+ *    改高度时两边必须同步，否则「能不能横向滚动」的判定会错。
+ */
+
+/* ── 整页外壳 ───────────────────────────────────────────────────────────
+ * .sheet 来自 sheet.css（min-height 100vh 的正常滚动流）——本页**不锁滚**，
+ * 与 works-rail.css 的 100dvh 锁滚是两回事：画墙自身横向拖动，纵向留给
+ * 页面正常滚动（画墙比视口矮，纵向几乎不滚，但手机上 caption 会占几行）。 */
+
+.sb {
+  /* 墙高：这是**视觉基准**，不是硬约束——轨道会按内容实测撑高
+     （见 sketchbook.js 的 layout），所以即使某件画比净高还高，
+     结果也是「墙可纵向滚」而不是「caption 被裁」。下限取 460px 是为了
+     矮视口下墙面不至于扁成一条；上限 620px 不让墙面在大屏上喧宾夺主。 */
+  --sb-h: clamp(460px, 58vh, 620px);
+  --sb-pad: clamp(20px, 4vw, 48px);    /* 与全站页头/内容同一条内缩轴 */
+  --sb-vpad: min(34px, 4vh);
+  --sb-frame-pad: 12px;                /* 画框纸边厚度 */
+  --sb-caption-gap: 10px;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: clamp(28px, 4vh, 52px);
+}
+
+/* ── 标题区：沿用详情页的「描边拉丁 + 实心中文」，但左对齐收窄，
+ *    并多一行手写体副题——与规整详情页的 .hero 拉开距离。 ── */
+.sb-hero {
+  padding: clamp(26px, 5vh, 56px) var(--sb-pad) 0;
+}
+.sb-hero__en {
+  margin: 0;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: clamp(18px, 3.4vw, 34px);
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--c-ghost);
+  user-select: none;
+}
+.sb-hero h1 {
+  margin: 8px 0 0;
+  font-size: clamp(30px, 5.6vw, 56px);
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+/* 副题用花体（Great Vibes）：这是**装饰层的拉丁字**，属艺术封面语汇，
+ * 与站名徽标、hero 的 About Me 同一用法，不进 i18n 内容层。 */
+.sb-hero__script {
+  margin: 6px 0 0;
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(22px, 3.2vw, 34px);
+  line-height: 1.2;
+  color: var(--c-red);
+}
+.sb-hero__lede {
+  margin: 12px 0 0;
+  max-width: 40em;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--c-ink-2);
+}
+.sb-hero__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 16px;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  color: var(--c-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+.sb-hero__status {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 3px 9px;
+  border: 1px solid var(--c-ink);
+  border-radius: 4px;
+  color: var(--c-ink);
+}
+.sb-hero__status[data-tone='red'] {
+  border-color: var(--c-red);
+  color: var(--c-red);
+}
+
+/* ── 墙面容器 ───────────────────────────────────────────────────────────
+ * .sb-wall 只负责「偏移」这一件事：宽度 = 内容自然宽 + 2×pad，横向溢出可拖。
+ * 居中靠 margin-inline:auto + width:fit-content——**不要**用 flex 居中，
+ * 否则内容比容器宽时左右两端会被裁掉一截（flex 居中的经典溢出问题，
+ * 用 margin:auto 才有正确的滚动边界）。
+ *
+ * 拖拽由脚本直接写 .sb-wall 的 scrollLeft（原生滚动容器，不自己实现惯性），
+ * 因此这里**不需要** transform，也不会和子元素的 rotate 打架。
+ */
+.sb-wall-wrap {
+  position: relative;
+  margin-top: clamp(20px, 3.4vh, 38px);
+}
+.sb-wall {
+  position: relative;
+  margin-inline: auto;
+  width: fit-content;
+  max-width: 100%;
+  height: var(--sb-h);
+  padding: var(--sb-vpad) clamp(16px, 2.4vw, 34px);
+  overflow-x: auto;
+  /* auto（而非 hidden）：内容的绝对高度由脚本按实测撑出，极端档位下多出的
+     几 px 走「可纵向滚」而不是「被裁掉」——见 .sb-track 的注释。 */
+  overflow-y: auto;
+  overscroll-behavior-x: contain;
+  cursor: grab;
+  touch-action: pan-x;
+  /* 滚动条在锁高容器里会吃掉约 15px 高度并压住底部 caption，
+   * 这里藏掉——拖拽/滚轮/键盘三条输入都还在，不损失可达性。 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  /* 墙底：细横线造出「木板墙 / 砖缝」的暗示，比纯色更像一面墙。
+   * 消费 --c-*，暗色模式自动换肤。 */
+  background-color: var(--c-paper);
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(var(--c-ink-rgb), 0.055) 0 1px,
+    transparent 1px 34px
+  );
+  border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  border-radius: 6px;
+  box-shadow: inset 0 2px 10px rgba(var(--c-ink-rgb), 0.05);
+}
+.sb-wall::-webkit-scrollbar {
+  display: none;
+}
+.sb-wall:active {
+  cursor: grabbing;
+}
+/* 拖拽中：关掉子元素的 hover 抬升与过渡，避免跟手时画框跟着抖 */
+.sb-wall--dragging .sb-piece {
+  pointer-events: none;
+}
+
+/* 墙内轨道：宽度由脚本按数据算出的最大 x+w 撑开（内联 min-width），
+ * 高度 = 至少铺满墙面（min-height），**内容更高时向下生长**。
+ *
+ * ⚠️ 这里刻意**不用 height:100%**：画作是绝对定位的，绝对定位子元素不参与
+ *    父元素的高度计算——若轨道钉死在 100%，最下面那件的 caption 一旦越过
+ *    墙的净高就会被 overflow-y:hidden 裁掉（矮视口必现，2026-09-15 实测）。
+ *    改成 min-height + 由脚本按内容撑高后，纵向溢出只会让墙**纵向可滚**
+ *    （overflow-y 也从 hidden 改为 auto，见 .sb-wall），是安全阀而非裁切。
+ *    定位层的 top 因此改用 px（脚本按轨道实测高压），与墙高的 px 取值解耦。 */
+.sb-track {
+  position: relative;
+  min-height: 100%;
+  min-width: 100%;
+}
+
+/* ── 作品：定位层 + 画框 + 说明 ─────────────────────────────────────── */
+
+/* 定位层：left/top 百分比、rotate 角度、width 全部由脚本写内联。
+ * 宽度用 px（数据里是 px），因为旋转后的包围盒与横向里程计算都以 px 为准。
+ * ⚠️ 这里**只允许**动 left / top / rotate / width / z-index——transform 留给
+ *    未来的动画层（见文件头契约）。 */
+.sb-piece {
+  position: absolute;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  outline: none;
+}
+.sb-piece:focus-visible .sb-frame {
+  outline: 2px solid var(--c-red);
+  outline-offset: 4px;
+}
+
+/* 画框：纸底 + 纸边 + 投影。照片用 inner 包住才不会被纸边的圆角切到。 */
+.sb-frame {
+  display: block;
+  padding: var(--sb-frame-pad);
+  background: var(--c-card);
+  border: 1px solid rgba(var(--c-ink-rgb), 0.18);
+  border-radius: 3px;
+  /* 硬投影（不模糊的大偏移 + 一层贴近的实影）：模拟画框离墙的厚度，
+   * 比纯模糊阴影更像「挂上去」而不是「贴上去」。 */
+  box-shadow:
+    0 1px 2px rgba(var(--c-ink-rgb), 0.22),
+    6px 8px 0 rgba(var(--c-ink-rgb), 0.07);
+  transition: translate 0.22s ease, box-shadow 0.22s ease;
+}
+.sb-piece:hover .sb-frame,
+.sb-piece:focus-visible .sb-frame {
+  /* 独立 translate 属性（不塞 transform）：悬停时画框微微抬起 + 影子拉长 */
+  translate: 0 -5px;
+  box-shadow:
+    0 3px 6px rgba(var(--c-ink-rgb), 0.2),
+    9px 13px 0 rgba(var(--c-ink-rgb), 0.09);
+}
+
+.sb-photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+  background: var(--c-band); /* 图片解码前先给一块纸底，避免闪白/闪黑 */
+}
+
+/* 说明条：手写体标题 + 年份/技法。贴在画框下方，居中。 */
+.sb-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--sb-caption-gap);
+  text-align: center;
+}
+.sb-caption__title {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(18px, 1.6vw, 24px);
+  line-height: 1.2;
+  color: var(--c-ink);
+}
+.sb-caption__meta {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--c-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 悬挂件：画框顶部的小纸签（替代图钉）。用纯 CSS 造，不改 markup。 */
+.sb-frame::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--sb-frame-pad) * -1 - 7px);
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: var(--c-red);
+  box-shadow: 0 1px 2px rgba(var(--c-ink-rgb), 0.35);
+}
+.sb-frame {
+  position: relative;
+}
+/* 纸签与画框之间那条细线（= 挂绳的暗示） */
+.sb-frame::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--sb-frame-pad) * -1 - 1px);
+  left: 50%;
+  width: 1px;
+  height: 6px;
+  translate: -50% 0;
+  background: rgba(var(--c-ink-rgb), 0.35);
+}
+
+/* ── 墙上的空白说明（数据为空时的兜底，正常不会出现）── */
+.sb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sb-h);
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+/* ── 工具条：拖动提示 + 计数 + 左右两个挪墙按钮 ─────────────────────── */
+.sb-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px var(--sb-pad) 0;
+  max-width: 960px;
+  margin-inline: auto;
+  width: 100%;
+}
+.sb-tools__hint {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--c-muted);
+}
+.sb-tools__count {
+  font-size: 12px;
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sb-tools__spacer {
+  margin-left: auto;
+}
+.sb-btn {
+  padding: 6px 12px;
+  border: 1.5px solid var(--c-ink);
+  border-radius: 5px;
+  background: var(--c-card);
+  color: var(--c-ink);
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.sb-btn:hover {
+  color: var(--c-red);
+  border-color: var(--c-red);
+}
+.sb-btn:focus-visible {
+  outline: 2px solid var(--c-red);
+  outline-offset: 2px;
+}
+.sb-btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+  color: var(--c-ink);
+  border-color: rgba(var(--c-ink-rgb), 0.3);
+}
+
+/* ── 正文尾部：作品说明 + 标签 + 收尾导航。刻意做成**贴在墙下方的一段
+ *    小字**（窄列、左对齐），不复用详情页那个宽 .detail 流。 ── */
+.sb-foot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+  padding: clamp(22px, 3.4vh, 40px) var(--sb-pad) 0;
+}
+.sb-foot__note {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.9;
+  color: var(--c-ink-2);
+}
+.sb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sb-chips li {
+  font-size: 12px;
+  padding: 3px 11px;
+  border: 1px solid rgba(var(--c-ink-rgb), 0.28);
+  border-radius: 999px;
+  color: var(--c-muted);
+}
+
+/* ── 上/下一件：保留详情页的 .pn 结构（用户已习惯这条路径），
+ *    但让它贴底并与 .sb-foot 用同一条内缩轴。 ── */
+.sb-pn {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: clamp(28px, 4vh, 48px);
+  padding: 22px var(--sb-pad);
+  border-top: 1px solid rgba(var(--c-ink-rgb), 0.16);
+}
+.sb-pn a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 46%;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-ink);
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sb-pn a small {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--c-muted-2);
+}
+.sb-pn a:hover {
+  color: var(--c-red);
+}
+.sb-pn__r {
+  text-align: right;
+  align-items: flex-end;
+}
+
+/* 收尾「回作品集」：与 work-detail 的 .backhome 同语义、同断点（≤640px 才出，
+ * 与页头 .back 严格互斥——桌面档 sticky 页头全程可见）。 */
+.sb-backhome {
+  display: none;
+  align-self: flex-start;
+  margin: 0 var(--sb-pad) 40px;
+  padding-bottom: 2px;
+  font-size: 13px;
+  color: var(--c-ink);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+}
+.sb-backhome:hover {
+  color: var(--c-red);
+  border-color: var(--c-red);
+}
+
+/* ── 手机档（≤640px）─────────────────────────────────────────────────────
+ * 墙高降一档（视口矮），画框宽度由脚本按同一比例整体缩小（见 sketchbook.js
+ * 的 fit 分支：vw < 640 时所有 w 乘 0.62 并压回视口宽）——**CSS 这边不改
+ * 定位数值**，只调外壳与字号，摆放的「不规则」原样保留。 */
+@media (max-width: 640px) {
+  .sb {
+    --sb-h: clamp(360px, 52vh, 500px);
+  }
+  .sb-hero__lede {
+    font-size: 14px;
+  }
+  .sb-wall {
+    padding: 14px;
+    border-radius: 4px;
+  }
+  .sb-tools {
+    padding-inline: 20px;
+  }
+  .sb-foot,
+  .sb-pn {
+    padding-inline: 20px;
+  }
+  .sb-backhome {
+    display: flex;
+    margin-inline: 20px;
+  }
+}
+
+/* 「夜览档案」：画框在暗色下若继续用会翻转的 --c-card 会变成深灰框 + 深底图，
+ * 画作本身是浅色纸面，深框会像一块洞。这里让**画框的纸边**恒为浅纸色
+ * （与 /lab/ 卡片封面的 --c-band 裁定同源：主题不变量），墙体仍跟随主题。 */
+[data-theme='dark'] .sb-frame {
+  background: var(--c-band);
+  border-color: rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    6px 8px 0 rgba(0, 0, 0, 0.32);
+}
+[data-theme='dark'] .sb-caption__title {
+  color: var(--c-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-frame {
+    transition: none;
+  }
+}

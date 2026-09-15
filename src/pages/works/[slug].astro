@@ -1,8 +1,23 @@
 ---
-// 作品详情页（2026-09-12 建）：/works/01/ … /works/07/。
+// 作品详情页（2026-09-12 建）：/works/01/ … /works/09/。
 // 作品集列表页（works.astro）卡面只留「编号 + 标题」，描述 / 标签 /
 // 状态 / 年份全部收进本页——用户裁定「点击进去才是详情」。
-// 数据源同列表页 = profile.json 的 works 节；slug 用条目编号（01…07）。
+// 数据源同列表页 = profile.json 的 works 节；slug 用条目编号（01…09）。
+//
+// ── 双版式分支（2026-09-15 建，本次唯一的架构改动）─────────────────────
+// 本文件现在承载**两种详情页**，由 item.detail 选择：
+//   · 缺省（无 detail 字段）→ 规整档案版：work-detail.css，居中大图 + 描述流。
+//   · detail === 'sketchbook' → 绘画墙版：sketchbook.css，不规则挂墙摆放。
+// 分支的由来是用户对「绘画爱好」类目的定制要求：「设计的更符合艺术和创意，
+// 例如不规则摆放，就像挂在墙上、冰箱贴上…而不是和开源项目类型的卡片内部
+// 一样是规整的布局」。
+//
+// ⚠️ 两个版式共用同一个路由、同一个 getStaticPaths、同一套 PageHead 与
+//    .pn / .backhome 收尾链——**只换中段的主体**。这样列表页的 href
+//    (/works/<no>/) 与英文侧完全不用知道「这一条是哪种版式」。
+//
+// ⚠️ 分支写在 markup 里而不是拆成两个 [slug] 路由：Astro 的静态路由同一路径
+//    只能有一份文件，拆两份会撞车（getStaticPaths 各自产出 /works/09/）。
 import Base from '../../layouts/Base.astro';
 import { useTranslations } from '../../i18n/utils';
 import PageHead from '../../components/PageHead.astro';
@@ -10,6 +25,7 @@ import profile from '../../data/profile.json';
 import '../../styles/sheet.css';
 import '../../styles/archive-chrome.css';
 import '../../styles/work-detail.css';
+import '../../styles/sketchbook.css';
 
 const works = profile.works.items;
 
@@ -27,7 +43,11 @@ const prev = works[(idx - 1 + works.length) % works.length];
 const next = works[(idx + 1) % works.length];
 const t = useTranslations('zh');
 
+/** 是否为绘画墙版式（数据驱动的分支，唯一判据） */
+const isSketchbook = w.detail === 'sketchbook';
+const pieces = isSketchbook ? (w.sketchbook?.pieces ?? []) : [];
 ---
+
 <Base title={`${w.title} · ${t('section.works.title')} · ${t('site.title')}`} description={w.desc}>
   <main class="sheet" id="main">
     <PageHead
@@ -36,34 +56,103 @@ const t = useTranslations('zh');
       back={{ label: t('head.backWorks'), href: '/works/' }}
     />
 
-    <section class="hero">
-      <p class="en" aria-hidden="true">{w.en}</p>
-      <h1>{w.title}</h1>
-      <div class="meta">
-        <span class="status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
-        <span>{w.year}</span>
+    {isSketchbook ? (
+      /* ── 绘画墙版式：标题区收窄、主体是一面可横向拖动的墙 ───────────── */
+      <div class="sb">
+        <section class="sb-hero">
+          <p class="sb-hero__en" aria-hidden="true">{w.en}</p>
+          <h1>{w.title}</h1>
+          <p class="sb-hero__script" aria-hidden="true">{w.sketchbook?.subtitle}</p>
+          <p class="sb-hero__lede">{w.desc}</p>
+          <div class="sb-hero__meta">
+            <span class="sb-hero__status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
+            <span>{w.year}</span>
+            <span>{t('sketch.pieceCount').replace('{n}', String(pieces.length))}</span>
+          </div>
+        </section>
+
+        <section class="sb-wall-wrap" aria-label={t('sketch.wallAria')}>
+          {/* tabindex=0：墙是可横向滚动的区域，必须能键盘聚焦（← → 挪动），
+              否则键盘用户只能靠 Tab 一个个跳画作、无法平移视野。 */}
+          <div class="sb-wall" data-sb-wall tabindex="0">
+            <div class="sb-track" data-sb-track>
+              {pieces.map((p) => (
+                <a
+                  class="sb-piece"
+                  href={p.src}
+                  data-x={p.x}
+                  data-y={p.y}
+                  data-w={p.w}
+                  data-rot={p.rot}
+                  data-z={p.z}
+                  aria-label={`${p.title}（${p.year} · ${p.medium}）— ${t('sketch.enlarge')}`}
+                >
+                  <span class="sb-frame">
+                    <img
+                      class="sb-photo"
+                      src={p.src}
+                      alt={`${p.title} · ${p.medium}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </span>
+                  <span class="sb-caption" aria-hidden="true">
+                    <span class="sb-caption__title">{p.title}</span>
+                    <span class="sb-caption__meta">{p.year} · {p.medium}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <div class="sb-tools">
+          <span class="sb-tools__hint">{t('sketch.dragHint')}</span>
+          <span class="sb-tools__spacer"></span>
+          <button type="button" class="sb-btn" data-sb-prev aria-label={t('sketch.scrollPrev')}>←</button>
+          <button type="button" class="sb-btn" data-sb-next aria-label={t('sketch.scrollNext')}>→</button>
+        </div>
+
+        <section class="sb-foot">
+          <p class="sb-foot__note">{w.sketchbook?.note}</p>
+          <ul class="sb-chips" role="list">
+            {w.tags.map((tag) => <li>{tag}</li>)}
+          </ul>
+        </section>
       </div>
-    </section>
+    ) : (
+      /* ── 规整档案版式（原有形态，一字未改）──────────────────────────── */
+      <>
+        <section class="hero">
+          <p class="en" aria-hidden="true">{w.en}</p>
+          <h1>{w.title}</h1>
+          <div class="meta">
+            <span class="status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
+            <span>{w.year}</span>
+          </div>
+        </section>
 
-    {w.img && (
-      <section class="preview">
-        <img src={w.img} alt={w.title} loading="lazy" decoding="async" />
-      </section>
+        {w.img && (
+          <section class="preview">
+            <img src={w.img} alt={w.title} loading="lazy" decoding="async" />
+          </section>
+        )}
+
+        <section class="detail">
+          <p class="desc">{w.desc}</p>
+          <ul class="chips" role="list">
+            {w.tags.map((tag) => <li>{tag}</li>)}
+          </ul>
+          {w.href ? (
+            <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+              {w.href === '/' ? t('work.gotoHome') : w.href.includes('github.com') ? t('work.gotoGithub') : t('work.gotoProject')}
+            </a>
+          ) : (
+            <span class="go go--none">{t('work.notArchived')}</span>
+          )}
+        </section>
+      </>
     )}
-
-    <section class="detail">
-      <p class="desc">{w.desc}</p>
-      <ul class="chips" role="list">
-        {w.tags.map((t) => <li>{t}</li>)}
-      </ul>
-      {w.href ? (
-        <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
-          {w.href === '/' ? t('work.gotoHome') : w.href.includes('github.com') ? t('work.gotoGithub') : t('work.gotoProject')}
-        </a>
-      ) : (
-        <span class="go go--none">{t('work.notArchived')}</span>
-      )}
-    </section>
 
     <nav class="pn" aria-label={t('work.pnAria')}>
       <a class="pn-link" href={`/works/${prev.no}/`}><small>{t('work.prev')}</small>{prev.title}</a>
@@ -83,7 +172,18 @@ const t = useTranslations('zh');
   </main>
 </Base>
 
+<script>
+  /* 绘画墙交互只在绘画墙版式里挂载：脚本自己按 [data-sb-wall] 存在与否判定，
+     规整版式页（/works/01/ 等）因为标记不存在会直接 return，零开销。
+
+     ⚠️ 绘画墙的摆动值（left/top/width/rotate/z）是**数据**，写在 profile.json
+        的 works.items[].sketchbook.pieces[]，由上面的 markup 转成 data-*；
+        这个脚本只做「百分比 → px」的换算与拖动输入，不在 JS 里发明坐标。 */
+  import { mountSketchbookWall } from '../../lib/sketchbook.js';
+  mountSketchbookWall();
+</script>
+
 <style>
-  /* 版式已抽到 src/styles/work-detail.css（i18n 时为英文版共享）。
-     本页如需页面专有样式，写在这里。 */
+  /* 版式已抽到 src/styles/work-detail.css（规整版）与 src/styles/sketchbook.css
+     （绘画墙版，i18n 时英文版共享）。本页如需页面专有样式，写在这里。 */
 </style>

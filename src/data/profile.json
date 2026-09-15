@@ -483,7 +483,62 @@
         "href": "https://github.com/coconuttree0730/ai-powered-fitness-system",
         "cover": "rings",
         "img": "/works/fitness-index.gif"
-      }
+      },
+      {
+        "_comment": "「板绘」= 绘画爱好（cat: craft）的入口条目（2026-09-15 建）。它与其他作品条目**结构同源**（有 no / 有详情页 / 走 /works/09/ 路由），但详情页是**独立版本**：src/pages/works/[slug].astro 按 detail === 'sketchbook' 分支到 src/styles/sketchbook.css 的「挂墙」版式，不复用 work-detail.css 的规整流。这张卡的 img 是封面（圣诞树，方形素材与卡片比例天然贴合）。",
+        "_sketchbookComment": "sketchbook 节是本页版式的**唯一数据源**：pieces[] 一件作品一个对象。x 是左缘（轨道宽百分比）、y 是上缘（**墙高**百分比）、w 是宽度（px，桌面档）、rot 是旋转角（度，**封顶 ≤14°**，全站裁定）、z 是层叠序（大者压住小者）。x/y/w/rot 全部手写、**刻意不规律**：两件之间横向留白不同、纵向锚点错开、尺寸与角度不重复，才像「挂在墙上」而不是网格排版；不要把它们改成等距等角。两件的纵横比差异本身也是编排的一部分——蝶与玫瑰是横幅（786×629），雪夜圣诞树近方（1170×1230），同一行摆放会显得高低不齐，故一左一右、一高一低错开。⚠️ 纵向留白上限：y% + 该件缩放后的高 + caption 约 54px 不得超出 --sb-h（clamp 420–620px），否则文字会被墙的 overflow-y:hidden 裁掉——加新件时按这条验算。",
+        "detail": "sketchbook",
+        "sketchbook": {
+          "subtitle": "挂在墙上的练习本",
+          "note": "都是自己画着玩的。左右挪一挪墙面，凑近看看细节。",
+          "pieces": [
+            {
+              "id": "butterfly-rose",
+              "src": "/works/sketchbook/botanical-butterfly-rose.jpg",
+              "title": "蝶与玫瑰",
+              "en": "BUTTERFLY & ROSE",
+              "year": "2024",
+              "medium": "水彩 · 板绘",
+              "x": 2,
+              "y": 3,
+              "w": 400,
+              "rot": -3.2,
+              "z": 2,
+              "note": "粉色底上的蝶与蓝玫瑰，练习的是留白与冷暖撞色。"
+            },
+            {
+              "id": "christmas-tree",
+              "src": "/works/sketchbook/snowy-christmas-tree.jpg",
+              "title": "雪夜圣诞树",
+              "en": "SNOWY CHRISTMAS TREE",
+              "year": "2024",
+              "medium": "厚涂 · 板绘",
+              "x": 54,
+              "y": 7,
+              "w": 340,
+              "rot": 2.4,
+              "z": 1,
+              "note": "暗红底色上的一株雪松，想画出灯串那种从里往外透的光。"
+            }
+          ]
+        },
+        "no": "09",
+        "cat": "craft",
+        "title": "板绘",
+        "en": "DIGITAL PAINTING",
+        "desc": "画画这件事从纸上搬到了数位板上。这面墙上挂着画过的练习——没有排版，随手钉上去的那种。",
+        "year": "2024 — 至今",
+        "status": "整理中",
+        "tags": [
+          "数位板",
+          "水彩",
+          "厚涂",
+          "角色练习"
+        ],
+  "cover": "stripes",
+  "img": "/works/09.png",
+  "imgFit": "contain"
+}
     ]
   },
   "outro": {

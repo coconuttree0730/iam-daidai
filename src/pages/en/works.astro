@@ -36,6 +36,9 @@ const sets = cats
         img: w.img,
         cover: w.cover,
         href: `/en/works/${w.no}/`,
+        /* 可选：封面填充方式，见中文版 works.astro 同名注释。
+           缺省 cover；"contain" = 完整显示不裁切（09「板绘」在用）。 */
+        fit: w.imgFit,
       })),
       ...(items.length === 0
         ? [{ type: 'empty' as const }]
@@ -86,7 +89,7 @@ const sets = cats
                       {card.type === 'work' ? (
                         <a class="card-link" href={card.href}>
                           {card.img ? (
-                            <img class="card-img" src={card.img} alt={card.title} loading="lazy" decoding="async" />
+                            <img class="card-img" data-fit={card.fit} src={card.img} alt={card.title} loading="lazy" decoding="async" />
                           ) : (
                             <div class="card-placeholder" data-cover={card.cover}></div>
                           )}

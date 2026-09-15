@@ -11,6 +11,9 @@
 //   可滚动（极矮屏兜底失效），wheel 直接放行，避免吞掉页面滚动。
 // - 捏合缩放（ctrl+wheel）不接管。尊重 prefers-reduced-motion：时间
 //   常数取 0，输入直接贴齐目标。
+// - 进度持久化（2026-09-15）：传入 persistKey 时，target 每次因输入变化
+//   都写 sessionStorage（`works-rail:<key>`）；重新挂载（点卡片进详情再
+//   返回）时恢复到离开前的位置，max=0 的早期测量不会清掉恢复值。
 // - 拖拽位移 >6px 视为拖拽而非点击：capture 阶段吞掉紧随的 click，
 //   防止松手时误触卡片链接；无 click 跟随（松在空白处）则由微任务
 //   计时器复位标记。
@@ -28,11 +31,37 @@
 
 const LINE = 16; // deltaMode === 1（行）时的像素折算
 
-export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, rulerEl, total = 1, onRender, getMax }) {
+export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, rulerEl, total = 1, onRender, getMax, persistKey, persistGuard }) {
+  // ── 进度持久化（2026-09-15：点卡片进详情再返回，轨道回到离开时的位置）──
+  // best-effort：sessionStorage 按标签页隔离（同标签往返有效），隐私模式或
+  // 非浏览器环境（qa 桩）静默降级为不记忆。persistKey 缺省 = 不持久化。
+  // persistGuard（2026-09-15 用户裁定「恢复只认板块内往返」）：挂载时求值，
+  // false = 从板块外进入（首页/博客等点进来）——不恢复、并清除已存进度，
+  // 回到初始态；true = 板块内往返（详情页返回 / 浏览器后退 / 刷新）才恢复。
+  // ⚠️ 输入写入不受 guard 影响：离开时的进度总是先写下来，由**下一次挂载**
+  // 的 guard 裁决用还是清——guard 不能放进 persist()，否则写不下来。
+  const store = globalThis.sessionStorage ?? null;
+  const pKey = persistKey ? `works-rail:${persistKey}` : null;
+  const keepPersisted = typeof persistGuard === 'function' ? !!persistGuard() : true;
+  if (pKey && store && !keepPersisted) {
+    try { store.removeItem(pKey); } catch {}
+  }
+  const readSaved = () => {
+    if (!pKey || !store || !keepPersisted) return 0;
+    try {
+      const v = Number(store.getItem(pKey));
+      return Number.isFinite(v) && v > 0 ? v : 0;
+    } catch { return 0; }
+  };
+  const persist = () => {
+    if (!pKey || !store) return;
+    try { store.setItem(pKey, String(Math.round(target))); } catch {}
+  };
+
   let max = 0;        // 可横移总里程 px
   let frameMax = 0;   // 顶部刻度尺上游标可移动里程 px
-  let target = 0;     // 逻辑进度（0..max）
-  let pos = 0;        // 渲染进度
+  let target = readSaved(); // 逻辑进度（0..max）；恢复值由 measure() 首次 clamp 到里程内
+  let pos = target;   // 渲染进度
   let raf = 0;
   let lastT = 0;
   let locked = false; // 弹层（分类卷宗）打开时置 true，暂停全部轨道输入
@@ -89,9 +118,11 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     frameMax = frameEl && rulerEl
       ? Math.max(0, rulerEl.clientWidth - frameEl.offsetWidth)
       : 0;
-    target = clamp(target, 0, max);
+    // ⚠️ max=0（几何未就绪）时不能 clamp——会把 sessionStorage 恢复的进度
+    // 清零；留给补测轮（max>0）再 clamp。max>0 时 clamp 防的是 resize 后越界。
+    target = max > 0 ? clamp(target, 0, max) : target;
     if (!raf) {
-      pos = clamp(pos, 0, max);
+      pos = max > 0 ? clamp(pos, 0, max) : pos;
       render();
     }
     // 里程为 0 ⇒ 极可能本次测量早于布局/字体就绪（getMax 读到的几何全是 0）。
@@ -128,6 +159,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     e.preventDefault();
     // 降低灵敏度：除以 3 让滚动更慢
     target = clamp(target + d / 3, 0, max);
+    persist();
     kick();
   }
 
@@ -171,6 +203,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     if (moved) {
       target = clamp(target - dx, 0, max);
       pos = target;
+      persist();
       const t = performance.now();
       const dts = t - lastVT;
       if (dts > 0) {
@@ -189,6 +222,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     }
     if (moved) {
       target = clamp(target - lastVX * 80, 0, max);
+      persist();
       kick();
       setTimeout(() => {
         moved = false;
@@ -219,6 +253,7 @@ export function createWorksRail({ viewport, rail, nowEl, progressEl, frameEl, ru
     if (next === null) return;
     e.preventDefault();
     target = clamp(next, 0, max);
+    persist();
     kick();
   }
 

@@ -1,11 +1,17 @@
 ---
-// 英文作品详情页（2026-09-14 i18n 第 2 期）：/en/works/01/ … /en/works/08/。
+// 英文作品详情页（2026-09-14 i18n 第 2 期）：/en/works/01/ … /en/works/09/。
 // 中文对应物 = src/pages/works/[slug].astro，差异仅在**语言**——版式由
-// src/styles/work-detail.css 共享，界面文案由 ui.ts 共享。
+// src/styles/work-detail.css（规整版）与 src/styles/sketchbook.css（绘画墙版）
+// 共享，界面文案由 ui.ts 共享。
 //
-// ⚠️ 作品文案（title/desc/tags/status/year）来自 profile.json.works，属**内容层**，
-//    按既定阶段划分本期保持中文（外国访客看得到编号、封面与跳转按钮）。
-//    界面外壳（返回链 / 上一篇下一篇 / 按钮文案）已全部英文化。
+// ── 双版式分支（2026-09-15）───────────────────────────────────────────
+// 与中文版逐条对应：item.detail === 'sketchbook' 时走绘画墙版式（不规则挂墙
+// 摆放），否则走规整档案版式。判据只读数据，两页不会分叉。
+//
+// ⚠️ 作品文案（title/desc/tags/status/year 以及 sketchbook 的 piece 标题）
+//    来自 profile.json.works，属**内容层**，按既定阶段划分本期保持中文
+//    （外国访客看得到编号、画作本身与跳转按钮）。
+//    界面外壳（返回链 / 上一篇下一篇 / 挪墙按钮 / 计数）已全部英文化。
 import Base from '../../../layouts/Base.astro';
 import PageHead from '../../../components/PageHead.astro';
 import profile from '../../../data/profile.json';
@@ -13,6 +19,7 @@ import { useTranslations } from '../../../i18n/utils';
 import '../../../styles/sheet.css';
 import '../../../styles/archive-chrome.css';
 import '../../../styles/work-detail.css';
+import '../../../styles/sketchbook.css';
 
 const t = useTranslations('en');
 
@@ -30,6 +37,10 @@ export function getStaticPaths() {
 const { w, idx } = Astro.props;
 const prev = works[(idx - 1 + works.length) % works.length];
 const next = works[(idx + 1) % works.length];
+
+/** 是否为绘画墙版式（与中文版同一判据） */
+const isSketchbook = w.detail === 'sketchbook';
+const pieces = isSketchbook ? (w.sketchbook?.pieces ?? []) : [];
 ---
 <Base
   title={`${w.title} · ${t('section.works.title')} · ${t('site.title')}`}
@@ -44,38 +55,107 @@ const next = works[(idx + 1) % works.length];
       locale="en"
     />
 
-    <section class="hero">
-      <p class="en" aria-hidden="true">{w.en}</p>
-      <h1>{w.title}</h1>
-      <div class="meta">
-        <span class="status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
-        <span>{w.year}</span>
+    {isSketchbook ? (
+      /* ── Sketchbook wall layout: narrower header, body is a draggable wall ── */
+      <div class="sb">
+        <section class="sb-hero">
+          <p class="sb-hero__en" aria-hidden="true">{w.en}</p>
+          <h1>{w.title}</h1>
+          <p class="sb-hero__script" aria-hidden="true">{w.sketchbook?.subtitle}</p>
+          <p class="sb-hero__lede">{w.desc}</p>
+          <div class="sb-hero__meta">
+            <span class="sb-hero__status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
+            <span>{w.year}</span>
+            <span>{t('sketch.pieceCount').replace('{n}', String(pieces.length))}</span>
+          </div>
+        </section>
+
+        <section class="sb-wall-wrap" aria-label={t('sketch.wallAria')}>
+          {/* tabindex=0: a horizontally scrollable region must be keyboard
+              focusable so ← → can pan it. */}
+          <div class="sb-wall" data-sb-wall tabindex="0">
+            <div class="sb-track" data-sb-track>
+              {pieces.map((p) => (
+                <a
+                  class="sb-piece"
+                  href={p.src}
+                  data-x={p.x}
+                  data-y={p.y}
+                  data-w={p.w}
+                  data-rot={p.rot}
+                  data-z={p.z}
+                  aria-label={`${p.title} (${p.year} · ${p.medium}) — ${t('sketch.enlarge')}`}
+                >
+                  <span class="sb-frame">
+                    <img
+                      class="sb-photo"
+                      src={p.src}
+                      alt={`${p.title} · ${p.medium}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </span>
+                  <span class="sb-caption" aria-hidden="true">
+                    <span class="sb-caption__title">{p.title}</span>
+                    <span class="sb-caption__meta">{p.year} · {p.medium}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <div class="sb-tools">
+          <span class="sb-tools__hint">{t('sketch.dragHint')}</span>
+          <span class="sb-tools__spacer"></span>
+          <button type="button" class="sb-btn" data-sb-prev aria-label={t('sketch.scrollPrev')}>←</button>
+          <button type="button" class="sb-btn" data-sb-next aria-label={t('sketch.scrollNext')}>→</button>
+        </div>
+
+        <section class="sb-foot">
+          <p class="sb-foot__note">{w.sketchbook?.note}</p>
+          <ul class="sb-chips" role="list">
+            {w.tags.map((tag) => <li>{tag}</li>)}
+          </ul>
+        </section>
       </div>
-    </section>
+    ) : (
+      /* ── Regular archive layout (unchanged) ── */
+      <>
+        <section class="hero">
+          <p class="en" aria-hidden="true">{w.en}</p>
+          <h1>{w.title}</h1>
+          <div class="meta">
+            <span class="status" data-tone={w.status === '上线' ? 'red' : 'ink'}>{w.status}</span>
+            <span>{w.year}</span>
+          </div>
+        </section>
 
-    {w.img && (
-      <section class="preview">
-        <img src={w.img} alt={w.title} loading="lazy" decoding="async" />
-      </section>
+        {w.img && (
+          <section class="preview">
+            <img src={w.img} alt={w.title} loading="lazy" decoding="async" />
+          </section>
+        )}
+
+        <section class="detail">
+          <p class="desc">{w.desc}</p>
+          <ul class="chips" role="list">
+            {w.tags.map((tag) => <li>{tag}</li>)}
+          </ul>
+          {w.href ? (
+            <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+              {w.href === '/'
+                ? t('work.gotoHome')
+                : w.href.includes('github.com')
+                  ? t('work.gotoGithub')
+                  : t('work.gotoProject')}
+            </a>
+          ) : (
+            <span class="go go--none">{t('work.notArchived')}</span>
+          )}
+        </section>
+      </>
     )}
-
-    <section class="detail">
-      <p class="desc">{w.desc}</p>
-      <ul class="chips" role="list">
-        {w.tags.map((tag) => <li>{tag}</li>)}
-      </ul>
-      {w.href ? (
-        <a class="go" href={w.href} rel={w.href.startsWith('http') ? 'noopener noreferrer' : undefined}>
-          {w.href === '/'
-            ? t('work.gotoHome')
-            : w.href.includes('github.com')
-              ? t('work.gotoGithub')
-              : t('work.gotoProject')}
-        </a>
-      ) : (
-        <span class="go go--none">{t('work.notArchived')}</span>
-      )}
-    </section>
 
     <nav class="pn" aria-label={t('work.pnAria')}>
       <a class="pn-link" href={`/en/works/${prev.no}/`}><small>{t('work.prev')}</small>{prev.title}</a>
@@ -93,6 +173,13 @@ const next = works[(idx + 1) % works.length];
   </main>
 </Base>
 
+<script>
+  /* The wall script self-detects via [data-sb-wall]; on the regular layout
+     pages it returns immediately (zero overhead). */
+  import { mountSketchbookWall } from '../../../lib/sketchbook.js';
+  mountSketchbookWall();
+</script>
+
 <style>
-  /* 版式见 src/styles/work-detail.css。 */
+  /* 版式见 src/styles/work-detail.css 与 src/styles/sketchbook.css。 */
 </style>

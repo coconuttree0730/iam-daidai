@@ -18,6 +18,10 @@ const sets = cats.filter(c => c.id !== 'inbox').map(cat => {
     ...items.reverse().map(w => ({
       type: 'work', no: w.no, title: w.title, en: w.en,
       img: w.img, cover: w.cover, href: `/works/${w.no}/`,
+      /* 可选：封面填充方式。缺省 cover（满幅裁切）；"contain" = 完整显示不裁切，
+         用于素材比例与卡片框（约 1.37:1）差得远的条目 —— 09「板绘」封面是
+         2.01:1 的双画框横排，cover 会切掉两侧约 16%（画框白边 + 标题）。 */
+      fit: w.imgFit,
     })),
     /* 空类目：没有作品时补一张「敬请期待」空态卡（2026-09-15 用户裁定） */
     ...(items.length === 0 ? [{ type: 'empty' }] : []),
@@ -55,7 +59,7 @@ const t = useTranslations('zh');
                       {card.type === 'work' ? (
                         <a class="card-link" href={card.href}>
                           {card.img ? (
-                            <img class="card-img" src={card.img} alt={card.title} loading="lazy" decoding="async" />
+                            <img class="card-img" data-fit={card.fit} src={card.img} alt={card.title} loading="lazy" decoding="async" />
                           ) : (
                             <div class="card-placeholder" data-cover={card.cover}></div>
                           )}

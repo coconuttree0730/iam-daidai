@@ -33,25 +33,27 @@
 //    两侧一致计入、不影响换算。transform 不影响布局值，每帧写位移不污染测量。
 //    改 rail/viewport 的盒模型或对齐方式时必须重新核对这条等价。
 //
-// ⚠️ **停靠点模型（2026-09-15 v3：加 intro 首站，用户微调）**：
-//    stops = [intro, set0…setN, end, endFly]。intro = 初始态：首卡中心钉在
+// ⚠️ **停靠点模型（2026-09-15 v4：删 endFly 虚拟站，「完」卡居中即触底）**：
+//    stops = [intro, set0…setN, end]。intro = 初始态：首卡中心钉在
 //    视口右缘（恰好露出左半边，「滚动查看作品」提示居于左侧空白区中点）；
-//    组 0 停靠 = 卡片滑到正中（居中位移即旧 v2 的 raw[0]）。endFly 是
-//    **虚拟末站**：在 end 的居中位移之外再延「一卡宽 + 20% 视口」，只用来
-//    把 progress=1 顶到「完」卡飞入完成的瞬间；轨道在 [end → endFly] 段
-//    钉在 end 站不动，这段行程全部被「完」卡的飞入期消耗。时间轴用
-//    **行程权重**（times[j] = norm[j]/norm[endFly]）；**raw 与 times 从 v2
-//    起整体右移一位**：组 k 到站 = times[k+1]、下一段到站 = times[k+2]。
-//    首段 [intro → 组0] 无三拍（无卡可飞入），滚动全程平滑滑动到正中；
-//    且滚动消耗按 INTRO_BUDGET 压缩（2026-09-15 用户裁定「一圈滚轮才到，太慢」，
-//    见常量注释——max 是滚动空间而非轨道里程，pos→progress 分段换算）。
+//    组 0 停靠 = 卡片滑到正中（居中位移即旧 v2 的 raw[0]）。v3 曾在 end
+//    之后再派虚拟末站 endFly（多延「一卡宽 + 20% 视口」）供「完」卡到站后
+//    飞入——代价是飞入完成后（末段 17.5% 处）剩余 82.5% 滚程全是死区
+//    （滚轮空转、进度条空走），用户裁定「完」卡居中即触底，遂删除：
+//    「完」卡飞入并入 [末组 → end] 过渡期，与轨道滑动同时进行、同时完成
+//    （见 renderCascade 末卡块）。时间轴用**行程权重**（times[j] =
+//    norm[j]/norm[end]）；**raw 与 times 从 v2 起整体右移一位**：组 k 到站 =
+//    times[k+1]、下一段到站 = times[k+2]。首段 [intro → 组0] 无三拍（无卡
+//    可飞入），滚动全程平滑滑动到正中；且滚动消耗按 INTRO_BUDGET 压缩
+//    （2026-09-15 用户裁定「一圈滚轮才到，太慢」，见常量注释——max 是滚动
+//    空间而非轨道里程，pos→progress 分段换算）。
 //
-// ⚠️ **「完」卡播放形式与其他组同构（2026-09-15，用户裁定「做成卡片」）**：
+// ⚠️ **「完」卡播放形式（2026-09-15，用户裁定「做成卡片」→ v4 并入过渡）**：
 //    此前它是一张 ~216px 的小卡、全程可见（用户观感「固定在页面上」），
 //    且居中这张小卡只能把最后一张作品卡推出一半——末端状态永远有半张
-//    旧卡赖在屏上。现在改为与其他组同一套三拍：最后一段过渡时空白滑入
-//    （opacity 0），到站后钉在中心、消费末段飞入期从右侧飞入（同组内
-//    卡 0 的节奏），progress=1 恰好飞入完成。纯函数，上滑倒放可逆。
+//    旧卡赖在屏上。v3 改为整卡 + 三拍（到站后飞入，endFly 供行程）；v4
+//    起（用户裁定「完」卡居中即触底）飞入并入末段过渡：与轨道滑动同时
+//    开始、同时完成，progress=1 = 「完」卡居中 = 触底。纯函数，上滑倒放可逆。
 //
 // ⚠️ **每段三拍节奏（用户 2026-09-14 22:15 文字规格，逐条对应）**：
 //    段 [组k → 组k+1] = **飞入期(FLY) + 空转停顿(IDLE) + 过渡(其余)**：
@@ -78,7 +80,7 @@ import { createWorksRail } from './works-rail.js';
 
 /** 飞入期占段程比例：组钉在中心，卡 1..n 依次飞入 */
 const FLY = 0.5;
-/** 空转停顿占段程比例：飞入完成后的纯静止区间（滚轮空转几下） */
+/** 空转停顿时长（占段程比例）：自末卡（封皮）落位起算的纯静止区间（滚轮空转几下） */
 const IDLE = 0.08;
 /** 卡间错位（飞入轴）：卡 i 从飞入进度 i·STAG 开始起飞 */
 const STAG = 0.25;
@@ -107,9 +109,9 @@ const HINT_FADE = 0.8;
 /**
  * 首段滚动预算（2026-09-15 用户裁定「一圈滚轮才到屏心，太慢」）：
  * intro 段的轨道里程恰为半视口宽，原先按里程全额计费滚轮；现在只收
- * 里程 × 此比例——与普通段过渡期（1 - FLY - IDLE）的滚动密度一致，
- * 约半圈滚轮到站。max 与 progress 的分段换算在 stackMax / renderCascade，
- * 两处消费同一份几何公式，改一处必改另一处。
+ * 里程 × 此比例——量级与普通段过渡期的滚动密度相当（过渡期自末卡落位
+ * 点起算，见 renderCascade 的 goAt），约半圈滚轮到站。max 与 progress 的
+ * 分段换算在 stackMax / renderCascade，两处消费同一份几何公式，改一处必改另一处。
  */
 const INTRO_BUDGET = 0.42;
 
@@ -138,9 +140,9 @@ export function mountWorksRail() {
    * （居中基准，可为负）：
    *   [0]      —— intro：首卡中心钉在视口右缘（露左半边），v3 用户微调
    *   [1..n+1] —— 各 .card-set 居中
-   *   [n+2]    —— 「完」的牌面居中（测量 .endcard 包裹层，见下）
-   *   [n+3]    —— 虚拟末站 endFly：位移多延一卡宽 + 20% 视口，轨道不停，
-   *               只为把 progress=1 顶到「完」卡飞入完成（见文件头模型 v3）
+   *   [n+2]    —— 「完」的牌面居中（测量 .endcard 包裹层，见下）。
+   *              v4 起没有 endFly 虚拟站：progress=1 即「完」卡居中（触底），
+   *              其飞入并入 [末组 → end] 过渡期（见 renderCascade）。
    * 归一化（减 intro 项）后得到非负递增的 norm[]，进度 0/1 与首尾停靠点
    * 严格对齐；渲染位移 = -origin - railPos。
    */
@@ -188,9 +190,8 @@ export function mountWorksRail() {
       const size = extent(face);
       const endCenter = p - (view - size) / 2;
       raw.push({ kind: 'end', left: p, width: size, center: endCenter });
-      // 虚拟末站：飞入期行程预算 = 一卡尺寸 + 20% 视口（与普通段的滚轮
-      // 消耗量同量级），不对应任何真实位移——renderCascade 在此段钉住轨道。
-      raw.push({ kind: 'endFly', left: p, width: size, center: endCenter + size + view * 0.2 });
+      // v4 起无 endFly 虚拟末站：末站即「完」卡居中（触底）。其飞入行程
+      // 并入 [末组 → end] 过渡期，见 renderCascade 末卡块与文件头模型 v4。
     }
 
     return { vw, vh, vertical, raw };
@@ -258,15 +259,23 @@ export function mountWorksRail() {
     const segProgress = clamp((progress - times[segIdx]) / segLen, 0, 1);
 
     // 轨道：飞入期 + 空转期钉在本段起点（组 k 保持居中），过渡期滑向下一站。
+    // 空转期起点 = 本组末卡（封皮）实际落位点 + IDLE，而非固定 FLY+IDLE——
+    // 封皮在 flyP=(n-1)·STAG+FLY_WIN 落位（n=2 组 sp≈0.30、n=3 组 sp≈0.425），
+    // 早于 FLY 期名义终点；固定写法会让「全部落位却仍钉住」的死区高达 28%
+    // 段程（n=2 组），表现即「封面出现后滚约一圈画面才动」（2026-09-15 用户
+    // 裁定压到半圈：去掉死区，落位后只留 IDLE 一小段停顿即起步过渡）。
+    // 注：段 segIdx 内飞入的是第 segIdx-1 组（arrive = times[setIdx+1]）。
     // 例外一：首段 [intro → 组0] 无卡可飞入，滚动全程平滑滑到正中（无空转死区）。
-    // 例外二：末段 [end → endFly] 的下一站是虚拟站，轨道整段钉在 end（「完」
-    // 卡居中位）不动，行程全部让给「完」卡的飞入期。
-    const goAt = FLY + IDLE;
-    const nextStop = raw[segIdx + 1];
+    // （v3 曾有例外二：末段整段钉在 end、行程让给「完」卡飞入——endFly 已删，
+    // 「完」卡飞入改并入过渡期，末段即普通过渡。）
+    const curSet = cardSets[segIdx - 1];
+    const nCur = curSet ? curSet.querySelectorAll('.stack-card').length : 0;
+    const spLand = nCur > 0 ? FLY * Math.min((nCur - 1) * STAG + FLY_WIN, 1) : FLY;
+    const goAt = clamp(spLand + IDLE, 0, 1);
     let railPos;
     if (raw[segIdx].kind === 'intro') {
       railPos = norm[segIdx] + (norm[segIdx + 1] - norm[segIdx]) * smoothstep(segProgress);
-    } else if (segProgress <= goAt || nextStop.kind === 'endFly') {
+    } else if (segProgress <= goAt) {
       railPos = norm[segIdx];
     } else {
       const t = (segProgress - goAt) / (1 - goAt);
@@ -345,28 +354,27 @@ export function mountWorksRail() {
       });
     });
 
-    // ── 「完」卡（与其他组同构的三拍，2026-09-15）──
-    // 到站 times[end] 前随轨道空白滑入（opacity 0）；到站后轨道钉在 end 站，
-    // 「完」卡消费末段 [end → endFly] 的飞入期从右侧 80% 飞入（同组内卡 0
-    // 的节奏：STAG=0、窗口 FLY_WIN），progress=1 恰好飞入完成。写在
-    // .endcard（<a>）上，不碰 .endcard-face——后者留着做 hover 的 rotate。
-    const endStop = raw[stopCount - 2];
-    const endFlyStop = raw[stopCount - 1];
+    // ── 「完」卡（v4：飞入并入 [末组 → end] 过渡期，「完」卡居中 = 触底）──
+    // v3 曾把飞入放在 [end → endFly] 段（到站后轨道钉住、卡从右侧飞入），
+    // 代价是飞入完成后（末段 17.5% 处）剩余滚程全为死区——用户裁定「完」卡
+    // 居中即触底，endFly 删除。现在：当前段是末段且过渡已起步（segProgress >
+    // goAt，goAt 即末组末卡落位 + IDLE，上方已算好）时，用过渡进度 t 驱动
+    // easeOutCubic 飞入，与轨道滑动同时开始、同时完成；其余段 opacity 0。
+    // 写在 .endcard（<a>）上，不碰 .endcard-face——后者留着做 hover 的 rotate。
+    const endStop = raw[stopCount - 1];
     const endcardEl = document.querySelector('.end-set .endcard');
-    if (endcardEl && endStop?.kind === 'end' && endFlyStop?.kind === 'endFly') {
-      const arrive = times[stopCount - 2];
-      const seg = Math.max(1 - arrive, 1e-4);
-      const sp = clamp((progress - arrive) / seg, 0, 1);
-      const flyP = clamp(sp / FLY, 0, 1);
-      const win = Math.min(FLY_WIN, 1);
-      const reveal = clamp(flyP / win, 0, 1);
-      const eased = 1 - Math.pow(1 - reveal, 3);
+    if (endcardEl && endStop?.kind === 'end') {
+      let eased = 0;
+      if (segIdx === stopCount - 2) {
+        const t = clamp((segProgress - goAt) / Math.max(1 - goAt, 1e-4), 0, 1);
+        eased = 1 - Math.pow(1 - t, 3);
+      }
       const isMobile = vw < 640;
       const startX = isMobile ? START_X_MOBILE : START_X_DESKTOP;
       endcardEl.style.transform = vertical
         ? `translateY(${START_Y_MOBILE * (1 - eased)}%)`
         : `translateX(${startX * (1 - eased)}%)`;
-      endcardEl.style.opacity = String(reveal > 0 ? 1 : 0);
+      endcardEl.style.opacity = String(eased > 0 ? 1 : 0);
     }
   }
 
@@ -379,6 +387,18 @@ export function mountWorksRail() {
         total,
         onRender: renderCascade,
         getMax: stackMax,
+        // 点卡片进详情再返回时，恢复到离开前的轨道位置（中英文两页共享）
+        persistKey: 'works',
+        // ⚠️ 恢复有边界（2026-09-15 用户裁定）：只有「还在作品集板块内」的
+        // 往返才恢复——详情页（/works/<no>/，含 /en/works/）返回、浏览器后退
+        // （back_forward）、刷新（reload）；从板块外（首页/博客/游乐场…）点
+        // 进来一律回到初始态（首图开始），并清掉残留进度。guard 在挂载时
+        // 求值（works-rail.js），referrer 判据对中英文详情页同时成立。
+        persistGuard: () =>
+          /\/works\//.test(document.referrer) ||
+          ['back_forward', 'reload'].includes(
+            performance.getEntriesByType?.('navigation')?.[0]?.type,
+          ),
       })
     : null;
 }

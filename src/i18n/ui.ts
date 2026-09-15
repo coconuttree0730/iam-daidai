@@ -179,6 +179,17 @@ export const ui = {
     'work.notArchived': '尚未归档 · 敬请期待',
     'work.pnAria': '上一篇 / 下一篇',
 
+    // ── 绘画墙详情页（/works/09/ 专用版式，2026-09-15）──
+    // 范围提醒：作品标题 / 说明 / 年份 / 技法都是**内容**，在 profile.json
+    // 的 works.items[].sketchbook 里；这里只放界面控件与结构文案。
+    'sketch.wallAria': '绘画作品墙',
+    'sketch.scrollPrev': '向左挪动墙面',
+    'sketch.scrollNext': '向右挪动墙面',
+    'sketch.dragHint': '拖动或滚动看完整面墙',
+    'sketch.pieceCount': '已挂 {n} 幅',
+    'sketch.wallSign': '画墙',
+    'sketch.enlarge': '看大图',
+
     // ── 博客列表页（blog/[...page].astro）──
     'blog.search': '站内全文检索',
     'blog.searchPlaceholder': '检索文章全文…',
@@ -394,6 +405,17 @@ export const ui = {
     'work.gotoProject': 'Visit project →',
     'work.notArchived': 'Not archived yet · coming soon',
     'work.pnAria': 'Previous / next work',
+
+    // ── Sketchbook wall detail page (/works/09/ layout, 2026-09-15) ──
+    // Scope reminder: piece titles / notes / years / media are *content* and
+    // live in profile.json → works.items[].sketchbook. Only shell + controls here.
+    'sketch.wallAria': 'Painting wall',
+    'sketch.scrollPrev': 'Shift the wall left',
+    'sketch.scrollNext': 'Shift the wall right',
+    'sketch.dragHint': 'Drag or scroll to see the whole wall',
+    'sketch.pieceCount': '{n} works hung',
+    'sketch.wallSign': 'WALL',
+    'sketch.enlarge': 'View larger',
 
     // ── Blog list page ──
     'blog.search': 'Search this site',
