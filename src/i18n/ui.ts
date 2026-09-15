@@ -6,7 +6,7 @@
 //             组件 tooltip、脚本运行时提示（toast）
 //   ✗ 不放这里：hero 大字与四卡菜单名 → src/data/profile.json
 //               公告条目       → src/data/announcements.json
-//               实验室条目说明 → src/data/lab.json
+//               游乐场条目说明 → src/data/lab.json
 //               作品描述 / 文章正文 → profile.json / src/content/post/
 //
 // 为什么用扁平点号键（而非嵌套对象树）：key 用字符串字面量类型，拼错在
@@ -38,7 +38,7 @@ export const ui = {
     'head.backBlog': '← 返回博客',
     'head.backWorks': '← 返回作品集',
     'head.backTags': '← 返回标签索引',
-    'head.backLab': '← 返回实验室',
+    'head.backLab': '← 返回游乐场',
     /** 语言切换器：当前语言下的按钮标题（点了会去另一种语言） */
     'head.switchTo': '切换到 English',
 
@@ -46,15 +46,15 @@ export const ui = {
     'nav.basic': '关于我...',
     'nav.works': '作品集',
     'nav.blog': '博客',
-    'nav.lab': '实验室',
+    'nav.lab': '游乐场',
 
     // ── 板块页头 ──
     'section.works.title': '作品集',
     'section.works.desc': '作品集板块 · 精选项目档案',
     'section.blog.title': '博客',
     'section.blog.desc': '博客板块 · 文章归档',
-    'section.lab.title': '实验室',
-    'section.lab.desc': '实验室板块 · 交互实验与教材，每个条目都附可运行的原始演示',
+    'section.lab.title': '游乐场',
+    'section.lab.desc': '游乐场板块 · 交互实验与教材，每个条目都附可运行的原始演示',
     'section.tags.title': '标签索引',
     'section.tags.desc': '博客板块 · 全部标签归档',
 
@@ -82,6 +82,7 @@ export const ui = {
     'announce.button': '公告',
     'announce.pinned': '置顶',
     'announce.aria': '公告',
+    'announce.more': '查看详情',
 
     // ── 昼夜章（ThemeToggle.astro）──
     'theme.toggle': '切换日间 / 夜间模式',
@@ -134,6 +135,7 @@ export const ui = {
 
     // ── 作品集页（works.astro）──
     'works.end': '完',
+    'works.coming': '敬请期待',
     'works.endCta': '有想一起做的项目？',
     'works.scrollHint': '滚动查看作品',
 
@@ -179,7 +181,7 @@ export const ui = {
     'post.noscriptCopy': '复制此链接分享：',
 
     // ── 分类索引页（/categories/ 与 /en/categories/ 共用，2026-09-14 英文档补齐）──
-    'section.cats.title': '分类索引',
+    'section.cats.title': '分类',
     'section.cats.desc': '博客板块 · 按领域归档',
     'cats.index': '索引',
     'cats.chipAllTags': '全部标签',
@@ -191,7 +193,7 @@ export const ui = {
     'cats.noneNote': 'NO CATEGORIES · 建站方向确定后在此登记',
     'cats.uncategorized': '未登记分类 · 请在 src/data/categories.ts 补充说明',
     'cats.lede':
-      '已归类 {a} / {b} 篇 · 分类是「领域」，标签是「关键词」——两套并行的检索入口',
+      '已归类 {a} / {b} 篇 ',
     'cats.count': '{n} 篇',
     'cats.empty': '暂无文章',
     'cats.emptyNote': 'EMPTY · 这个方向还没开始写',
@@ -205,8 +207,8 @@ export const ui = {
     'notfound.desc': '你要找的页面不在这个档案馆里。',
     'notfound.home': '← 回到档案馆',
 
-    // ── 实验室滚动演示页（lab/scroll.astro）──
-    'scroll.backLab': '← 返回实验室',
+    // ── 游乐场滚动演示页（lab/scroll.astro）──
+    'scroll.backLab': '← 返回游乐场',
     'scroll.close': '关闭',
     'scroll.heroTitle': '滚动帧随动',
     'scroll.viewPrinciple': '查看原理说明',
@@ -223,21 +225,21 @@ export const ui = {
     'head.backBlog': '← Back to blog',
     'head.backWorks': '← Back to works',
     'head.backTags': '← Back to tags',
-    'head.backLab': '← Back to lab',
+    'head.backLab': '← Back to playground',
     'head.switchTo': 'Switch to 中文',
 
     // ── Home four cards (site-wide nav) ──
     'nav.basic': 'About me...',
     'nav.works': 'Works',
     'nav.blog': 'Blog',
-    'nav.lab': 'Lab',
+    'nav.lab': 'Playground',
 
     // ── Section heads ──
     'section.works.title': 'Works',
     'section.works.desc': 'Selected projects and case files',
     'section.blog.title': 'Blog',
     'section.blog.desc': 'Posts and notes, archived',
-    'section.lab.title': 'Lab',
+    'section.lab.title': 'Playground',
     'section.lab.desc': 'Interactive experiments and write-ups, each with a runnable demo',
     'section.tags.title': 'Tags',
     'section.tags.desc': 'All tags used across the blog',
@@ -266,6 +268,7 @@ export const ui = {
     'announce.button': 'Notices',
     'announce.pinned': 'Pinned',
     'announce.aria': 'Notices',
+    'announce.more': 'Read more',
 
     // ── Theme toggle ──
     'theme.toggle': 'Switch between day and night mode',
@@ -318,6 +321,7 @@ export const ui = {
 
     // ── Works page ──
     'works.end': 'FIN',
+    'works.coming': 'COMING SOON',
     'works.endCta': 'Got something to build together?',
     'works.scrollHint': 'Scroll to see the stack',
 
@@ -391,7 +395,7 @@ export const ui = {
     'notfound.home': '← Back to archive',
 
     // ── Lab scroll demo page ──
-    'scroll.backLab': '← Back to lab',
+    'scroll.backLab': '← Back to playground',
     'scroll.close': 'Close',
     'scroll.heroTitle': 'Scroll-driven frames',
     'scroll.viewPrinciple': 'How it works',

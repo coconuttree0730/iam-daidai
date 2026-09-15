@@ -34,7 +34,6 @@ const contact = {
   note: L(raw.note),
   consent: L(raw.consent),
   submit: L(raw.submit),
-  submitZh: L(raw.submitZh),
   fields: raw.fields.map((f) => ({
     ...f,
     label: L(f.label),
@@ -88,7 +87,6 @@ const msgs = {
   <div class="outro-contact-actions">
     <button type="submit" class="outro-submit">
       {contact.submit}
-      <em>{contact.submitZh}</em>
     </button>
   </div>
 
@@ -173,7 +171,7 @@ const msgs = {
       String(tpl ?? '').replace(/\{(\w+)\}/g, (w, k) => (k in vars ? String(vars[k]) : w));
 
     /* 提交中禁用按钮防连点：换文案 SENDING…（与 SEND MESSAGE 同风格大写），
-       结束后按 data-label 还原双层结构（<em> 副文案在内）。 */
+       结束后按 data-label 还原按钮文案。 */
     const setBusy = (busy) => {
       if (!submitBtn) return;
       submitBtn.disabled = busy;

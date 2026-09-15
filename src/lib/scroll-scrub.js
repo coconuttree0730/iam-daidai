@@ -242,6 +242,53 @@ if (view) {
        作品集 → 返回）时浏览器会保留它，不显式清一次会带着上次的飞散态入场。 */
     setScatter(0);
 
+    /* ── 语言切换原位恢复（2026-09-14 用户裁定）────────────────────────
+     * 诉求：在底部（或任意 scrub 进度）点页头「EN/中」切换语言，新页面要
+     * 停在**当前位置**，而不是回到顶部重放。首页不滚动——纵向输入全被本
+     * 模块吃成时间轴进度，所以「位置」不能用 scrollY 表达，必须持久化
+     * scrub 进度本身（内页的 scrollY 恢复走 Base.astro 的另一把钥匙，
+     * 两把钥匙互不干扰）。
+     *
+     * 写入：capture 阶段监听全文档点击，命中语言切换链（a.lang）时把当前
+     * **归一化进度** acc/range 存进 sessionStorage。用 capture 而非冒泡：
+     * 不依赖链接内部结构，也赶在浏览器导航离页前落盘。存归一化值而非 acc
+     * 像素——range 按输入设备自适应（滚轮/触摸板两档），恢复时要用新页面
+     * 的 range 重新折算。
+     * 读取：初始化时发现钥匙即消费（一次性握手，读后立删）：按当前 range
+     * 折算回 acc、setActive(true) 换上 scrub 素材，再 animator.snap 到位。
+     * 必须用 snap 而非 setProgress：后者从 f0 缓动过去，整条时间轴快进
+     * 一遍——正是用户否掉的「回到顶部」观感的变体。snap 触发的 render 回调
+     * 会同步写 --sc，HeroStage 的 MutationObserver 随即置 data-outro 标记，
+     * 收尾区（表单/语录）的指针交互在恢复到位后立即可用。
+     * 进度为 0（还在 hero 指针跟随态）时不存不恢复：新页面默认就是该态。 */
+    const LANG_SCRUB_KEY = 'langswitch:scrub';
+    document.addEventListener(
+      'click',
+      (event) => {
+        const t = event.target;
+        if (!(t instanceof Element) || !t.closest('a.lang')) return;
+        try {
+          sessionStorage.setItem(
+            LANG_SCRUB_KEY,
+            (range > 0 ? acc / range : 0).toFixed(4)
+          );
+        } catch {}
+      },
+      true
+    );
+    try {
+      const stored = Number.parseFloat(
+        sessionStorage.getItem(LANG_SCRUB_KEY) ?? ''
+      );
+      sessionStorage.removeItem(LANG_SCRUB_KEY);
+      if (Number.isFinite(stored) && stored > 0) {
+        const p = clamp01(stored);
+        acc = p * range;
+        if (!active) setActive(true);
+        animator.snap(p);
+      }
+    } catch {}
+
     /* 滚轮：line 模式（Firefox）按 ~40px/格 归一。passive:false 以便在
        scrub 生效期间阻止页面滚动（矮视口下 hero min-height 会产生滚动条）。 */
     window.addEventListener(

@@ -1,5 +1,6 @@
 ---
-// 实验室板块（/lab/）：2026-09-13 第八轮从「档案整理中」占位页改建为**条目卡片墙**。
+// 游乐场板块（/lab/）：2026-09-13 第八轮从「档案整理中」占位页改建为**条目卡片墙**；
+// 2026-09-15 用户裁定显示名「实验室」→「游乐场」（en: Playground），URL /lab/ 不动。
 //
 // 定位：把做过的东西拆开讲——每个条目都带可交互的原始演示，卡片是它的封面与
 // 内容提要。条目数据在 src/data/lab.json（构建时静态 import，运行时零 fetch），
@@ -28,7 +29,7 @@ const t = useTranslations('zh');
     <PageHead no="NO.04" back={{ label: t('head.backHome'), href: '/' }} />
 
     <section class="hero">
-      <p class="en" aria-hidden="true">LAB</p>
+      <p class="en" aria-hidden="true">PLAYGROUND</p>
       <h1>{t('section.lab.title')}</h1>
       <p class="hero__note">{t('lab.heroSub')}</p>
     </section>

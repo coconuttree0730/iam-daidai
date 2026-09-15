@@ -1,0 +1,40 @@
+/* 印章墙皮肤（/lab/stamps/，2026-09-15）
+ *
+ * ⚠️ 为什么是独立文件而不是 .astro scoped 样式：.stamp-item 是**运行时注入**
+ *    的 <img>，没有 Astro cid，scoped 选择器整条不生效（MEMORY 的坑）。
+ *    独立 CSS 不走 Astro 编译，因此也**不要写 :global()**（那是 .astro 内的
+ *    语法，普通 CSS 里是无效选择器——反向的坑，2026-09-14 检索框栽过）。
+ *
+ * 墙底 = 主题变量纸底 + --c-check 点格（暗色自动换肤）；印章是透明人物，
+ * 不用跟随翻转的深底（与 /lab/ 卡片封面的 --c-band 裁定同源）。 */
+
+.stamp-wall {
+  position: relative;
+  min-height: clamp(420px, 62vh, 640px);
+  border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  border-radius: 6px;
+  background-color: var(--c-band);
+  background-image: repeating-conic-gradient(
+    var(--c-check) 0% 25%,
+    transparent 0% 50%
+  );
+  background-size: 26px 26px;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stamp-wall--erase {
+  cursor: cell;
+}
+
+.stamp-item {
+  position: absolute;
+  /* 定位由 left/top（百分比）+ 独立 translate 属性完成：位移不塞 transform
+     （全局契约），translate:-50% -50% 把图心对到点击点。注入型 DOM，
+     left/top/rotate/scale 全部由脚本写内联样式。 */
+  translate: -50% -50%;
+  pointer-events: none;
+  opacity: 0.94;
+}

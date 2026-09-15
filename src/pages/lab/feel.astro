@@ -1,0 +1,686 @@
+---
+// 游乐场 · 帧随动手感实验室（/lab/feel/，2026-09-15 新增，LAB-03）
+//
+// 目的：把首页 hero 的跟随手感拆成**可调参数**并实时可视化——smoothTime 缓动、
+// 姿态重定时（frameWarp）、死区矩形、象限热区、映射曲线全部摆上台面。
+// 这是「工程自证」：页面跑的就是线上同款 motion.js / pointer-frame.js 契约
+// （同一份 createSegmentedSpriteRenderer / createFrameAnimator /
+// progressFromPointer），只是把默认值变成滑块。
+//
+// 数据：src/data/atlas-meta.json 构建时静态 import（零 fetch 契约）；
+// 段图（/motion/segments/*.webp）运行时按需解码——与 hero 同性质。
+//
+// 边界：本页是内容层中文教材页，**不做英文版**（与 /lab/scroll/ 同一裁定）；
+// <main id="main"> 必带（键盘跳转契约）。
+import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
+import PageHead from '../../components/PageHead.astro';
+
+const t = useTranslations('zh');
+---
+<Base title="帧随动手感实验室 · 游乐场">
+  <PageHead no="LAB-03" back={{ label: t('head.backLab'), href: '/lab/' }} />
+
+  <main class="lab" id="main">
+    <header class="lab-head">
+      <h1>POINTER / 手感实验室</h1>
+      <span class="sub">LAB-03 · 121 FRAMES · SMOOTHDAMP · FRAMEWARP · 6 SEG WEBP</span>
+      <p class="lede">
+        首页人物不是"看了鼠标"，而是一条映射管线：<b>方向角 → 四象限 → 姿态重定时 →
+        smoothDamp 追帧 → 分段图集切格</b>。左边的舞台跑的就是线上同款驱动——
+        拖动右边的滑块、开关重定时，立刻看到手感与曲线怎么变。
+      </p>
+    </header>
+
+    <div class="layout">
+      <!-- 左列：跟随舞台（sticky） -->
+      <div class="stage-col">
+        <div class="stage-sticky">
+          <div class="stage-box" data-feel-stage>
+            <canvas
+              class="figure"
+              data-feel-sprite
+              width="486"
+              height="596"
+              role="img"
+              aria-label="指针跟随人物立绘，121 帧"
+            ></canvas>
+            <!-- 象限热区覆盖层：几何全部由脚本按 contentBox 实测定位 -->
+            <div class="overlay" data-feel-overlay aria-hidden="true">
+              <i class="ov-dz" data-ov="dz"></i>
+              <i class="ov-axis ov-axis-x" data-ov="ax"></i>
+              <i class="ov-axis ov-axis-y" data-ov="ay"></i>
+              <span class="ov-q" data-ov="qTL">左上 TL</span>
+              <span class="ov-q" data-ov="qTR">右上 TR</span>
+              <span class="ov-q" data-ov="qBL">左下 BL</span>
+              <span class="ov-q" data-ov="qBR">右下 BR</span>
+              <b class="ov-dot" data-ov="dot"></b>
+            </div>
+          </div>
+          <p class="stage-cap">鼠标绕人物转一圈 = 顺时针播完整段帧序</p>
+        </div>
+      </div>
+
+      <!-- 右列：读数 / 参数台 / 映射曲线 -->
+      <div class="anatomy">
+        <figure class="anat">
+          <figcaption>
+            <b>00</b><span class="t">实时读数</span><span class="en">LIVE READOUT</span>
+          </figcaption>
+          <dl class="probe">
+            <div><dt>方向角 φ</dt><dd><span data-live="phi">0.0</span>°</dd></div>
+            <div><dt>象限</dt><dd data-live="quad">死区内</dd></div>
+            <div><dt>进度 p</dt><dd><span data-live="p">0.000</span></dd></div>
+            <div><dt>目标帧 f*</dt><dd><span data-live="ftarget">0</span> / 120</dd></div>
+            <div><dt>当前帧</dt><dd><span data-live="frame">0</span> / 120</dd></div>
+            <div><dt>段驻留 / 解码</dt><dd><span data-live="stats">0 / 0</span></dd></div>
+          </dl>
+        </figure>
+
+        <figure class="anat">
+          <figcaption>
+            <b>01</b><span class="t">参数台</span><span class="en">CONTROLS</span>
+          </figcaption>
+          <div class="controls">
+            <label class="ctl">
+              <span class="ctl__name">缓动 smoothTime <b data-live="stVal">0.110s</b></span>
+              <input
+                type="range"
+                data-ctl="smooth"
+                min="0.020"
+                max="0.400"
+                step="0.005"
+                value="0.110"
+                aria-label="缓动 smoothTime，单位秒"
+              />
+              <span class="ctl__hint">越小越跟手、越大越"漂"。线上 hero 用 0.11。</span>
+            </label>
+            <label class="ctl ctl--check">
+              <input type="checkbox" data-ctl="warp" checked />
+              <span class="ctl__name">姿态重定时 frameWarp</span>
+              <span class="ctl__hint">
+                素材是手势时间轴：看左峰在 f48（39.7%）、正上方视线谷在 f69（57.0%），
+                线性映射会让左半区领先一个象限。控制点把峰对回段中心——关掉对比看看。
+              </span>
+            </label>
+            <label class="ctl ctl--check">
+              <input type="checkbox" data-ctl="overlay" checked />
+              <span class="ctl__name">显示死区与象限热区</span>
+              <span class="ctl__hint">
+                虚线框 = 人物图片区域（contentBox 内缩），框内恒为第 0 帧；
+                四条半轴是象限边界，帧序首尾接缝就落在极点正下方。
+              </span>
+            </label>
+          </div>
+        </figure>
+
+        <figure class="anat">
+          <figcaption>
+            <b>02</b><span class="t">映射曲线 · 进度 p → 帧号 f</span><span class="en">MAPPING</span>
+          </figcaption>
+          <svg class="curve" viewBox="0 0 680 240" role="img" aria-label="进度到帧号的映射曲线：线性基准与姿态重定时对照">
+            <g class="cv-grid">
+              <line x1="50" y1="200" x2="650" y2="200"></line>
+              <line x1="50" y1="20" x2="50" y2="200"></line>
+              {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+                <g>
+                  <line x1={50 + p * 600} y1="200" x2={50 + p * 600} y2="206"></line>
+                  <text class="cv-tick" x={50 + p * 600} y="220" text-anchor="middle">
+                    {p}
+                  </text>
+                </g>
+              ))}
+              {[0, 30, 60, 90, 120].map((f) => (
+                <g>
+                  <line x1="44" y1={200 - (f / 120) * 180} x2="50" y2={200 - (f / 120) * 180}></line>
+                  <text class="cv-tick" x="38" y={204 - (f / 120) * 180} text-anchor="end">
+                    {f}
+                  </text>
+                </g>
+              ))}
+            </g>
+            <line class="cv-identity" x1="50" y1="200" x2="650" y2="20"></line>
+            <polyline class="cv-warp" data-cv="warp" points=""></polyline>
+            <circle class="cv-dot" data-cv="dot" r="5" cx="50" cy="200"></circle>
+            <text class="cv-legend" x="656" y="34" text-anchor="end">虚线 = 线性基准 · 红线 = frameWarp</text>
+          </svg>
+        </figure>
+      </div>
+    </div>
+
+    <footer class="outro">
+      <a href="/lab/">{t('head.backLab')}</a>
+    </footer>
+  </main>
+</Base>
+
+<script>
+  /* 手感实验室驱动：与 demo-driver.js 同一契约，但参数全部由控件接管。
+     刻意不复用 demo-driver——那边的数据流（触摸定格 / 视差 / 输入锁）是
+     首页专用契约，这里只需要「指针 → 进度 → 帧」这一条主干。 */
+  import {
+    createSegmentedSpriteRenderer,
+    createFrameAnimator,
+  } from '../../lib/motion.js';
+  import {
+    progressFromPointer,
+    reachableSpans,
+    quadrantFromPointer,
+    phiOf,
+  } from '../../lib/pointer-frame.js';
+  import atlas from '../../data/atlas-meta.json';
+
+  const stage = document.querySelector('[data-feel-stage]');
+  const sprite = document.querySelector('[data-feel-sprite]');
+  const overlay = document.querySelector('[data-feel-overlay]');
+  if (stage && sprite) {
+    const ov = (name) => overlay?.querySelector(`[data-ov="${name}"]`) ?? null;
+    const live = (name) => document.querySelector(`[data-live="${name}"]`);
+    const set = (name, text) => {
+      const el = live(name);
+      if (el) el.textContent = text;
+    };
+
+    const frameCount = atlas.frameCount;
+    const last = frameCount - 1;
+
+    const renderer = createSegmentedSpriteRenderer({
+      target: sprite,
+      segments: atlas.segments,
+      frameCount,
+      cellWidth: atlas.cellWidth,
+      cellHeight: atlas.cellHeight,
+    });
+
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const animator = createFrameAnimator({
+      frameCount,
+      reducedMotion,
+      render: (frame) => {
+        renderer.render(frame);
+        set('frame', String(frame));
+        const st = renderer.getStats();
+        set('stats', `${st.resident} / ${st.decodes}`);
+      },
+    });
+
+    /* 姿态重定时：控制点「进度:帧」→ 进度→进度 单调分段线性（同 demo-driver 的解析式） */
+    const warpPoints = atlas.frameWarp.points
+      .map(([p, f]) => [p, f / last])
+      .sort((a, b) => a[0] - b[0]);
+    const warpFn = (p) => {
+      if (p <= warpPoints[0][0]) return warpPoints[0][1];
+      if (p >= warpPoints[warpPoints.length - 1][0]) return warpPoints[warpPoints.length - 1][1];
+      for (let i = 1; i < warpPoints.length; i++) {
+        if (p <= warpPoints[i][0]) {
+          const [p0, f0] = warpPoints[i - 1];
+          const [p1, f1] = warpPoints[i];
+          return f0 + ((p - p0) / (p1 - p0 || 1)) * (f1 - f0);
+        }
+      }
+      return p;
+    };
+
+    const state = {
+      warpOn: true,
+      overlayOn: true,
+      personRect: null,
+      spans: null,
+      pointer: { x: 0, y: 0, active: false },
+    };
+
+    /* 映射曲线：p→f 的 warp 折线（121 个采样点足够平滑） */
+    const warpLine = document.querySelector('[data-cv="warp"]');
+    const curveDot = document.querySelector('[data-cv="dot"]');
+    const PX = (p) => 50 + p * 600;
+    const PY = (p) => 200 - p * 180;
+    if (warpLine) {
+      let pts = '';
+      for (let i = 0; i <= last; i++) {
+        pts += `${PX(i / last).toFixed(1)},${PY(warpFn(i / last)).toFixed(1)} `;
+      }
+      warpLine.setAttribute('points', pts.trim());
+    }
+
+    /* 几何：人物矩形 = 立绘元素盒按 contentBox 内缩（左 上 右 下），同 demo-driver */
+    const insets = [
+      atlas.contentBox.left,
+      atlas.contentBox.top,
+      atlas.contentBox.right,
+      atlas.contentBox.bottom,
+    ];
+    const measure = () => {
+      const box = sprite.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0) return;
+      const [l, t2, r, b] = insets;
+      state.personRect = {
+        left: box.left + box.width * l,
+        top: box.top + box.height * t2,
+        width: box.width * (1 - l - r),
+        height: box.height * (1 - t2 - b),
+      };
+      state.spans = reachableSpans(state.personRect, {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      drawOverlay();
+    };
+
+    /* 覆盖层：死区虚线框 + 十字轴 + 象限标签，全部按实测矩形定位 */
+    const drawOverlay = () => {
+      if (!overlay || !state.personRect) return;
+      const stageBox = stage.getBoundingClientRect();
+      const pr = state.personRect;
+      const rel = {
+        left: pr.left - stageBox.left,
+        top: pr.top - stageBox.top,
+        width: pr.width,
+        height: pr.height,
+      };
+      overlay.style.display = state.overlayOn ? '' : 'none';
+      if (!state.overlayOn) return;
+      const dz = ov('dz');
+      if (dz) {
+        dz.style.left = `${rel.left}px`;
+        dz.style.top = `${rel.top}px`;
+        dz.style.width = `${rel.width}px`;
+        dz.style.height = `${rel.height}px`;
+      }
+      const ax = ov('ax');
+      const ay = ov('ay');
+      const cx = rel.left + rel.width / 2;
+      const cy = rel.top + rel.height / 2;
+      if (ax) {
+        ax.style.left = '0px';
+        ax.style.top = `${cy}px`;
+        ax.style.width = '100%';
+      }
+      if (ay) {
+        ay.style.top = '0px';
+        ay.style.left = `${cx}px`;
+        ay.style.height = '100%';
+      }
+      const put = (name, x, y, anchor) => {
+        const el = ov(name);
+        if (!el) return;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.transform = anchor;
+      };
+      put('qTL', cx - 10, 14, 'translateX(-100%)');
+      put('qTR', cx + 10, 14, 'translateX(0)');
+      put('qBL', cx - 10, 'calc(100% - 26px)', 'translateX(-100%)');
+      put('qBR', cx + 10, 'calc(100% - 26px)', 'translateX(0)');
+    };
+
+    const apply = () => {
+      const pr = state.personRect;
+      if (!pr) return;
+      const { x, y } = state.pointer;
+      const quad = quadrantFromPointer({ x, y, rect: pr });
+      const inside = quad === 'inside';
+      const phi = inside ? 0 : phiOf(x, y, pr);
+      const p = state.pointer.active
+        ? progressFromPointer({
+            x,
+            y,
+            rect: pr,
+            spans: state.spans,
+            warp: state.warpOn ? warpFn : null,
+          })
+        : 0;
+      animator.setProgress(p);
+      set('phi', phi.toFixed(1));
+      set('quad', inside ? '死区内 → 第 0 帧' : { BL: '左下 BL', TL: '左上 TL', TR: '右上 TR', BR: '右下 BR' }[quad] ?? quad);
+      set('p', p.toFixed(3));
+      set('ftarget', String(Math.round(p * last)));
+      if (curveDot) {
+        curveDot.setAttribute('cx', PX(p).toFixed(1));
+        curveDot.setAttribute('cy', PY(warpFn(p)).toFixed(1));
+      }
+      const dot = ov('dot');
+      if (dot && overlay && state.overlayOn && state.pointer.active) {
+        const stageBox = stage.getBoundingClientRect();
+        dot.style.left = `${x - stageBox.left}px`;
+        dot.style.top = `${y - stageBox.top}px`;
+        dot.style.opacity = '1';
+      } else if (dot) {
+        dot.style.opacity = '0';
+      }
+    };
+
+    /* 控件 */
+    const smoothInput = document.querySelector('[data-ctl="smooth"]');
+    smoothInput?.addEventListener('input', () => {
+      const v = Number(smoothInput.value);
+      animator.setSmoothTime(v);
+      set('stVal', `${v.toFixed(3)}s`);
+    });
+    const warpInput = document.querySelector('[data-ctl="warp"]');
+    warpInput?.addEventListener('change', () => {
+      state.warpOn = warpInput.checked;
+      apply();
+    });
+    const overlayInput = document.querySelector('[data-ctl="overlay"]');
+    overlayInput?.addEventListener('change', () => {
+      state.overlayOn = overlayInput.checked;
+      drawOverlay();
+    });
+
+    /* 指针：挂 window（人物矩形才是坐标系，与 demo-driver 同一裁定）。
+       实验室里触摸/笔与鼠标同权——看到映射是本页的目的。 */
+    window.addEventListener(
+      'pointermove',
+      (event) => {
+        state.pointer.x = event.clientX;
+        state.pointer.y = event.clientY;
+        state.pointer.active = true;
+        apply();
+      },
+      { passive: true }
+    );
+    window.addEventListener(
+      'pointerdown',
+      (event) => {
+        state.pointer.x = event.clientX;
+        state.pointer.y = event.clientY;
+        state.pointer.active = true;
+        apply();
+      },
+      { passive: true }
+    );
+    document.documentElement.addEventListener('pointerleave', (event) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return;
+      state.pointer.active = false;
+      apply();
+    });
+
+    measure();
+    if (document.fonts?.ready) document.fonts.ready.then(measure);
+    window.addEventListener('resize', measure, { passive: true });
+    window.addEventListener('scroll', measure, { passive: true, capture: true });
+    if (typeof ResizeObserver === 'function') new ResizeObserver(measure).observe(stage);
+  }
+</script>
+
+<style>
+  .lab {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+  .lab-head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: clamp(24px, 4vw, 44px) clamp(20px, 4vw, 48px) 10px;
+  }
+  .lab-head h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(26px, 4.4vw, 44px);
+    line-height: 1.1;
+  }
+  .sub {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--c-red);
+  }
+  .lede {
+    margin: 6px 0 0;
+    max-width: 52em;
+    font-size: 14.5px;
+    line-height: 1.8;
+    color: var(--c-ink-2);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+    gap: clamp(20px, 3vw, 44px);
+    align-items: start;
+    padding: 16px clamp(20px, 4vw, 48px) 0;
+  }
+  .stage-col {
+    position: sticky;
+    top: 76px;
+  }
+  .stage-box {
+    position: relative;
+    width: min(100%, 380px);
+    margin-inline: auto;
+    aspect-ratio: 486 / 596;
+    /* 主题不变量纸底：透明人物在会翻转的底色上会糊成剪影（--c-band 裁定） */
+    background: var(--c-band);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+  .figure {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .stage-cap {
+    margin: 10px 4px 0;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--c-muted);
+  }
+
+  /* 覆盖层：指针穿透，只做可视化 */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    color: var(--c-red);
+  }
+  .ov-dz {
+    position: absolute;
+    border: 1.5px dashed rgba(var(--c-red-rgb), 0.75);
+    border-radius: 4px;
+  }
+  .ov-axis {
+    position: absolute;
+    background: rgba(var(--c-red-rgb), 0.22);
+  }
+  .ov-axis-x {
+    height: 1px;
+  }
+  .ov-axis-y {
+    width: 1px;
+  }
+  .ov-q {
+    position: absolute;
+    padding: 2px 6px;
+    border: 1px solid rgba(var(--c-red-rgb), 0.4);
+    border-radius: 3px;
+    background: var(--c-band);
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--c-red);
+  }
+  .ov-dot {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    background: var(--c-red);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .anatomy {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 2.4vw, 26px);
+  }
+  .anat {
+    margin: 0;
+    padding: clamp(14px, 1.8vw, 20px);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    border-radius: 6px;
+    background: var(--c-card);
+  }
+  .anat figcaption {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .anat figcaption b {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    color: var(--c-red);
+  }
+  .anat figcaption .t {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .anat figcaption .en {
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--c-muted-3);
+  }
+
+  .probe {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px 18px;
+    margin: 0;
+  }
+  .probe > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .probe dt {
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    color: var(--c-muted);
+  }
+  .probe dd {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-ink);
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .ctl {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ctl__name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .ctl__name b {
+    font-variant-numeric: tabular-nums;
+    color: var(--c-red);
+  }
+  .ctl__hint {
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--c-muted);
+  }
+  input[type='range'] {
+    width: 100%;
+    accent-color: var(--c-red);
+  }
+  .ctl--check {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .ctl--check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--c-red);
+  }
+
+  .curve {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .cv-grid line {
+    stroke: rgba(var(--c-ink-rgb), 0.25);
+    stroke-width: 0.75;
+  }
+  .cv-tick {
+    font-size: 11px;
+    fill: var(--c-muted);
+  }
+  .cv-identity {
+    stroke: rgba(var(--c-ink-rgb), 0.4);
+    stroke-width: 1;
+    stroke-dasharray: 5 4;
+  }
+  .cv-warp {
+    fill: none;
+    stroke: var(--c-red);
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+  .cv-dot {
+    fill: var(--c-red);
+    stroke: var(--c-band);
+    stroke-width: 2;
+  }
+  .cv-legend {
+    font-size: 11px;
+    fill: var(--c-muted);
+  }
+
+  .outro {
+    margin-top: auto;
+    padding: 28px clamp(20px, 4vw, 48px) 8px;
+  }
+  .outro a {
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    padding-bottom: 2px;
+  }
+  .outro a:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+
+  /* 平板：两列并一列，舞台不再 sticky；手机档收紧内距 */
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    .stage-col {
+      position: static;
+    }
+  }
+  @media (max-width: 640px) {
+    .lab-head,
+    .layout,
+    .outro {
+      padding-inline: 20px;
+    }
+    .probe dd {
+      font-size: 17px;
+    }
+  }
+</style>

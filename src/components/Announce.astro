@@ -32,35 +32,41 @@
         会从屏幕左侧漏出去。手机档规则在 global.css 的 .announce 节末尾。
 */
 import announcements from '../data/announcements.json';
-import { useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
+import { pickLocalized, useTranslations, DEFAULT_LOCALE } from '../i18n/utils';
 import type { Locale } from '../i18n/config';
 
 interface Props {
-  /** 页面语言（第 2 期加）：按钮/面板表头的界面文案。
-      ⚠️ 公告**条目本身**（标题/正文）来自 announcements.json，是内容层，
-         本期不翻译——与「作品描述/文章正文保持中文」同一裁定。 */
+  /** 页面语言：按钮/面板表头走 ui.ts 字典；公告**条目本身**（标题/标签/正文/
+      链接文案）走 announcements.json 的 { zh, en } 双语袋，经 pickLocalized
+      按 locale 取词，裸值两语言同显兜底。
+      2026-09-15 用户裁定：公告条目随语言切英文，取代旧的「条目保持中文」约定。 */
   locale?: Locale;
 }
 
 const { locale = DEFAULT_LOCALE } = Astro.props;
 const t = useTranslations(locale);
+const L = <T,>(v: T): T => pickLocalized(v, locale);
+
+/** 双语字段形态：裸值（两语言同显）或 { zh, en } 袋，与 pickLocalized 对齐。 */
+type L10n<T> = T | { zh: T; en: T };
 
 interface Announcement {
   id: string;
   date: string;
-  title: string;
-  tag?: string;
+  title: L10n<string>;
+  tag?: L10n<string>;
   level?: 'info' | 'notice' | 'warn';
-  body?: string[];
+  body?: L10n<string[]>;
   href?: string;
-  hrefLabel?: string;
+  hrefLabel?: L10n<string>;
   pinned?: boolean;
 }
 
 const source = (announcements.items ?? []) as Announcement[];
 
 /* 排序：置顶优先，其余按日期倒序（Array.prototype.sort 在 V8 稳定，同日保持
-   数组原序）。排序与「最新 id」都在构建时定下，运行时零计算。 */
+   数组原序）。排序与「最新 id」都在构建时定下，运行时零计算。
+   取词也在构建时定下：每个 locale 各自产出一份静态 HTML。 */
 const items = source
   .slice()
   .sort((a, b) => {
@@ -70,9 +76,11 @@ const items = source
   })
   .map((it) => ({
     ...it,
+    title: L(it.title),
+    tag: it.tag === undefined ? undefined : L(it.tag),
     dateLabel: String(it.date).replace(/-/g, '.'),
-    paragraphs: it.body ?? [],
-    linkLabel: it.hrefLabel ?? '查看详情',
+    paragraphs: L(it.body ?? []) as string[],
+    linkLabel: it.hrefLabel === undefined ? t('announce.more') : L(it.hrefLabel),
     external: /^https?:/i.test(it.href ?? ''),
   }));
 

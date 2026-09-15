@@ -1,5 +1,5 @@
 ---
-// 实验室 · 滚动帧随动（/lab/scroll/）——原理解剖页（2026-09-14 重设计）
+// 游乐场 · 滚动帧随动（/lab/scroll/）——原理解剖页（2026-09-14 重设计）
 //
 // 目的从「看演示」升级为「拆原理」：手机框（iframe）钉在左列 sticky，
 // 右列是一串 SVG 剖图（实时透视 / 总管线 / 映射曲线 / 图集解剖 / 双层缓存 /
@@ -29,7 +29,7 @@ const sx = (i: number) => SX0 + i * (SW + SG);
 /* 映射曲线绘图区：x 64→616 对应 p 0→1，y 252→48 对应 f 0→192 */
 const PX0 = 64, PW = 552, PY0 = 252, PH = 204;
 ---
-<Base title="滚动帧随动 · 实验室">
+<Base title="滚动帧随动 · 游乐场">
   <PageHead no="LAB-01" back={{ label: t('head.backLab'), href: '/lab/' }} />
 
   <main class="lab" id="main">

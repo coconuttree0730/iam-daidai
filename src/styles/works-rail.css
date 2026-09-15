@@ -43,12 +43,12 @@
   .stack-viewport:active { cursor: grabbing; }
   .stack-rail { position: relative; display: flex; align-items: center; padding-inline: clamp(20px, 8vw, 110px); will-change: transform; }
 
-  /* 首屏提示：位于首卡左侧（组 0 居中后卡左缘 = (100%-卡宽)/2，再退 48px），
-     随 progress 淡出（JS 写 opacity） */
+  /* 首屏提示：初始态首卡半出右屏（v3 intro 停靠），提示块置于页面水平正中
+     （2026-09-15 用户裁定：红框标记位置 = 视口中线）。随 progress 淡出（JS 写 opacity） */
   .scroll-hint {
     position: absolute; z-index: 2; pointer-events: none;
-    right: calc((100% + var(--card-w)) / 2 + 48px);
-    top: 50%; transform: translateY(-50%);
+    left: 50%;
+    top: 50%; transform: translate(-50%, -50%);
     display: flex; align-items: center; gap: 14px;
     opacity: 1; will-change: opacity;
   }
@@ -69,7 +69,8 @@
   }
 
   /* 组间隙：桌面 14vw 沿用 HEAD 0c7eb21 的节奏（停靠时邻组只露 ~80px 边），
-     下限 48px 保留移动端可用性（HEAD 的 100px 在窄屏上吃掉 27% 宽度）。 */
+     下限 48px 保留移动端可用性（HEAD 的 100px 在窄屏上吃掉 27% 宽度）。
+     （2026-09-15 曾试改 7vw 后按用户要求回退。） */
   .set-gap { flex: none; width: clamp(48px, 14vw, 180px); height: 100%; }
 
   .stack-card {
@@ -81,6 +82,11 @@
     opacity: 0;
   }
 
+  /* ── 卡片外壳（2026-09-15 二次裁定）──
+     作品卡 = 干净图片主体：全幅出血、无外壳、无文字（用户裁定「去掉外壳，
+     保留干净的图片主体（不要文字描述）」）。
+     封面卡 = 档案文件夹：纸底 + 左上标签页 + 折线 + 虚线文件窗口。
+     颜色一律消费 --c-*（暗色模式自动适配）。 */
   .card-inner {
     width: 100%; height: 100%; border-radius: 14px; overflow: hidden;
     position: relative;
@@ -99,24 +105,95 @@
   .card-placeholder[data-cover="bars"] { background-image: repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.09) 0 2px, transparent 2px 6px, rgba(var(--c-ink-rgb), 0.09) 6px 7px, transparent 7px 14px); }
   .card-placeholder[data-cover="cross"] { background-image: repeating-linear-gradient(0deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px), repeating-linear-gradient(90deg, rgba(var(--c-ink-rgb), 0.055) 0 1px, transparent 1px 20px); }
 
-  .card-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.08) 40%, transparent 70%); pointer-events: none; }
+  /* 作品卡：无文字描述 */
+  .stack-card:not(.is-cover) .card-info { display: none; }
 
-  .card-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
-  .card-no { font-family: "Archivo Black", sans-serif; font-size: 12px; color: var(--c-red); letter-spacing: 0.12em; }
-  .card-letter { font-family: "Archivo Black", sans-serif; font-size: 14px; color: var(--c-red); letter-spacing: 0.1em; margin-bottom: 4px; }
-  .card-title { font-size: 22px; font-weight: 900; line-height: 1.2; color: #fff; }
-  .card-en { font-family: "Anton", Impact, sans-serif; font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.5); user-select: none; }
-  .card-count { font-size: 11px; letter-spacing: 0.12em; color: rgba(255,255,255,0.45); margin-top: 2px; }
+  /* 作品卡：虚线档案外壳（2026-09-15 用户裁定，样式同「完」卡）；有作品时
+     图片放壳内（5px 内边距，⚠️ img 是替换元素，用 left/top + calc 显式宽高） */
+  .stack-card:not(.is-cover) .card-inner {
+    background: var(--c-paper);
+    border: 1.5px dashed rgba(var(--c-ink-rgb), 0.35);
+  }
+  .stack-card:not(.is-cover) .card-img,
+  .stack-card:not(.is-cover) .card-placeholder {
+    top: 5px; left: 5px;
+    width: calc(100% - 10px); height: calc(100% - 10px);
+    border-radius: 9px;
+  }
+
+  /* 空类目卡：敬请期待（印章样式复用「完」卡语言），不可点击 */
+  .card-empty {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+  }
+  .card-empty__stamp {
+    font-family: "Archivo Black", "Noto Sans CJK SC", sans-serif;
+    font-size: 34px; line-height: 1; color: var(--c-red);
+    border: 2.5px solid var(--c-red); border-radius: 10px;
+    padding: 10px 14px; rotate: -5deg; letter-spacing: 0.12em;
+  }
+  .card-empty__line { font-size: 12.5px; color: var(--c-muted); }
+
+  /* 封面卡：文件夹外壳。⚠️ img 是替换元素，inset + 宽高 auto 不生效（按固有
+     尺寸渲染会溢出窗口），必须 left/top + calc 显式宽高（下留 32px 纸边）。
+     标签页 = .card-info 本体（2026-09-15 用户裁定：类目名印在纸舌上，
+     字母/英文/件数不显示），原 ::before 空心假标签随之移除。 */
+  .stack-card.is-cover .card-inner {
+    background: var(--c-paper);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+  }
+  .stack-card.is-cover .card-inner::after {
+    content: ""; position: absolute; top: 34px; left: 0; right: 0; height: 1px;
+    background: rgba(var(--c-ink-rgb), 0.3);
+  }
+  .stack-card.is-cover .card-img {
+    top: 46px; left: 14px;
+    width: calc(100% - 28px); height: calc(100% - 78px);
+    border: 1.5px dashed rgba(var(--c-ink-rgb), 0.32); border-radius: 8px;
+  }
+  .stack-card.is-cover .card-info {
+    top: 10px; bottom: auto; left: 14px; right: auto;
+    width: fit-content; height: 24px; padding: 0 16px;
+    flex-direction: row; align-items: center; justify-content: center;
+    background: var(--c-paper);
+    border: 1px solid rgba(var(--c-ink-rgb), 0.3);
+    border-bottom: none; border-radius: 7px 7px 0 0;
+  }
+  .stack-card.is-cover .card-letter,
+  .stack-card.is-cover .card-en,
+  .stack-card.is-cover .card-count { display: none; }
+  .stack-card.is-cover .card-title { font-size: 13px; line-height: 1; letter-spacing: 0.1em; }
+
+  .card-scrim { display: none; } /* 黑底渐变弃用（作品卡无文字；封面文字在纸面） */
+
+  .card-info {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 9px 16px 11px; display: flex; flex-direction: column; gap: 1px; z-index: 1;
+  }
+  .card-no { font-family: "Archivo Black", sans-serif; font-size: 11px; color: var(--c-red); letter-spacing: 0.12em; }
+  .card-letter { font-family: "Archivo Black", sans-serif; font-size: 13px; color: var(--c-red); letter-spacing: 0.1em; margin-bottom: 2px; }
+  .card-title { font-size: 20px; font-weight: 900; line-height: 1.25; color: var(--c-ink); }
+  .card-en { font-family: "Anton", Impact, sans-serif; font-size: 11px; letter-spacing: 0.2em; color: rgba(var(--c-ink-rgb), 0.45); user-select: none; }
+  .card-count { font-size: 11px; letter-spacing: 0.12em; color: rgba(var(--c-ink-rgb), 0.55); margin-top: 2px; }
 
   .end-set { flex: none; display: flex; align-items: center; padding-left: clamp(40px, 6vw, 80px); }
-  .endcard { display: block; text-decoration: none; color: inherit; outline: none; }
+  .endcard { display: block; text-decoration: none; color: inherit; outline: none; will-change: transform, opacity; }
   .endcard:focus-visible .endcard-face { outline: 2px solid var(--c-red); outline-offset: 3px; }
-  .endcard-face { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; width: clamp(180px, 20vw, 230px); height: clamp(260px, 40vh, 340px); border: 1.5px dashed rgba(var(--c-ink-rgb), 0.35); border-radius: 10px; text-align: center; rotate: 0.5deg; transition: rotate 0.25s ease, transform 0.25s ease; }
-  .endcard:hover .endcard-face { rotate: 0deg; transform: translateY(-6px); }
-  .end-zh { font-size: 48px; font-weight: 900; line-height: 1; color: var(--c-red); border: 2.5px solid var(--c-red); border-radius: 8px; padding: 9px 14px; rotate: -5deg; letter-spacing: 0.1em; }
-  .end-line { font-size: 12.5px; color: var(--c-muted); }
+  /* 「完」卡升为与其他组同尺寸的整卡（2026-09-15，用户裁定「做成卡片，
+     同理其他卡片组合的播放形式」）：尺寸消费 --card-w 与 .card-set 同公式。
+     ⚠️ works-view.js 的 end 停靠点按 .endcard-face 实测 offsetWidth 居中，
+     卡变大后居中「完」会自然把最后一张作品卡推出屏——这正是本次修复的目的。 */
+  .endcard-face { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; width: var(--card-w); height: clamp(min(440px, 78dvh), 62dvh, 560px); border: 1.5px dashed rgba(var(--c-ink-rgb), 0.35); border-radius: 14px; text-align: center; rotate: 0.5deg; transition: rotate 0.25s ease; }
+  .endcard:hover .endcard-face { rotate: 0deg; }
+  .end-zh { font-size: 64px; font-weight: 900; line-height: 1; color: var(--c-red); border: 3px solid var(--c-red); border-radius: 10px; padding: 12px 20px; rotate: -5deg; letter-spacing: 0.1em; }
+  .end-line { font-size: 14px; color: var(--c-muted); }
 
-  .dock {
+  /* ⚠️ 类名是 .rail-dock（与 works.astro / en/works.astro 的 <footer> 一致）。
+     2026-09-15 修复：i18n 抽表时此处误写成 .dock，选择器对不上 markup，
+     整条居中定位失效，进度坞掉到左下角。勿与 global.css 的全站悬浮栈
+     .dock（ScrollDock）混淆——那是另一个组件。 */
+  .rail-dock {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     display: flex; align-items: center; justify-content: center;
     padding: 12px 20px;
@@ -132,16 +209,22 @@
 
   @media (max-width: 640px) {
     .card-set { width: min(320px, 78vw); height: clamp(320px, 50vh, 400px); }
-    .scroll-hint { top: 12%; right: 50%; transform: translate(50%, 0); gap: 10px; }
+    .scroll-hint { top: 12%; left: auto; right: 50%; transform: translate(50%, 0); gap: 10px; }
     .scroll-hint__line { height: 32px; }
     .card-title { font-size: 18px; }
-    .card-info { padding: 14px; }
+    .card-info { padding: 7px 12px 9px; }
     .card-no, .card-letter { font-size: 11px; }
     .card-en { font-size: 10px; }
+    .stack-card.is-cover .card-inner::after { top: 28px; }
+    .stack-card.is-cover .card-img { top: 38px; left: 10px; width: calc(100% - 20px); height: calc(100% - 62px); }
+    .stack-card.is-cover .card-info { top: 8px; left: 10px; height: 20px; padding: 0 12px; }
+    .stack-card.is-cover .card-title { font-size: 12px; }
+    .card-empty__stamp { font-size: 26px; padding: 8px 11px; }
+    .card-empty__line { font-size: 11px; }
     .ticks i { height: 10px; }
-    .endcard-face { width: 140px; height: 200px; }
-    .end-zh { font-size: 36px; padding: 6px 10px; }
-    .end-line { font-size: 11px; }
+    .endcard-face { width: min(320px, 78vw); height: clamp(320px, 50vh, 400px); }
+    .end-zh { font-size: 44px; padding: 9px 14px; }
+    .end-line { font-size: 12px; }
     .rail-dock { padding: 8px 16px; bottom: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .stack-card { transition: none !important; } }

@@ -19,6 +19,8 @@ const sets = cats.filter(c => c.id !== 'inbox').map(cat => {
       type: 'work', no: w.no, title: w.title, en: w.en,
       img: w.img, cover: w.cover, href: `/works/${w.no}/`,
     })),
+    /* 空类目：没有作品时补一张「敬请期待」空态卡（2026-09-15 用户裁定） */
+    ...(items.length === 0 ? [{ type: 'empty' }] : []),
     ...(cat.img ? [{
       type: 'cover', letter: cat.letter, name: cat.name, en: cat.en,
       img: cat.img, imgAlt: cat.imgAlt, count: items.length,
@@ -64,6 +66,11 @@ const t = useTranslations('zh');
                             <span class="card-en">{card.en}</span>
                           </div>
                         </a>
+                      ) : card.type === 'empty' ? (
+                        <div class="card-empty">
+                          <span class="card-empty__stamp" aria-hidden="true">{t('works.coming')}</span>
+                          <span class="card-empty__line">{t('works.endCta')}</span>
+                        </div>
                       ) : (
                         <>
                           <img class="card-img" src={card.img} alt={card.imgAlt} loading="lazy" decoding="async" />
@@ -87,6 +94,9 @@ const t = useTranslations('zh');
           }
           return items;
         })}
+        {/* 「完」卡与其他组同构（2026-09-15）：前面补组间隙，到站前空白滑入、
+            到站后飞入——几何与编排见 works-view.js 的 end / endFly 停靠点 */}
+        <div class="set-gap" aria-hidden="true"></div>
         <div class="end-set">
           <a class="endcard" href="/#basic">
             <span class="endcard-face">

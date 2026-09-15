@@ -1,0 +1,332 @@
+---
+// 游乐场 · 印章贴纸涂鸦墙（/lab/stamps/，2026-09-15 新增，LAB-05）
+//
+// 交互：点墙盖章 / 橡皮逐枚擦除 / 清空（两步确认）/ 随机盖一枚（键盘入口）。
+// 印章持久化在浏览器本地（localStorage['daidai:stamps:v1']），下次再来还在。
+//
+// 契约：**旋转封顶 ≤14°**（全站裁定：圆章/贴纸 ≤14°）；贴纸素材 = 3 个图集姿态
+// 裁帧（keyed 序列）+ 2 个 chibi（复用 public/motion/ 现成素材的降采样副本）。
+//
+// ⚠️ 样式走 src/styles/stamp-wall.css 独立文件：印章是**运行时注入**的 DOM，
+//    没有 Astro cid，scoped 样式整条不生效（MEMORY 的坑）。
+import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
+import PageHead from '../../components/PageHead.astro';
+import '../../styles/stamp-wall.css';
+
+const t = useTranslations('zh');
+---
+<Base title="印章贴纸涂鸦墙 · 游乐场">
+  <PageHead no="LAB-05" back={{ label: t('head.backLab'), href: '/lab/' }} />
+
+  <main class="lab" id="main">
+    <header class="lab-head">
+      <h1>STAMP WALL / 印章墙</h1>
+      <span class="sub">LAB-05 · ≤14° ROTATION · LOCAL-FIRST · 5 STICKERS</span>
+      <p class="lede">
+        档案馆的章只有「已归档」一种太可惜了。这面墙<b>点哪盖哪</b>：五枚贴纸随机器转
+        （旋转遵守全站 ≤14° 裁定），盖下的印留在<b>浏览器本地</b>——换页、隔天再来都在。
+        盖歪了用橡皮擦，盖满了一键清空重来。
+      </p>
+    </header>
+
+    <section class="deck">
+      <div class="toolbar">
+        <button type="button" class="btn" data-st="random">随机盖一枚</button>
+        <button type="button" class="btn" data-st="erase" aria-pressed="false">橡皮擦</button>
+        <button type="button" class="btn btn--danger" data-st="clear" data-armed="false">清空图章</button>
+        <span class="counter" aria-live="polite">已盖 <b data-st="count">0</b> 枚</span>
+      </div>
+
+      <div
+        class="stamp-wall"
+        data-st="wall"
+        aria-label="印章墙：点击空白处盖章，橡皮模式下点击印章将其擦除"
+        role="group"
+      ></div>
+
+      <p class="note">
+        贴纸素材取自 121 帧图集的三个姿态帧与两枚 chibi—— transparency 直接来自
+        RVM 抠图产物，没有重新抠过。
+      </p>
+    </section>
+
+    <footer class="outro">
+      <a href="/lab/">{t('head.backLab')}</a>
+    </footer>
+  </main>
+</Base>
+
+<script>
+  const STICKERS = [
+    { src: '/lab/stamps/pose-front.webp', h: 240 },
+    { src: '/lab/stamps/pose-left.webp', h: 240 },
+    { src: '/lab/stamps/pose-right.webp', h: 240 },
+    { src: '/lab/stamps/chibi-tape.webp', h: 260 },
+    { src: '/lab/stamps/chibi-draw.webp', h: 280 },
+  ];
+  const KEY = 'daidai:stamps:v1';
+  const CAP = 300;
+  /* 旋转封顶：贴纸 ≤14°（全站裁定，2026-09-14） */
+  const ROT_MAX = 14;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  const wall = document.querySelector('[data-st="wall"]');
+  if (wall) {
+    const countEl = document.querySelector('[data-st="count"]');
+    const eraseBtn = document.querySelector('[data-st="erase"]');
+    const clearBtn = document.querySelector('[data-st="clear"]');
+    const state = { items: [], erase: false, armed: false, armTimer: 0 };
+
+    const load = () => {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data && Array.isArray(data.items)) {
+            state.items = data.items
+              .filter((it) => it && Number.isFinite(it.x) && Number.isFinite(it.y))
+              .slice(-CAP);
+            return;
+          }
+        }
+      } catch {
+        /* 本地存储不可用就当空墙开始 */
+      }
+      /* 首次到访：预置三枚示例，让墙不至于空着 */
+      state.items = [
+        { x: 28, y: 34, s: 1, r: -8, i: 1 },
+        { x: 63, y: 47, s: 0.9, r: 10, i: 3 },
+        { x: 44, y: 70, s: 1.1, r: -4, i: 0 },
+      ];
+      save();
+    };
+    const save = () => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ v: 1, items: state.items }));
+      } catch {
+        /* 写不进就只留在内存里 */
+      }
+    };
+
+    const render = () => {
+      wall.textContent = '';
+      for (const it of state.items) {
+        const st = STICKERS[it.i] ?? STICKERS[0];
+        const img = document.createElement('img');
+        img.className = 'stamp-item';
+        img.src = st.src;
+        img.alt = '';
+        img.draggable = false;
+        img.width = Math.round((st.h * 5) / 6);
+        img.height = st.h;
+        img.style.left = `${it.x}%`;
+        img.style.top = `${it.y}%`;
+        img.style.rotate = `${it.r}deg`;
+        img.style.scale = String(it.s ?? 1);
+        wall.appendChild(img);
+      }
+      if (countEl) countEl.textContent = String(state.items.length);
+    };
+
+    const stampAt = (xPct, yPct) => {
+      const item = {
+        x: clamp(xPct, 2, 98),
+        y: clamp(yPct, 2, 98),
+        s: 0.8 + Math.random() * 0.4,
+        r: (Math.random() * 2 - 1) * ROT_MAX,
+        i: Math.floor(Math.random() * STICKERS.length),
+      };
+      state.items.push(item);
+      if (state.items.length > CAP) state.items.shift();
+      save();
+      render();
+    };
+
+    const eraseAt = (xPct, yPct) => {
+      const box = wall.getBoundingClientRect();
+      const px = (xPct / 100) * box.width;
+      const py = (yPct / 100) * box.height;
+      const R = 56;
+      for (let idx = state.items.length - 1; idx >= 0; idx--) {
+        const it = state.items[idx];
+        const st = STICKERS[it.i] ?? STICKERS[0];
+        const w = ((st.h * 5) / 6) * (it.s ?? 1);
+        const h = st.h * (it.s ?? 1);
+        const cx = (it.x / 100) * box.width;
+        const cy = (it.y / 100) * box.height;
+        /* 圆形判定：中心距 < 印章半宽/半高的较大值 + 24px 余量 */
+        const hitR = Math.max(w, h) / 2 + 24;
+        if (Math.hypot(px - cx, py - cy) <= Math.max(hitR, R)) {
+          state.items.splice(idx, 1);
+          save();
+          render();
+          return;
+        }
+      }
+    };
+
+    const setErase = (on) => {
+      state.erase = on;
+      wall.classList.toggle('stamp-wall--erase', on);
+      eraseBtn?.setAttribute('aria-pressed', String(on));
+      if (eraseBtn) eraseBtn.textContent = on ? '擦除中…（再点退出）' : '橡皮擦';
+    };
+
+    wall.addEventListener('pointerdown', (event) => {
+      const box = wall.getBoundingClientRect();
+      const xPct = ((event.clientX - box.left) / box.width) * 100;
+      const yPct = ((event.clientY - box.top) / box.height) * 100;
+      if (state.erase) eraseAt(xPct, yPct);
+      else stampAt(xPct, yPct);
+    });
+
+    document.querySelector('[data-st="random"]')?.addEventListener('click', () => {
+      stampAt(6 + Math.random() * 88, 8 + Math.random() * 84);
+    });
+    eraseBtn?.addEventListener('click', () => setErase(!state.erase));
+
+    /* 清空：两步确认，不做 confirm() 弹窗——按钮自己进入"武装"态 */
+    clearBtn?.addEventListener('click', () => {
+      if (!clearBtn.dataset.armed || clearBtn.dataset.armed === 'false') {
+        clearBtn.dataset.armed = 'true';
+        clearBtn.textContent = '再点一次确认清空';
+        clearTimeout(state.armTimer);
+        state.armTimer = window.setTimeout(() => {
+          clearBtn.dataset.armed = 'false';
+          clearBtn.textContent = '清空图章';
+        }, 3000);
+        return;
+      }
+      clearTimeout(state.armTimer);
+      clearBtn.dataset.armed = 'false';
+      clearBtn.textContent = '清空图章';
+      state.items = [];
+      save();
+      render();
+    });
+
+    load();
+    render();
+  }
+</script>
+
+<style>
+  .lab {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+  .lab-head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: clamp(24px, 4vw, 44px) clamp(20px, 4vw, 48px) 10px;
+  }
+  .lab-head h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(26px, 4.4vw, 44px);
+    line-height: 1.1;
+  }
+  .sub {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--c-red);
+  }
+  .lede {
+    margin: 6px 0 0;
+    max-width: 52em;
+    font-size: 14.5px;
+    line-height: 1.8;
+    color: var(--c-ink-2);
+  }
+
+  .deck {
+    padding: 10px clamp(20px, 4vw, 48px) 0;
+    max-width: 960px;
+    width: 100%;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .btn {
+    padding: 8px 14px;
+    border: 1.5px solid var(--c-ink);
+    border-radius: 5px;
+    background: var(--c-card);
+    color: var(--c-ink);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--c-red);
+    outline-offset: 2px;
+  }
+  .btn[aria-pressed='true'],
+  .btn[data-armed='true'] {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+  .btn--danger {
+    border-color: var(--c-red);
+    color: var(--c-red);
+  }
+  .counter {
+    margin-left: auto;
+    font-size: 12.5px;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .counter b {
+    color: var(--c-ink);
+  }
+
+  .note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--c-muted);
+  }
+
+  .outro {
+    margin-top: auto;
+    padding: 28px clamp(20px, 4vw, 48px) 8px;
+  }
+  .outro a {
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    padding-bottom: 2px;
+  }
+  .outro a:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+
+  @media (max-width: 640px) {
+    .lab-head,
+    .deck,
+    .outro {
+      padding-inline: 20px;
+    }
+  }
+</style>

@@ -54,7 +54,10 @@ const tags = [...counts.entries()].sort(
     <section class="hero">
       <img class="hero__art" src="/motion/tags-cabinet-chibi.webp" alt="" width="723" height="680" loading="eager" decoding="async" />
       <div class="hero__text">
-        <p class="en" aria-hidden="true">TAGS</p>
+        {/* 描边大字 "TAGS" 已删（2026-09-15 daidai 裁定）：本页 h1 是 "Tags"，
+            与描边层同词重复。中文页保留 TAGS + 「标签索引」——那里互补不重复。
+            `.hero .en` 规则仍在共享的 tags-index.css 里（中文页在用），勿删。
+            ⛔ 不要"为了中英一致"把它加回来。 */}
         <h1>{t('section.tags.title')}</h1>
       </div>
     </section>

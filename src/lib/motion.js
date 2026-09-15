@@ -21,7 +21,9 @@
  */
 export function createFrameAnimator(options) {
   const frameCount = Math.max(1, Math.floor(options.frameCount));
-  const smoothTime = options.smoothTime ?? 0.11;
+  /* let（2026-09-15）：/lab/feel/ 的手感实验室滑块要运行时调 smoothTime；
+     缺省路径行为不变（仍 0.11）。 */
+  let smoothTime = options.smoothTime ?? 0.11;
   const maxSpeed = options.maxSpeed ?? frameCount * 2;
   const reducedMotion = options.reducedMotion ?? false;
   /* 时间轴拓扑开关（2026-09-11，滚动 scrub 页新增）：
@@ -100,6 +102,32 @@ export function createFrameAnimator(options) {
     setProgress(progress) {
       target = clamp(progress, 0, 1) * (frameCount - 1);
       if (!raf && !destroyed) raf = requestAnimationFrame(loop);
+    },
+    /* 运行时改缓动参数（2026-09-15，/lab/feel/ 手感实验室专用）：
+       只影响后续帧的追帧节奏，不重置 position/velocity——拖滑块时动作连续。
+       下限 0.02 防 omega 爆炸（omega = 2/smoothTime），上限 0.5 防体感"卡住"。 */
+    setSmoothTime(next) {
+      smoothTime = Math.min(0.5, Math.max(0.02, Number(next) || 0.11));
+    },
+    /* 瞬时定位（2026-09-14）：跳过缓动，position 直接钉到目标帧并同步渲染。
+     * 用途：语言切换跨页恢复 scrub 进度——setProgress 会从 f0 缓动过去，
+     * 整条时间轴在半秒内快进一遍，观感是"动画重放"；「原位切换」的语义
+     * 要求新页面首帧即到位。与 setProgress 的差异：不启动 rAF、无条件
+     * 调 render（loop 里"帧号变化才渲染"的去重在这里不适用），lastFrame
+     * 同步推进以免后续缓动首帧被去重吞掉。 */
+    snap(progress) {
+      target = clamp(progress, 0, 1) * (frameCount - 1);
+      position = wrap ? wrapIndex(target) : target;
+      velocity = 0;
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      const frame = wrap
+        ? wrapIndex(Math.round(position))
+        : Math.round(clamp(position, 0, frameCount - 1));
+      options.render(frame);
+      lastFrame = frame;
     },
     getCurrentFrame() {
       return wrap ? wrapIndex(position) : clamp(position, 0, frameCount - 1);

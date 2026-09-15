@@ -1,5 +1,5 @@
 {
-  "_comment": "实验室板块条目（2026-09-13 建）。这是 /lab/ 卡片墙的唯一数据源，构建时静态 import（运行时零 fetch，见 MEMORY 的全局契约）。加一个实验/教材只需往 entries 里追加一个对象：no 是实验室编号（LAB-0x，与页面 PageHead 的 NO.04 是两套编号，前者标条目、后者标板块）；kind 是条目性质（如「交互教材」「原型」）；poster 必须带前导斜杠、指向 public/ 下的静态资源；href 是站内路径。**改文案只改这里，不要改 lab.astro。**",
+  "_comment": "游乐场板块条目（2026-09-13 建；2026-09-15 板块显示名裁定为「游乐场」，URL /lab/ 与条目编号 LAB-0x 保持不变）。这是 /lab/ 卡片墙的唯一数据源，构建时静态 import（运行时零 fetch，见 MEMORY 的全局契约）。加一个实验/教材只需往 entries 里追加一个对象：no 是条目编号（LAB-0x，与页面 PageHead 的 NO.04 是两套编号，前者标条目、后者标板块）；kind 是条目性质（如「交互教材」「交互玩具」）；poster 必须带前导斜杠、指向 public/ 下的静态资源；href 是站内路径。**改文案只改这里，不要改 lab.astro。** LAB-02（framedemo，不在卡片墙）与 LAB-06（墨迹生成艺术，2026-09-15 用户裁定移除）已弃用，**编号空缺是刻意的，勿补齐勿复用**。",
   "entries": [
     {
       "no": "LAB-01",
@@ -13,6 +13,45 @@
       "posterH": 448,
       "href": "/lab/scroll/",
       "cta": "进入演示"
+    },
+    {
+      "no": "LAB-03",
+      "kind": "交互教材",
+      "title": "帧随动手感实验室",
+      "en": "POINTER / FEEL LAB",
+      "desc": "把首页 hero 的跟随手感拆成可调参数：smoothTime 缓动、姿态重定时、死区矩形与象限热区全部实时可视化，外加一条「进度 → 帧号」映射曲线。跑的就是线上同款 motion.js 与 pointer-frame.js，只是把默认值变成了滑块。",
+      "meta": ["121 帧 · 分段图集", "smoothDamp 缓动", "frameWarp 重定时"],
+      "poster": "/lab/posters/feel.webp",
+      "posterW": 480,
+      "posterH": 575,
+      "href": "/lab/feel/",
+      "cta": "进入演示"
+    },
+    {
+      "no": "LAB-04",
+      "kind": "交互教材",
+      "title": "素材生产线可视化",
+      "en": "GREEN SCREEN → ATLAS",
+      "desc": "绿幕视频到雪碧图的完整流水线：拖动滑块逐帧对照「原始绿幕帧 → 色键抠图 → 图集切格」三个阶段，裁切窗口 (388,124) 486×596、段位格位全部来自线上同款图集元数据，不是示意图。",
+      "meta": ["1280×720 · 24fps", "dominance-v2 色键", "6 段 WebP 图集"],
+      "poster": "/lab/posters/pipeline.webp",
+      "posterW": 720,
+      "posterH": 405,
+      "href": "/lab/pipeline/",
+      "cta": "进入演示"
+    },
+    {
+      "no": "LAB-05",
+      "kind": "交互玩具",
+      "title": "印章贴纸涂鸦墙",
+      "en": "STAMP WALL",
+      "desc": "点哪盖哪的印章墙：五枚贴纸（三个图集姿态帧 + 两枚 chibi）随机旋转，旋转遵守全站 ≤14° 裁定。盖下的印留在浏览器本地，换页、隔天再来都在；橡皮擦逐枚擦除，清空有两步确认。",
+      "meta": ["旋转 ≤14°", "浏览器本地留存", "上限 300 枚"],
+      "poster": "/lab/posters/stamps.webp",
+      "posterW": 520,
+      "posterH": 489,
+      "href": "/lab/stamps/",
+      "cta": "开盖即玩"
     }
   ]
 }

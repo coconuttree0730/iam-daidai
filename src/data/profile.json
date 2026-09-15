@@ -41,7 +41,7 @@
       "no": "01",
       "title": {
         "zh": "关于我...",
-        "en": "About"
+        "en": "About..."
       },
       "theta": -46,
       "href": {
@@ -79,8 +79,8 @@
     {
       "no": "04",
       "title": {
-        "zh": "实验室",
-        "en": "Lab"
+        "zh": "游乐场",
+        "en": "Playground"
       },
       "theta": 46,
       "href": {
@@ -233,8 +233,8 @@
       {
         "id": "site",
         "letter": "A",
-        "name": "站点",
-        "en": "SITES",
+        "name": "开源作品",
+        "en": "OPEN SOURCE",
         "cover": "grid",
         "img": "/works/folder-site.jpeg",
         "imgAlt": "Chibi character coding at desktop with coffee"
@@ -242,8 +242,8 @@
       {
         "id": "engine",
         "letter": "B",
-        "name": "工程",
-        "en": "ENGINE",
+        "name": "合作定制",
+        "en": "COMMISSION",
         "cover": "bars",
         "img": "/works/folder-engine.jpeg",
         "imgAlt": "Chibi character focused on laptop programming"
@@ -251,8 +251,8 @@
       {
         "id": "app",
         "letter": "C",
-        "name": "应用",
-        "en": "APPS",
+        "name": "上线产品",
+        "en": "PRODUCTS",
         "cover": "dots",
         "img": "/works/folder-app.jpeg",
         "imgAlt": "Cool chibi character in hoodie giving thumbs up"
@@ -260,8 +260,8 @@
       {
         "id": "craft",
         "letter": "D",
-        "name": "设计手绘",
-        "en": "CRAFT",
+        "name": "绘画爱好",
+        "en": "SKETCHBOOK",
         "cover": "stripes",
         "img": "/works/folder-craft.jpeg",
         "imgAlt": "Chibi artist painting colorful monster on easel"
@@ -292,100 +292,6 @@
         "href": "https://github.com/coconuttree0730/iam-daidai",
         "cover": "grid",
         "img": "/works/01.png"
-      },
-      {
-        "no": "02",
-        "cat": "engine",
-        "title": "AI Agent 实验台",
-        "en": "AGENT WORKBENCH",
-        "desc": "把日常重复劳动交给智能体编排：任务拆解、工具调用、结果回收的一条龙小实验。",
-        "year": "2026",
-        "status": "整理中",
-        "tags": [
-          "AI-Agent",
-          "Python"
-        ],
-        "href": "",
-        "cover": "rings",
-        "img": ""
-      },
-      {
-        "no": "03",
-        "cat": "app",
-        "title": "小程序 · 随手记",
-        "en": "POCKET NOTES",
-        "desc": "一个克制到只有三屏的记账小程序，练手也是练心。",
-        "year": "2025",
-        "status": "归档",
-        "tags": [
-          "小程序",
-          "UI 设计"
-        ],
-        "href": "",
-        "cover": "dots",
-        "img": ""
-      },
-      {
-        "no": "04",
-        "cat": "engine",
-        "title": "后端服务骨架",
-        "en": "SERVICE SCAFFOLD",
-        "desc": "Java 后端的起步脚手架：鉴权、日志、部署流水线一次配齐，开新项目直接抄家。",
-        "year": "2025",
-        "status": "归档",
-        "tags": [
-          "Java",
-          "Spring"
-        ],
-        "href": "",
-        "cover": "bars",
-        "img": ""
-      },
-      {
-        "no": "05",
-        "cat": "craft",
-        "title": "界面习作集",
-        "en": "UI STUDIES",
-        "desc": "临摹与再设计：把每天看到的好界面拆开重装，存档在此。",
-        "year": "2025",
-        "status": "整理中",
-        "tags": [
-          "UI 设计",
-          "手绘"
-        ],
-        "href": "",
-        "cover": "stripes",
-        "img": ""
-      },
-      {
-        "no": "06",
-        "cat": "craft",
-        "title": "纸上小画",
-        "en": "SKETCHBOOK",
-        "desc": "铅笔与马克笔的日常涂鸦扫描件，不成体系，但都在场。",
-        "year": "2024",
-        "status": "归档",
-        "tags": [
-          "手绘"
-        ],
-        "href": "",
-        "cover": "cross",
-        "img": ""
-      },
-      {
-        "no": "07",
-        "cat": "inbox",
-        "title": "未命名项目",
-        "en": "UNTITLED",
-        "desc": "空档案袋一枚——下一个想做的事还没定名字。",
-        "year": "—",
-        "status": "空白",
-        "tags": [
-          "待填"
-        ],
-        "href": "",
-        "cover": "grid",
-        "img": ""
       },
       {
         "no": "08",
@@ -440,7 +346,7 @@
           },
           "type": "text",
           "placeholder": {
-            "zh": "Full Name",
+            "zh": "怎么称呼?",
             "en": "Full Name"
           }
         },
@@ -452,7 +358,7 @@
           },
           "type": "email",
           "placeholder": {
-            "zh": "Email Address",
+            "zh": "请输入邮箱地址",
             "en": "Email Address"
           }
         },
@@ -464,18 +370,14 @@
           },
           "type": "textarea",
           "placeholder": {
-            "zh": "Your Message",
+            "zh": "想对我说什么?",
             "en": "Your Message"
           }
         }
       ],
       "submit": {
-        "zh": "Send Message",
-        "en": "Send Message"
-      },
-      "submitZh": {
         "zh": "发送消息",
-        "en": "Send message"
+        "en": "Send Message"
       }
     }
   }

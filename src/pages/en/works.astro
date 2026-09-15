@@ -37,6 +37,9 @@ const sets = cats
         cover: w.cover,
         href: `/en/works/${w.no}/`,
       })),
+      ...(items.length === 0
+        ? [{ type: 'empty' as const }]
+        : []),
       ...(cat.img
         ? [
             {
@@ -94,6 +97,11 @@ const sets = cats
                             <span class="card-en">{card.en}</span>
                           </div>
                         </a>
+                      ) : card.type === 'empty' ? (
+                        <div class="card-empty">
+                          <span class="card-empty__stamp" aria-hidden="true">{t('works.coming')}</span>
+                          <span class="card-empty__line">{t('works.endCta')}</span>
+                        </div>
                       ) : (
                         <>
                           <img class="card-img" src={card.img} alt={card.imgAlt} loading="lazy" decoding="async" />
@@ -117,6 +125,10 @@ const sets = cats
           }
           return items;
         })}
+        {/* 「完」card rides the rail like any other set (2026-09-15): a set-gap
+            before it, blank slide-in, then fly-in after arrival — see the
+            end / endFly stops in works-view.js */}
+        <div class="set-gap" aria-hidden="true"></div>
         <div class="end-set">
           <a class="endcard" href="/en/#basic">
             <span class="endcard-face">

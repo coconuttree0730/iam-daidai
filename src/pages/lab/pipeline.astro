@@ -1,0 +1,406 @@
+---
+// 游乐场 · 素材生产线可视化（/lab/pipeline/，2026-09-15 新增，LAB-04）
+//
+// 目的：回答「首页的人物是怎么来的」——一条滑块 scrub 讲完
+//   绿幕视频 → 全量抽帧 → dominance-v2 色键抠图 → 裁切窗口 → 打包分段图集
+// 三个 pane 消费同一份采样帧（16 帧，步长 8，f = i×8）：
+//   ① 原始绿幕帧（1280×720 全幅，红框 = 裁切窗口 (388,124) 486×596）
+//   ② 色键抠图结果（public/lab/pipeline/key-XXX.webp，棋盘格衬透明底）
+//   ③ 图集切格（单格 CSS 百分比定位 + 段图总览红框，几何由 atlas-meta.json 现算）
+//
+// 数据：src/data/atlas-meta.json 构建时静态 import（零 fetch 契约）；
+// 段位/格位的换算与线上 createSegmentedSpriteRenderer 同一公式。
+// 内容层中文教材页，不做英文版（与 /lab/scroll/ 同一裁定）。
+import Base from '../../layouts/Base.astro';
+import { useTranslations } from '../../i18n/utils';
+import PageHead from '../../components/PageHead.astro';
+
+const t = useTranslations('zh');
+---
+<Base title="素材生产线可视化 · 游乐场">
+  <PageHead no="LAB-04" back={{ label: t('head.backLab'), href: '/lab/' }} />
+
+  <main class="lab" id="main">
+    <header class="lab-head">
+      <h1>PIPELINE / 素材生产线</h1>
+      <span class="sub">LAB-04 · 1280×720 · 24FPS · 121 FRAMES · DOMINANCE-V2 · 6 SEG WEBP</span>
+      <p class="lede">
+        首页那个跟随鼠标转头的人物，出发只是一段 1280×720 的<b>绿幕视频</b>：
+        全量抽帧 → <b>dominance-v2 色键</b>抠成透明序列 → 按「人物墨迹并集」裁切窗口
+        (388,124) 486×596 → 打包成 6 段 WebP 图集。拖动滑块，三个阶段逐帧对照——
+        右边切格视图的段位与格位，就是线上驱动读的那份元数据。
+      </p>
+    </header>
+
+    <section class="deck">
+      <div class="scrub">
+        <label class="scrub__label" for="pl-scrub">
+          采样帧 <b data-live="f">048</b><span class="scrub__hint">（每 8 帧取一帧，共 16 帧样本）</span>
+        </label>
+        <input
+          id="pl-scrub"
+          type="range"
+          min="0"
+          max="15"
+          step="1"
+          value="6"
+          data-pl="slider"
+          aria-label="采样帧滑块：从 121 帧素材中每 8 帧取样"
+        />
+        <div class="scrub__meta">
+          <span>段·格 <b data-live="sk">s2·k0</b></span>
+          <span>抽帧 <b>24fps</b></span>
+          <span>窗口 <b>(388,124) 486×596</b></span>
+        </div>
+      </div>
+
+      <div class="panes">
+        <!-- ① 原始绿幕帧 -->
+        <figure class="pane">
+          <figcaption>
+            <b>01</b><span class="t">原始绿幕帧</span><span class="en">RAW</span>
+            <span class="file" data-live="rawFile">raw-048.webp</span>
+          </figcaption>
+          <div class="pane__media">
+            <img data-pl="raw" src="/lab/pipeline/raw-048.webp" alt="原始绿幕视频帧" width="1280" height="720" loading="lazy" decoding="async" />
+            <i class="cropbox" data-pl="cropbox" aria-hidden="true"></i>
+          </div>
+          <p class="pane__cap">全幅 1280×720 · 人物在画面里的位置固定，所以能按固定窗口裁切</p>
+        </figure>
+
+        <!-- ② 色键抠图 -->
+        <figure class="pane">
+          <figcaption>
+            <b>02</b><span class="t">色键抠图</span><span class="en">KEYED</span>
+            <span class="file" data-live="keyFile">key-048.webp</span>
+          </figcaption>
+          <div class="pane__media pane__media--checker">
+            <img data-pl="key" src="/lab/pipeline/key-048.webp" alt="色键抠图后的透明底人物帧" width="258" height="309" loading="lazy" decoding="async" />
+          </div>
+          <p class="pane__cap">dominance-v2 抠色 + alpha 重映射 · 窗口外扩 15px 透明垫</p>
+        </figure>
+
+        <!-- ③ 图集切格 -->
+        <figure class="pane">
+          <figcaption>
+            <b>03</b><span class="t">图集切格</span><span class="en">ATLAS</span>
+            <span class="file" data-live="segFile">seg2 · cell 0</span>
+          </figcaption>
+          <div class="pane__media pane__media--split">
+            <div class="cellbox" data-pl="cell" aria-hidden="true"></div>
+            <div class="segbox" aria-hidden="true">
+              <div class="segbox__sheet" data-pl="sheet"></div>
+              <i class="segbox__box" data-pl="cellbox"></i>
+              <span class="segbox__tag">段图总览</span>
+            </div>
+          </div>
+          <p class="pane__cap">6 段 WebP · 每段 4×6=24 格 · 1944×3576 ≤ 4096 纹理上限</p>
+        </figure>
+      </div>
+    </section>
+
+    <footer class="outro">
+      <a href="/lab/">{t('head.backLab')}</a>
+    </footer>
+  </main>
+</Base>
+
+<script>
+  import atlas from '../../data/atlas-meta.json';
+
+  const FRAMES = Array.from({ length: 16 }, (_, i) => i * 8);
+  const slider = document.querySelector('[data-pl="slider"]');
+  const raw = document.querySelector('[data-pl="raw"]');
+  const key = document.querySelector('[data-pl="key"]');
+  const cropbox = document.querySelector('[data-pl="cropbox"]');
+  const cell = document.querySelector('[data-pl="cell"]');
+  const sheet = document.querySelector('[data-pl="sheet"]');
+  const cellbox = document.querySelector('[data-pl="cellbox"]');
+  if (slider && raw && key && cell && sheet && cellbox) {
+    const live = (name) => document.querySelector(`[data-live="${name}"]`);
+    const set = (name, text) => {
+      const el = live(name);
+      if (el) el.textContent = text;
+    };
+    const pad3 = (n) => String(n).padStart(3, '0');
+
+    /* 裁切窗口（与图集打包同一组常数）：1280×720 全幅上的红框 */
+    const WIN = { x: 388, y: 124, w: 486, h: 596 };
+    cropbox?.style.setProperty('left', `${(WIN.x / 1280) * 100}%`);
+    cropbox?.style.setProperty('top', `${(WIN.y / 720) * 100}%`);
+    cropbox?.style.setProperty('width', `${(WIN.w / 1280) * 100}%`);
+    cropbox?.style.setProperty('height', `${(WIN.h / 720) * 100}%`);
+
+    const apply = () => {
+      const f = FRAMES[Number(slider.value)] ?? 0;
+      /* 段查找与格位换算：与 motion.js 的 segOfFrame 同一公式 */
+      const segIdx = atlas.segments.findIndex((s) => f >= s.first && f < s.first + s.count);
+      const seg = atlas.segments[segIdx >= 0 ? segIdx : atlas.segments.length - 1];
+      const k = f - seg.first;
+      const col = k % seg.cols;
+      const row = Math.floor(k / seg.cols);
+
+      raw.src = `/lab/pipeline/raw-${pad3(f)}.webp`;
+      key.src = `/lab/pipeline/key-${pad3(f)}.webp`;
+      set('f', pad3(f));
+      set('sk', `s${segIdx >= 0 ? segIdx : atlas.segments.length - 1}·k${k}`);
+      set('rawFile', `raw-${pad3(f)}.webp`);
+      set('keyFile', `key-${pad3(f)}.webp`);
+      set('segFile', `seg${segIdx >= 0 ? segIdx : atlas.segments.length - 1} · cell ${k}`);
+
+      /* 单格视图：CSS 百分比定位公式 = createSpriteRenderer 的同款
+         bg-size = cols×100% / rows×100%；bg-pos = col/(cols−1)×100% */
+      cell.style.backgroundImage = `url("${seg.asset}")`;
+      cell.style.backgroundSize = `${seg.cols * 100}% ${seg.rows * 100}%`;
+      cell.style.backgroundPosition = `${(col / (seg.cols - 1)) * 100}% ${(row / (seg.rows - 1)) * 100}%`;
+
+      /* 段图总览：整段 contain 缩放，红框 = 当前格的相对位置 */
+      sheet.style.backgroundImage = `url("${seg.asset}")`;
+      sheet.style.aspectRatio = `${seg.width} / ${seg.height}`;
+      cellbox.style.left = `${(col / seg.cols) * 100}%`;
+      cellbox.style.top = `${(row / seg.rows) * 100}%`;
+      cellbox.style.width = `${100 / seg.cols}%`;
+      cellbox.style.height = `${100 / seg.rows}%`;
+    };
+
+    slider.addEventListener('input', apply);
+    apply();
+  }
+</script>
+
+<style>
+  .lab {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+  .lab-head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: clamp(24px, 4vw, 44px) clamp(20px, 4vw, 48px) 10px;
+  }
+  .lab-head h1 {
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(26px, 4.4vw, 44px);
+    line-height: 1.1;
+  }
+  .sub {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--c-red);
+  }
+  .lede {
+    margin: 6px 0 0;
+    max-width: 52em;
+    font-size: 14.5px;
+    line-height: 1.8;
+    color: var(--c-ink-2);
+  }
+
+  .deck {
+    padding: 10px clamp(20px, 4vw, 48px) 0;
+  }
+
+  .scrub {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 960px;
+    margin-inline: auto;
+    padding: 16px 18px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    border-radius: 6px;
+    background: var(--c-card);
+  }
+  .scrub__label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .scrub__label b {
+    font-variant-numeric: tabular-nums;
+    color: var(--c-red);
+  }
+  .scrub__hint {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--c-muted);
+  }
+  .scrub input[type='range'] {
+    width: 100%;
+    accent-color: var(--c-red);
+  }
+  .scrub__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    font-size: 12.5px;
+    color: var(--c-muted);
+  }
+  .scrub__meta b {
+    font-variant-numeric: tabular-nums;
+    color: var(--c-ink-2);
+  }
+
+  .panes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: clamp(14px, 2vw, 22px);
+    max-width: 960px;
+    margin: clamp(14px, 2vw, 22px) auto 0;
+  }
+  .pane {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    border: 1px solid rgba(var(--c-ink-rgb), 0.16);
+    border-radius: 6px;
+    background: var(--c-card);
+  }
+  .pane figcaption {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .pane figcaption b {
+    font-family: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    color: var(--c-red);
+  }
+  .pane .t {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .pane .en {
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--c-muted-3);
+  }
+  .pane .file {
+    margin-left: auto;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .pane__cap {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--c-muted);
+  }
+
+  .pane__media {
+    position: relative;
+    background: var(--c-band);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .pane__media img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  /* 棋盘格衬底：透明 alpha 一眼看穿（--c-check 是主题变量，暗色自动换肤） */
+  .pane__media--checker {
+    background-image: repeating-conic-gradient(
+      var(--c-check) 0% 25%,
+      transparent 0% 50%
+    );
+    background-size: 18px 18px;
+  }
+  .cropbox {
+    position: absolute;
+    border: 2px solid var(--c-red);
+    box-shadow: 0 0 0 9999px rgba(var(--c-red-rgb), 0.08);
+  }
+  .cropbox::after {
+    content: '(388,124) 486×596';
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    padding: 1px 5px;
+    background: var(--c-red);
+    border-radius: 2px;
+    color: #fff;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .pane__media--split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+  .cellbox {
+    width: 100%;
+    aspect-ratio: 486 / 596;
+    background-repeat: no-repeat;
+    background-color: var(--c-check);
+    border-radius: 3px;
+  }
+  .segbox {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+  }
+  .segbox__sheet {
+    width: 100%;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-color: var(--c-check);
+    border-radius: 3px;
+  }
+  .segbox__box {
+    position: absolute;
+    border: 2px solid var(--c-red);
+    border-radius: 2px;
+  }
+  .segbox__tag {
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    padding: 1px 5px;
+    background: var(--c-red);
+    border-radius: 2px;
+    color: #fff;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+  }
+
+  .outro {
+    margin-top: auto;
+    padding: 28px clamp(20px, 4vw, 48px) 8px;
+  }
+  .outro a {
+    font-size: 13px;
+    color: var(--c-ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.4);
+    padding-bottom: 2px;
+  }
+  .outro a:hover {
+    color: var(--c-red);
+    border-color: var(--c-red);
+  }
+
+  @media (max-width: 640px) {
+    .lab-head,
+    .deck,
+    .outro {
+      padding-inline: 20px;
+    }
+    .pane__media--split {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
