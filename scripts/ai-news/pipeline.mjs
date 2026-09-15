@@ -1,11 +1,14 @@
 // 离线抓取管线编排器。
-// 冻结签名（ticket 04 / 05 直接调用，不改本文件）：
-//   runPipeline({ fetchImpl, now, config, store, enrich, rollover })
+// 冻结签名（ticket 05 直接调用，不改本文件）：
+//   runPipeline({ fetchImpl, now, config, store, rollover })
 //
 // ⚠️ 2026-09-15 换源：抓取段从「HN Algolia：时间切片 + 分页 + 超限递归劈半」换成
 // 「内容方自营 RSS：逐源一次 GET」。整条管线因此显著变短 —— 这不是简化美学，
 // 而是站长把「稳定性」列为第一优先项后的直接结果：请求数从「5~40 次 + 递归」降到 6 次固定，
 // 没有分页、没有 1000 条上限、没有递归深度这类会随源站负载变化的失败路径。
+//
+// ⛔ 本管线**不含任何 LLM 环节**（2026-09-15 站长裁定）：曾有的 `enrich` 钩子（GLM 翻译）
+// 已整条删除，数据 = 源站原文，零第三方数据流。别再引入，理由见 config.mjs / SCHEMA.md §8。
 import { describeSources, fetchAllSources } from './lib/source.mjs';
 import { shapeItem } from './lib/shape.mjs';
 import { anchorMs, matchesKeywords, withinWindow } from './lib/text.mjs';
@@ -65,7 +68,6 @@ export async function runPipeline({
   now = new Date(),
   config = CONFIG,
   store = realStore,
-  enrich, // 可选 async (items, ctx) => items（ticket 04 接线处）；config.translate=false 时不注入
   rollover, // 可选 (input) => ({ window?, archives: [{month, items}] })（ticket 05 接线处）
 } = {}) {
   const nowIso = now.toISOString();
@@ -122,13 +124,11 @@ export async function runPipeline({
     perSource.push(...kept);
   }
 
-  // 4) 复用上一轮窗口里的同一条目 —— 这一步不是优化，是两条硬需求的唯一实现：
+  // 4) 复用上一轮窗口里的同一条目 —— 这一步不是优化，是「落盘字节稳定」的唯一实现：
   //
   //   · **落盘字节稳定**：shapeItem 每次都把 fetchedAt 写成「此刻」。若不复用，
   //     即使源数据一模一样，所有条目的 fetchedAt 也全都变 → JSON 每次都不同 →
   //     workflow 每天产生两次「只有时间戳在动」的提交，D35「内容无变化时不产生 commit」失效。
-  //   · **不重复翻译**：本轮塑形的条目 translated 恒为 false，启用翻译时会被全部重翻一遍。
-  //     复用旧记录后，旧条目 translated:true，enrich 自动跳过。
   //
   // 代价（有意为之）：复用是整条记录沿用，因此窗口是一份「冻结快照」——
   // 一条新闻在它留在窗口期间不会被反复改写。对档案馆语义（快照优先于实时）是自洽的。
@@ -141,7 +141,6 @@ export async function runPipeline({
   const items = perSource.map((it) => prevById.get(it.id) ?? it);
 
   // 5) 去重：按 id（= 规范化 URL 短哈希）。同一篇文章被多个源转载、或带追踪参数的变体会塌缩成一条。
-  //    位置在 enrich 之前：重复条目没必要送去翻译。
   const seen = new Set();
   const deduped = [];
   for (const it of items) {
@@ -154,7 +153,6 @@ export async function runPipeline({
   const window = orderWindow(deduped).slice(0, config.windowLimit);
 
   // 7) 失败语义（规格 D18）：低于阈值不写任何文件，返回 skipped，保留上次快照。
-  //    位置在 enrich 之前：本轮既然不写盘，就不该为注定被丢弃的条目烧翻译额度。
   if (window.length < config.minItems) {
     return {
       status: 'skipped',
@@ -166,16 +164,12 @@ export async function runPipeline({
     };
   }
 
-  // 8) enrich 接入点（ticket 04 GLM 翻译）—— 只对最终会写盘的那批调用。
-  //    默认不注入（config.translate=false），此时零第三方数据流。
-  const finalWindow = enrich ? await enrich(window, { now, config }) : window;
-
-  // 9) 写出（rollover 接入点，ticket 05）。两个分支写盘前都过一遍 orderWindow()，
+  // 8) 写出（rollover 接入点，ticket 05）。两个分支写盘前都过一遍 orderWindow()，
   //    也都要过一遍 shouldWrite()（规格 D35 + D37 的写盘节流，见函数注释）。
   //    节流判断必须在**将要落盘的那份数据**上做，所以放在分支内部、orderWindow 之后。
   if (rollover) {
-    const result = await rollover({ window: finalWindow, now: nowIso, config });
-    const rolledWindow = orderWindow(result?.window ?? finalWindow);
+    const result = await rollover({ window, now: nowIso, config });
+    const rolledWindow = orderWindow(result?.window ?? window);
     const archives = result?.archives ?? [];
 
     if (!shouldWrite(prevWindow, rolledWindow, now, config)) {
@@ -204,7 +198,7 @@ export async function runPipeline({
     };
   }
 
-  const orderedWindow = orderWindow(finalWindow);
+  const orderedWindow = orderWindow(window);
 
   if (!shouldWrite(prevWindow, orderedWindow, now, config)) {
     return {

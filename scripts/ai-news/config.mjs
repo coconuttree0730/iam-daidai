@@ -113,10 +113,11 @@ export const CONFIG = {
   // 单源抓取的网络超时（毫秒）。RSS 无分页，一次 GET 即全部。
   fetchTimeoutMs: 20_000,
 
-  // 是否启用 GLM 翻译。**默认关闭**：源以中文为主（5 中 + 1 英），
-  // 关闭后零第三方数据流、无需 GLM_API_KEY、少一个失败分支（站长优先项：稳定 > 安全 > 内容质量）。
-  // 置 true 且注入 GLM_API_KEY 后，逐条标题会发给智谱做翻译。
-  translate: false,
+  // ── ⛔ 本管线不接入任何 LLM（2026-09-15 站长裁定）──────────────────
+  // 曾经的 GLM 翻译开关（`translate`）已整条删除，别再引入：一旦有 LLM 改写并向公众提供，
+  // 就落入《人工智能生成合成内容标识办法》的显式标识义务；而本项目的取舍是
+  // **「直接原文获取，不二次加工」** —— 零第三方数据流、零密钥依赖、零失败分支。
+  // 条目标题/摘要一律来自源站原文（摘要截断见 summaryMaxChars），不做翻译、不做改写。
 
   // 数据文件根目录（current.json + archive/），由本目录上溯到 src/data/ai-news
   dataDir: path.resolve(__dirname, '../../src/data/ai-news'),

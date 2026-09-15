@@ -13,7 +13,7 @@
     "qa:stops": "node qa/works-stops.mjs",
     "news:fetch": "node scripts/ai-news/run.mjs",
     "news:dry": "node scripts/ai-news/run.mjs --dry-run",
-    "qa:news": "node qa/ai-news-pipeline.test.mjs && node qa/ai-news-translate.test.mjs && node qa/ai-news-archive.test.mjs"
+    "qa:news": "node qa/ai-news-pipeline.test.mjs && node qa/ai-news-archive.test.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.1",

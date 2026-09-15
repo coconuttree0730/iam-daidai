@@ -6,7 +6,7 @@
 //             组件 tooltip、脚本运行时提示（toast）
 //   ✗ 不放这里：hero 大字与四卡菜单名 → src/data/profile.json
 //               公告条目       → src/data/announcements.json
-//               游乐场条目说明 → src/data/lab.json
+//               游乐园条目说明 → src/data/lab.json
 //               作品描述 / 文章正文 → profile.json / src/content/post/
 //
 // 为什么用扁平点号键（而非嵌套对象树）：key 用字符串字面量类型，拼错在
@@ -38,7 +38,7 @@ export const ui = {
     'head.backBlog': '← 返回博客',
     'head.backWorks': '← 返回作品集',
     'head.backTags': '← 返回标签索引',
-    'head.backLab': '← 返回游乐场',
+    'head.backLab': '← 返回游乐园',
     /** 语言切换器：当前语言下的按钮标题（点了会去另一种语言） */
     'head.switchTo': '切换到 English',
 
@@ -46,15 +46,17 @@ export const ui = {
     'nav.basic': '关于我...',
     'nav.works': '作品集',
     'nav.blog': '博客',
-    'nav.lab': '游乐场',
+    'nav.lab': '游乐园',
 
     // ── 板块页头 ──
     'section.works.title': '作品集',
     'section.works.desc': '作品集板块 · 精选项目档案',
     'section.blog.title': '博客',
     'section.blog.desc': '博客板块 · 文章归档',
-    'section.lab.title': '游乐场',
-    'section.lab.desc': '游乐场板块 · 交互实验与教材，每个条目都附可运行的原始演示',
+    // ⚠️ 2026-09-15 晚 daidai 裁定：板块导航名（nav.lab）=「游乐园」，但实验 tab
+    //     页的 h1 与页面 <title> 用「实验室」——两个键刻意分离，勿合并。
+    'section.lab.title': '实验室',
+    'section.lab.desc': '游乐园板块 · 交互实验与教材，每个条目都附可运行的原始演示',
     'section.tags.title': '标签索引',
     'section.tags.desc': '博客板块 · 全部标签归档',
 
@@ -131,23 +133,23 @@ export const ui = {
     'contact.consentError': '请先勾选同意后再发送。',
     'contact.sending': '发送中…',
 
-    // ── 实验室页（lab.astro）──
+    // ── 游乐园板块实验 tab 页（lab.astro）──
+    // hero 已整块删除（2026-09-15 晚 daidai 裁定），lab.heroSub / news.heroSub
+    // 两个副标题键随之移除；heroTitle 仍作条目区 aria-label 与 sec-title。
     'lab.heroTitle': '实验与教材',
-    'lab.heroSub': '把做过的东西拆开讲 · 每个条目都附可交互的原始演示',
     'lab.building': '持续扩建中',
     'lab.buildingNote': 'IN PROGRESS · 新条目陆续归档',
     'lab.entryCount': '收录 {n} 项',
 
-    // ── 游乐场板块 tab 条 + AI 新闻页（2026-09-15，LAB-NEWS）──
+    // ── 游乐园板块 tab 条 + AI 新闻页（2026-09-15，LAB-NEWS）──
     // 范围提醒：**新闻内容本身不进字典**（它是数据，见 src/data/ai-news/）——
     // 这里只放界面控件与结构文案。`{time}` / `{period}` / `{year}` 由页面用
     // Intl.DateTimeFormat 按 locale 生成，故字典里不列月份名。
-    'lab.tabsAria': '游乐场板块切换',
+    'lab.tabsAria': '游乐园板块切换',
     'lab.tabExperiments': '实验',
-    'lab.tabNews': '新闻',
+    'lab.tabNews': 'AI新闻',
     'section.news.title': 'AI 新闻',
-    'section.news.desc': '游乐场板块 · AI 领域外部新闻时间线，英文原文配中文摘要',
-    'news.heroSub': '外部信息入口 · 按天排列，可回看的历史时间线',
+    'section.news.desc': '游乐园板块 · AI 领域外部新闻时间线，英文原文配中文摘要',
     'news.timelineAria': '新闻时间线',
     'news.empty': '时间线还是空的',
     'news.emptyNote': 'TIMELINE EMPTY · 下一次抓取完成后，条目会出现在这里',
@@ -160,6 +162,7 @@ export const ui = {
     'news.yearNav': '年份',
     'news.yearLink': '{year} 年',
     'news.periodAria': '{period} 的条目',
+    'news.disclaimer': '条目为来源站公开 RSS 的标题与摘要摘录，版权归原作者所有，点击标题查看原文。',
 
     // ── 标签索引页（tags/index.astro）──
     'tags.list': '标签列表',
@@ -223,7 +226,12 @@ export const ui = {
     'post.noscriptCopy': '复制此链接分享：',
 
     // ── 分类索引页（/categories/ 与 /en/categories/ 共用，2026-09-14 英文档补齐）──
-    'section.cats.title': '分类',
+    //     'section.cats.title' 2026-09-15 由「分类」补齐为「分类管理」（daidai 裁定）。
+    //     该键同时供 h1 与页面 <title> 使用，两处一起变；英文档仍为 'Categories'
+    //     （/en/ 是给外国访客的导航外壳，Categories 是该页的自然英文名，勿改成
+    //     "Category Management"）。中文分类详情页的 <title> 是硬编码的
+    //     「分类「{name}」」，不读这个键，不受影响。
+    'section.cats.title': '分类管理',
     'section.cats.desc': '博客板块 · 按领域归档',
     'cats.index': '索引',
     'cats.chipAllTags': '全部标签',
@@ -249,8 +257,8 @@ export const ui = {
     'notfound.desc': '你要找的页面不在这个档案馆里。',
     'notfound.home': '← 回到档案馆',
 
-    // ── 游乐场滚动演示页（lab/scroll.astro）──
-    'scroll.backLab': '← 返回游乐场',
+    // ── 游乐园滚动演示页（lab/scroll.astro）──
+    'scroll.backLab': '← 返回游乐园',
     'scroll.close': '关闭',
     'scroll.heroTitle': '滚动帧随动',
     'scroll.viewPrinciple': '查看原理说明',
@@ -281,7 +289,9 @@ export const ui = {
     'section.works.desc': 'Selected projects and case files',
     'section.blog.title': 'Blog',
     'section.blog.desc': 'Posts and notes, archived',
-    'section.lab.title': 'Playground',
+    // Mirrors the zh ruling (2026-09-15): nav name = "Playground", but the
+    // experiments tab page h1 + <title> use "Lab" — the two keys stay separate.
+    'section.lab.title': 'Lab',
     'section.lab.desc': 'Interactive experiments and write-ups, each with a runnable demo',
     'section.tags.title': 'Tags',
     'section.tags.desc': 'All tags used across the blog',
@@ -361,7 +371,6 @@ export const ui = {
 
     // ── Lab page ──
     'lab.heroTitle': 'Experiments & Write-ups',
-    'lab.heroSub': 'Taking things apart — every entry ships with a runnable demo',
     'lab.building': 'Under construction',
     'lab.buildingNote': 'IN PROGRESS · new entries being archived',
     'lab.entryCount': '{n} entries',
@@ -371,10 +380,9 @@ export const ui = {
     // at the bottom of this file fails the build on any asymmetry.
     'lab.tabsAria': 'Playground sections',
     'lab.tabExperiments': 'Lab',
-    'lab.tabNews': 'News',
+    'lab.tabNews': 'AI News',
     'section.news.title': 'AI News',
     'section.news.desc': 'Playground · a timeline of AI news from around the web',
-    'news.heroSub': 'An external feed — grouped by day, browsable back through time',
     'news.timelineAria': 'News timeline',
     'news.empty': 'The timeline is empty',
     'news.emptyNote': 'TIMELINE EMPTY · entries appear here after the next fetch',
@@ -387,6 +395,8 @@ export const ui = {
     'news.yearNav': 'Year',
     'news.yearLink': '{year}',
     'news.periodAria': 'Entries from {period}',
+    'news.disclaimer':
+      'Entries are titles and excerpted descriptions from the sources’ public RSS feeds. Copyright belongs to the original authors — click a title to read the original.',
 
     // ── Tags index page ──
     'tags.list': 'Tag list',

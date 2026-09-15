@@ -66,17 +66,16 @@ function anchorOf(it: any): Date | null {
 
 // ── 语言门控（2026-09-15，源改成内容方自营 RSS 后新增）──
 // ⚠️ 这道门控是**必需**的，不是优化：RSS 源是**单语**的，`shape.mjs` 把
-// `title.en` 与 `title.zh` 写成同一个值（D7 降级不产生空字段）。于是
+// `title.en` 与 `title.zh` 写成同一个值（两个语言槽都放原文）。于是
 //   · 无条件渲染「英文原文对照」层 → 同一句标题在同一张卡里印两遍；
-//   · 按 `translated === false` 打「未翻译」标 → 26 条中文源全被打标，
-//     而它们本来就是中文，不是「翻译缺位」。
+//   · 无条件打「未翻译」标 → 26 条中文源全被打标，而它们本来就是中文，不是「翻译缺位」。
 // 判据拆成两条，各自对应一个真实的渲染问题：
 //   ① 对照层：只有 en 与 zh **确实不同**时才说明存在第二种语言；
-//   ② 未翻译标：只有「本条没有中文可读」时才谈得上未翻译。判据是
-//      `lang === 'zh' || translated === true`（中文源 / 已翻译），**不是**
-//      translated 单值——这也是 `lang` 字段从「产出但没人用」变成被消费的地方。
+//   ② 未翻译标：只有「本条没有中文可读」时才谈得上未翻译，判据是 `lang === 'zh'`。
 // 用「没有中文可读」而不是「lang === 'en'」判标：前者对缺 lang 的旧数据也成立。
-const hasZhBody = (it: any): boolean => it?.lang === 'zh' || it?.translated === true;
+// ⛔ 2026-09-15 站长裁定**不接入任何 LLM**，`translated` 字段已从 schema 整条删除，
+//    判据不得再引用它（历史数据里若残留该字段，一律忽略）。
+const hasZhBody = (it: any): boolean => it?.lang === 'zh';
 const pairDiffers = (a: unknown, b: unknown): boolean =>
   Boolean(a) && String(a) !== String(b);
 
@@ -201,11 +200,9 @@ if (updated) {
 
     <LabTabs locale="zh" active="news" />
 
-    <section class="news-hero">
-      <p class="news-hero__en" aria-hidden="true">AI NEWS</p>
-      <h1>{t('section.news.title')}</h1>
-      <p class="news-hero__note">{t('news.heroSub')}</p>
-    </section>
+    {/* 2026-09-15 晚 daidai 裁定：hero 大标题整块删除（AI NEWS 描边 + h1 +
+        副标题），与 /lab/ 实验页同步——tab 条下直接进时间线。页面标题仍在
+        <title>（section.news.title=AI 新闻）。⛔ 不要把 hero 加回来。 */}
 
     <section class="news">
       {
@@ -319,6 +316,8 @@ if (updated) {
       }
 
       <p class="news-updated">{updatedLine}</p>
+      {/* 摘录声明：合理使用的「指明出处」要件，句在页尾但每页恒显 */}
+      <p class="news-disclaimer">{t('news.disclaimer')}</p>
     </section>
 
     <footer class="foot" aria-hidden="true">

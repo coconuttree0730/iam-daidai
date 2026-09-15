@@ -55,11 +55,10 @@ jobs:
           fi
           echo "Node 版本检查通过：$(node --version)"
 
-      # 运行抓取 + 翻译管线。密钥通过 env: 注入，由脚本从 process.env 读取。
-      # 绝不把密钥直接插值进命令行——拼进 run 行的内容可能被写入日志，故只经 env 注入。
-      - name: 运行抓取与翻译管线
-        env:
-          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+      # 运行抓取管线。⛔ 本管线不接入任何 LLM（2026-09-15 站长裁定），
+      # 故**不需要任何密钥、不注入任何 env**：数据 = 源站 RSS 原文，零第三方数据流。
+      # 若日后有人想在这里加 API Key，先读 config.mjs 与 SCHEMA.md §8 的对应条目。
+      - name: 运行抓取管线
         run: node scripts/ai-news/run.mjs
 
       # 提交：只暂存 AI 新闻数据目录；无 diff 则判定为「内容无变化」，成功退出、不提交。

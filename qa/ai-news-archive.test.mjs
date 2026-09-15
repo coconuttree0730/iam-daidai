@@ -8,7 +8,7 @@ import { createRollover, ARCHIVE_CONFIG } from '../scripts/ai-news/lib/archive.m
 
 const clone = (v) => structuredClone(v);
 
-// 按 schema §4 构造 NewsItem（默认已翻译；可逐项覆盖）
+// 按 schema §4 构造 NewsItem（字段与当前产出对齐；可逐项覆盖）
 let seq = 0;
 function makeItem(over = {}) {
   seq += 1;
@@ -19,7 +19,6 @@ function makeItem(over = {}) {
     source: over.source ?? 'Hacker News',
     title: { en: over.titleEn ?? 'English title', zh: over.titleZh ?? '中文标题' },
     summary: { en: over.summaryEn ?? '', zh: over.summaryZh ?? '' },
-    translated: over.translated ?? true,
     publishedAt: over.publishedAt ?? null,
     fetchedAt: over.fetchedAt ?? '2026-09-15T08:00:00.000Z',
     heat: over.heat ?? 10,
@@ -185,13 +184,13 @@ function assertLosslessAndDisjoint(disk, expectedIds) {
   assert.ok(!changedMonths.has('2026-08') && !changedMonths.has('2026-07'), '既有归档月若无相交改动不应被报告');
 }
 
-// ── 7) 归档条目保留中文翻译字段与 translated 标志（D14） ──
+// ── 7) 归档条目保留两个语言槽与原文（D14；2026-09-15 删 translated 字段后改） ──
 {
   const keep = Array.from({ length: 30 }, (_, i) =>
     makeItem({ id: `k7${String(i).padStart(10, '0')}`, publishedAt: null, fetchedAt: `2026-09-15T08:00:${String(i).padStart(2, '0')}.000Z` }),
   );
-  const zhItem = makeItem({ id: 'zh1', titleEn: 'AI news', titleZh: '人工智能新闻', summaryZh: '摘要', translated: true, publishedAt: null, fetchedAt: '2026-08-25T06:00:00.000Z' });
-  const untrans = makeItem({ id: 'ut1', titleEn: 'Same', titleZh: 'Same', summaryEn: '', summaryZh: '', translated: false, publishedAt: null, fetchedAt: '2026-06-30T06:00:00.000Z' });
+  const zhItem = makeItem({ id: 'zh1', titleEn: 'AI news', titleZh: '人工智能新闻', summaryZh: '摘要', publishedAt: null, fetchedAt: '2026-08-25T06:00:00.000Z' });
+  const untrans = makeItem({ id: 'ut1', titleEn: 'Same', titleZh: 'Same', summaryEn: '', summaryZh: '', publishedAt: null, fetchedAt: '2026-06-30T06:00:00.000Z' });
   const store = makeDisk();
   const rollover = createRollover({ store });
   const res = await rollover({ window: [...keep, zhItem, untrans] });
@@ -199,10 +198,9 @@ function assertLosslessAndDisjoint(disk, expectedIds) {
   const zh = byMonth.get('2026-08').find((i) => i.id === 'zh1');
   assert.equal(zh.title.zh, '人工智能新闻', '归档应保留 title.zh');
   assert.equal(zh.summary.zh, '摘要', '归档应保留 summary.zh');
-  assert.equal(zh.translated, true, '归档应保留 translated=true');
   const ut = byMonth.get('2026-06').find((i) => i.id === 'ut1');
-  assert.equal(ut.translated, false, '未翻译条目的 translated=false 不应被改写');
-  assert.equal(ut.title.zh, 'Same', '未翻译时 title.zh 应等于 title.en（非空串）');
+  assert.equal(ut.title.zh, 'Same', '无翻译环节时两槽同值（title.zh === title.en），且非空串');
+  assert.equal(ut.summary.zh, '');
 }
 
 // ── 8) 仅回传变更桶；空输入 / 不变时 archives 为空 ──

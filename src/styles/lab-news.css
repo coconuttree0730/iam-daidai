@@ -17,41 +17,52 @@
  * 横向机制（滚动容器 / 拖拽 / 箭头 / 可聚焦 region）已整块删除，见 ai-news-timeline.js。
  */
 
-/* ── 游乐场板块 tab 条 ───────────────────────────────────────────────────────
-   实验 / 新闻两板块互为链接；选中态（红字 + 红下边）与 hover 态（墨字 + 浅下边）
-   全部消费 --c-*，两套主题下都清晰可读。英文页复用同一套样式，仅需换 locale。 */
+/* ── 游乐园板块 tab 条 ───────────────────────────────────────────────────────
+   实验 / AI 新闻两板块互为链接。形态三轮反复后**终版 = 块状大标签**（2026-09-15
+   晚 daidai：下划线式太小不好点 → 改块状 → 临时回退下划线 → 最终拍板"还是改回
+   方框"）。等宽两块、min-height 54px（≥44px 触控标准）、居中文字；选中态 =
+   红边 + 红字 + 微红底。tab 名同步裁定：「新闻」→「AI新闻」（en: AI News）。
+   全部消费 --c-*，两套主题自动换肤；英文页复用同一套样式，仅需换 locale。
+   （同晚另一裁定：两页 hero 大标题整块删除，本条是 tab 之后的首个元素，
+   margin-bottom 承担它与内容区的间距。） */
 .lab-tabs {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  justify-content: center; /* 2026-09-15 daidai 追加：两块 tab 整体左右居中 */
+  gap: 10px;
   width: 100%;
   max-width: 960px;
-  margin: 0 auto;
+  margin: 0 auto clamp(24px, 4vw, 40px);
   padding: 0 clamp(20px, 4vw, 48px);
-  border-bottom: 1px solid rgba(var(--c-ink-rgb), 0.16);
 }
 
 .lab-tabs__item {
-  position: relative;
-  padding: 12px 18px;
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  flex: 1 1 0;
+  max-width: 260px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 12px 24px;
+  font-size: 15px;
+  letter-spacing: 0.08em;
   color: var(--c-muted);
   text-decoration: none;
-  /* 负 margin 让选中下边压在容器底边之上，形成一条连续的选中线 */
-  margin-bottom: -1px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.16s ease, border-color 0.16s ease;
+  border: 1px solid rgba(var(--c-ink-rgb), 0.18);
+  border-radius: 6px;
+  background: var(--c-card);
+  transition: color 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
 }
 
 .lab-tabs__item:hover {
   color: var(--c-ink);
-  border-bottom-color: rgba(var(--c-ink-rgb), 0.32);
+  border-color: rgba(var(--c-ink-rgb), 0.4);
 }
 
 .lab-tabs__item.is-active {
   color: var(--c-red);
-  border-bottom-color: var(--c-red);
+  border-color: var(--c-red);
+  background: rgba(var(--c-red-rgb), 0.06);
   font-weight: 700;
 }
 
@@ -61,43 +72,10 @@
   border-radius: 2px;
 }
 
-/* ── 新闻页 hero ────────────────────────────────────────────────────────────
-   中文 h1 上方叠一层拉丁描边大字（透明填充 + 细描边），与 lab.astro 的
-   .hero .en 同一手法；类名用 news- 前缀，避免与首页 / 其它页的 .hero 全局冲突。 */
-.news-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: clamp(30px, 5vw, 58px) 20px clamp(16px, 2.4vw, 28px);
-  text-align: center;
-}
-
-.news-hero__en {
-  margin: 0;
-  font-family: 'Anton', Impact, sans-serif;
-  font-size: clamp(28px, 6vw, 72px);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  color: transparent;
-  -webkit-text-stroke: 1.2px var(--c-ghost);
-  user-select: none;
-}
-
-.news-hero h1 {
-  margin: 0;
-  font-weight: 900;
-  font-size: clamp(34px, 7vw, 84px);
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-
-.news-hero__note {
-  margin: 12px 0 0;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  color: var(--c-muted);
-}
+/* ── 新闻页 hero：2026-09-15 晚整块删除（daidai 裁定「去掉大标题」）────────
+   原 .news-hero / __en / h1 / __note 四条规则随之移除；<title> 仍由
+   section.news.title 提供，页面内不再有可见 h1。tab 条与时间线之间靠
+   .lab-tabs 的 margin-bottom 与 .news 自身的 padding-top 隔开。 */
 
 /* ── 时间线骨架 ───────────────────────────────────────────────────────────── */
 .news {
@@ -436,6 +414,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 摘录声明：合理使用的「指明出处」要件。恒显于「最后更新」行下，弱化不抢视线 */
+.news-disclaimer {
+  margin: 6px 0 0;
+  max-width: 42em;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--c-muted);
+}
+
 /* ── 平板 / 手机档（≤900px）：中央轴交错在此宽度下不成立，换「左轴 + 单栏」────
    两列并排时每列只剩约 150px（汉字一行 8–10 字）不可读，所以交错形态只在
    >900px 存在。DOM 不变 —— 只取消第二列、取消错位、把轴从中心移到左侧 10px，
@@ -485,15 +472,14 @@
   .lab-tabs {
     padding: 0 20px;
   }
+  /* 手机档 tab：块状形态下不再缩字号/内距——min-height 54px 的触控目标正是
+     这次改 tab 的初衷，缩回去等于白改；等宽两块自动半分屏宽（flex:1 1 0，
+     max-width 260 在窄屏不触发）。 */
   .lab-tabs__item {
-    padding: 10px 12px;
-    font-size: 12px;
+    padding: 12px 12px;
   }
   .news {
     padding: 20px 20px 0;
-  }
-  .news-hero {
-    padding: 26px 20px 14px;
   }
   /* 轴线 8px，条目区左内缩 26px，圆点 7px（中心落在轴上），
      连接线从圆点右缘 11.5px 铺到卡片左缘 26px ⇒ 宽 14px、left -14px。 */

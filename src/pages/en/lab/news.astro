@@ -182,10 +182,8 @@ if (updated) {
 
     <LabTabs locale="en" active="news" />
 
-    <section class="news-hero">
-      <h1>{t('section.news.title')}</h1>
-      <p class="news-hero__note">{t('news.heroSub')}</p>
-    </section>
+    {/* 2026-09-15 晚 daidai 裁定：hero 大标题整块删除，与中文版 /lab/news/ 同步
+        ——tab 条下直接进时间线。页面标题仍在 <title>。⛔ 不要把 hero 加回来。 */}
 
     <section class="news">
       {
@@ -290,6 +288,8 @@ if (updated) {
       }
 
       <p class="news-updated">{updatedLine}</p>
+      {/* 摘录声明（与 zh 页同一 i18n 键，英文措辞见 ui.ts news.disclaimer） */}
+      <p class="news-disclaimer">{t('news.disclaimer')}</p>
     </section>
 
     <footer class="foot" aria-hidden="true">

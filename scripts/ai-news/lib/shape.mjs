@@ -4,6 +4,7 @@
 // `points/num_comments`（热度）；新版源是内容方自营 RSS，**既没有热度字段，也不该存正文**。
 // 因此本版：
 //   · 不再产出 `heat`（热度是 HN 特有的，RSS 无此信号；入选规则已改为「每源定额 + 时间倒序」）
+//   · 不再产出 `translated`（2026-09-15 站长裁定：本管线不接入任何 LLM，没有翻译环节）
 //   · `summary` 一律**截断**（安全边界，见 config.summaryMaxChars 的注释）
 //   · 新增 `lang`（原文语言），供页面判断是否要打「未翻译」标
 import { urlKey } from './url.mjs';
@@ -35,10 +36,10 @@ export function shapeItem(raw, { fetchedAt, sourceLabel, lang, config }) {
     url, // string，绝对 URL（原样未规范化，它是给读者点的）
     source: sourceLabel, // 来源名，界面直接显示
     lang, // 'zh' | 'en'：原文语言
-    // 未翻译时中英同值 —— 沿用 D7「降级不产生空字段」：宁可显示原文，也不给空标题
+    // 两个语言槽同值：数据 = 源站原文，本管线不做翻译（D7 降级不产生空字段的延伸——
+    // 宁可两槽都显示原文，也不给空标题）。页面按 lang 门控，不会把同一句印两遍。
     title: { en: title, zh: title },
     summary: { en: summary, zh: summary },
-    translated: false, // 本版默认不翻译（config.translate=false）
     publishedAt,
     fetchedAt,
   };

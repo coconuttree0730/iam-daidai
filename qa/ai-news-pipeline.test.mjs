@@ -397,7 +397,9 @@ function makeStore(prev = { updated: null, items: [] }) {
   const byId = new Map(res.window.map((it) => [it.url, it]));
   assert.equal(byId.get('https://a.test/zh').lang, 'zh');
   assert.equal(byId.get('https://en.test/en').lang, 'en');
-  assert.ok(res.window.every((it) => it.translated === false), '默认不翻译');
+  // ⛔ 2026-09-15 删 LLM 环节后：数据 = 源站原文，产出里不再有 translated 字段。
+  //    这条是**防回归**断言——有人若把翻译字段加回来，这里先变红。
+  assert.ok(res.window.every((it) => !('translated' in it)), '不应再产出 translated 字段');
 }
 
 // ── 22) 管线：rollover 分支同样写盘、同样按时间倒序 ──────────────────
