@@ -73,16 +73,9 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
       locale="en"
     />
 
+    {/* 页头镜像（2026-09-15 daidai 裁定）：文字左、插画右——与 /en/tags/ 相反。
+        与中文分类页同构；用 DOM 换序而非 row-reverse，共享的 tags-index.css 零改动。 */}
     <section class="hero">
-      <img
-        class="hero__art"
-        src="/motion/tags-cabinet-chibi.webp"
-        alt=""
-        width="723"
-        height="680"
-        loading="eager"
-        decoding="async"
-      />
       <div class="hero__text">
         {/* 描边大字 "CATEGORIES" 已删（2026-09-15 daidai 裁定）：本页 h1 是
             "Categories"，与描边层同词重复。中文页保留 CATEGORIES +「全部分类」。
@@ -90,6 +83,15 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
             ⛔ 不要"为了中英一致"把它加回来。 */}
         <h1>{t('section.cats.title')}</h1>
       </div>
+      <img
+        class="hero__art"
+        src="/motion/categories-archive-chibi.webp"
+        alt=""
+        width="723"
+        height="680"
+        loading="eager"
+        decoding="async"
+      />
     </section>
 
     <p class="fallback-note">{t('cats.fallbackNote')}</p>

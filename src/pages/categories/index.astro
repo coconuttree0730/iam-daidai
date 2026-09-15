@@ -11,9 +11,19 @@
     落点——分类是承诺，空目录也要可见，否则读者不知道这个站有哪几个方向。
   · **未登记的分类（frontmatter 写了但不在清单里）排在末尾**，不报错但在页面上
     可见。比硬 enum 断路更宽容，也比静默吞掉更容易发现。
+  · **页头是镜像的**（2026-09-15 裁定）：文字左、插画右，与 /tags/ 相反。见下方
+    hero 处的注释——实现靠 DOM 换序，共享表零改动。
 
   版式复用 tags-index.css（行式档案风与标签页逐像素同构——它们本来就是
-  「同一张目录的两种切法」，视觉应该一致）。页头插画沿用文件柜那张。
+  「同一张目录的两种切法」，视觉应该一致）。
+
+  页头插画（2026-09-15 改）：改用「人物 + 档案架」那张 categories-archive-chibi.webp，
+  **不再与 /tags/ 共用文件柜图**。这是对早先「页头插画沿用文件柜那张」那条约定的
+  有意推翻——理由是新图场景（满架档案盒 / 抽出一份归档）本就是「分类」的具象，
+  标签页不具备这个语义；共用一张反而让两页的差别只能靠文字区分。
+  源图 temp/分类.jpeg（2048x1152），抠图脚本 scripts/tools/matte_categories_hero.py：
+  洪泛抠底 + 剔除右上角手写批注「分类归档 / 别放错」，再按现头像比例 723:680 裁切，
+  取「能完整容纳主体的最左窗口」（x0=654），以保留最多档案架。
 */
 import Base from '../../layouts/Base.astro';
 import PageHead from '../../components/PageHead.astro';
@@ -72,20 +82,25 @@ const totalCategorized = [...counts.values()].reduce((a, b) => a + b, 0);
       back={{ label: t('head.backBlog'), href: '/blog/' }}
     />
 
+    {/* 页头镜像（2026-09-15 daidai 裁定）：**文字左、插画右**——与 /tags/ 正好相反。
+        实现方式是调整 DOM 顺序，不是 flex-direction:row-reverse。两条理由：
+        ① 共享表 tags-index.css 零改动（它同时供 /tags/ 用，不能为分类页翻向）；
+        ② h1 在 DOM 中先于装饰图出现，读屏与爬虫的语义顺序更正确。
+        ⛔ 不要"为了和标签页一致"把 <img> 挪回前面——这个镜像是有意的。 */}
     <section class="hero">
+      <div class="hero__text">
+        <p class="en" aria-hidden="true">CATEGORIES</p>
+        <h1>{t('section.cats.title')}</h1>
+      </div>
       <img
         class="hero__art"
-        src="/motion/tags-cabinet-chibi.webp"
+        src="/motion/categories-archive-chibi.webp"
         alt=""
         width="723"
         height="680"
         loading="eager"
         decoding="async"
       />
-      <div class="hero__text">
-        <p class="en" aria-hidden="true">CATEGORIES</p>
-        <h1>{t('section.cats.title')}</h1>
-      </div>
     </section>
 
     {
