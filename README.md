@@ -257,7 +257,9 @@ flowchart LR
 
 ## 许可证 · License
 
-本项目基于 [MIT License](LICENSE) 开源。
+本项目代码基于 [MIT License](LICENSE) 开源。
+
+仓库中的博客文章、插画与 motion 素材（`motion/`、`public/`、`temp/`）**不在 MIT 许可范围内**，版权归原作者 daidai（GitHub: [coconuttree0730](https://github.com/coconuttree0730)）所有，未经授权不得转载或再分发。
 
 ---
 
