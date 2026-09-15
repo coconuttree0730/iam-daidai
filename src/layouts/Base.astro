@@ -27,6 +27,11 @@ interface Props {
       短页/锁滚页不需要特殊处理：靠可见性阈值淡入，不滚就永不出现。
       横向位置不自带 20px，而是对齐 --chrome-axis（见上方脚本注释）。 */
   dock?: boolean;
+  /** 全站页脚版权行（© 年份 daidai @GitHub）。缺省开 = 内页都显示。
+      **锁滚页传 false**（/ · /en/ · /works/ · /en/works/）：这四页是
+      100dvh 锁滚版式（html/body height:100%），footer 会把版面撑出
+      滚动或被裁掉——与 dock 用同一个「缺省开、例外页显式关」的模式。 */
+  foot?: boolean;
   /** 页面语言。中文页（src/pages/ 根）**不传**，走缺省 'zh'——这样现有
       中文页面的调用点一行都不用改。英文页（src/pages/en/）传 locale="en"。
       影响三处：<html lang>、og:locale、hreflang alternate 集合。 */
@@ -42,6 +47,7 @@ const {
   modifiedTime,
   noindex = false,
   dock = true,
+  foot = true,
   locale = DEFAULT_LOCALE,
 } = Astro.props;
 
@@ -227,6 +233,20 @@ const ogImage = image ? new URL(image, Astro.site).href : undefined;
       } catch {}
     </script>
     <slot />
+    {/* 全站页脚版权行（foot=false 的锁滚页不渲染）。年取构建时——站点随
+        ai-news 定时任务每天重建，跨年后第一轮构建自动翻年，无需手动维护。 */}
+    {foot && (
+      <footer class="site-foot">
+        <span>© {new Date().getFullYear()} daidai</span>
+        <a
+          class="site-foot__id"
+          href="https://github.com/coconuttree0730"
+          target="_blank"
+          rel="noopener noreferrer"
+          >@coconuttree0730</a
+        >
+      </footer>
+    )}
     {dock && <ScrollDock locale={locale} />}
   </body>
 </html>

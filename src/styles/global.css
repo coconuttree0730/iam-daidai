@@ -1066,3 +1066,28 @@ table.facts tr:last-child td { border-bottom: 0; }
     --cord-base: 66px;
   }
 }
+
+/* ── 全站页脚版权行（Base.astro 渲染，锁滚页传 foot={false} 不渲染）────
+   站点级信息单行、muted、不抢视线；主体在 <main> 之外，不参与任何页内 grid。 */
+.site-foot {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.6em;
+  padding: 28px 16px 34px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+}
+
+.site-foot__id {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  opacity: 0.85;
+}
+
+.site-foot__id:hover,
+.site-foot__id:focus-visible {
+  opacity: 1;
+}
