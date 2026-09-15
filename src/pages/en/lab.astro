@@ -1,5 +1,8 @@
 ---
-// 英文游乐场 = /en/lab/（2026-09-14 i18n 第 1 期；2026-09-15 显示名定 Playground）
+// English playground = /en/lab/ (i18n phase 1, 2026-09-14; section display name
+// went Lab→Playground→Workshop→Playground on 2026-09-15). This page's h1 uses
+// `section.lab.title` = "Lab" — deliberately separate from the nav name
+// `nav.lab` = "Playground" (2026-09-15 daidai ruling, mirrors the zh page).
 //
 // 条目数据来自 src/data/lab.json —— **与中文版同一份**。lab.json 的条目
 // 已有可选的 `en` 字段（如 "SCROLL / FRAME FOLLOW"），那是**对照用英文名**
@@ -32,15 +35,9 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 
     <LabTabs locale="en" active="experiments" />
 
-    <section class="hero">
-      {/* ⚠️ 刻意与中文版**不一致**（2026-09-15 daidai 裁定）：中文版 hero 的描边大字
-          是 "PLAYGROUND"（拉丁字给中文页做异文纹理，h1 是「游乐场」），而本页 h1
-          已是 "Playground"——两行同词，视觉上就是重复，判为冗余。故英文页**删除
-          描边那层**，hero 只留 h1 + 副标题。中文页保留描边层，那里是互补而非重复。
-          ⛔ 不要"为了对称"把 `<p class="en">PLAYGROUND</p>` 加回来。 */}
-      <h1>{t('section.lab.title')}</h1>
-      <p class="hero__note">{t('lab.heroSub')}</p>
-    </section>
+    {/* 2026-09-15 晚 daidai 裁定：hero 大标题整块删除，两页一致（原先是「英文页
+        只省描边层」——现在描边层与 h1 一起没了，旧的同词冗余讨论随之作废）。
+        ⛔ 不要把 hero（描边字或 h1）加回来。 */}
 
     <section class="entries" aria-label={t('lab.heroTitle')}>
 
@@ -102,35 +99,10 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 </Base>
 
 <style>
-  /* ⚠️ 以下规则与中文版 lab.astro **逐条对应**（.hero / .sec-head / .grid /
-     .card* / .stamp / 手机档），只在文案相关处留白。两处若不一致，中英文
-     版面就走形——改任何一条都必须同步另一个文件。
-     **唯一例外 = `.hero .en`（描边大字）**：英文页刻意没有这层，理由见上方
-     hero 内注释（h1 已是 "Lab"，再加 "LAB" 即重复）。除它之外仍须逐条对齐。
-     抽取共享 view 组件（消除这份重复）是第 3 期工作，见交付说明。
-     `.foot` 已抽到 src/styles/archive-chrome.css，两页共用。 */
-
-  .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: clamp(30px, 5vw, 58px) 20px clamp(16px, 2.4vw, 28px);
-    text-align: center;
-  }
-  .hero h1 {
-    margin: 0;
-    font-weight: 900;
-    font-size: clamp(34px, 7vw, 84px);
-    line-height: 1;
-    letter-spacing: 0.02em;
-  }
-  .hero__note {
-    margin: 12px 0 0;
-    font-size: 13px;
-    letter-spacing: 0.02em;
-    color: var(--c-muted);
-  }
+  /* ⚠️ 以下规则与中文版 lab.astro **逐条对应**（.sec-head / .grid / .card* /
+     .stamp / 手机档），只在文案相关处留白。两处若不一致，中英文版面就走形
+     ——改任何一条都必须同步另一个文件。（.hero 已随 2026-09-15 晚的 hero
+     删除裁定消失；.foot 已抽到 src/styles/archive-chrome.css，两页共用。 */
 
   .entries {
     flex: 1;
@@ -334,12 +306,11 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
     letter-spacing: 0.14em;
   }
 
-  /* 手机档：内缩收到 20px，卡片内距与间距收紧；封面与文字强制各占整行
-     （flex:1 1 100%），保证封面在上、提要在下的阅读顺序。 */
+  /* 手机档：内缩收到 20px，卡片内距与间距收紧；封面与文字强制各占整行。
+     ⚠️ 以下 .grid / .card 高度 / 封面高三条与中文版 lab.astro 的手机档横滑
+     滑轨**逐条相同**（2026-09-15 daidai 裁定：卡片墙在手机上改左右滑动），
+     完整说明注释在中文版那侧，改任何一条必须两页同步。 */
   @media (max-width: 640px) {
-    .hero {
-      padding: 26px 20px 14px;
-    }
     .entries {
       padding: 0 20px;
     }
@@ -353,6 +324,31 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
     }
     .card__desc {
       font-size: 14px;
+    }
+
+    .grid {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: 20px;
+      gap: 14px;
+      margin-inline: -20px;
+      padding: 4px 20px 12px;
+      scrollbar-width: none;
+    }
+    .grid::-webkit-scrollbar {
+      display: none;
+    }
+    .grid > li {
+      flex: 0 0 min(82%, 340px);
+      scroll-snap-align: start;
+    }
+    .grid > li .card {
+      height: 100%;
+    }
+    .card__media img {
+      height: 250px;
+      object-fit: contain;
     }
   }
 </style>

@@ -391,7 +391,7 @@ export function mountWorksRail() {
         persistKey: 'works',
         // ⚠️ 恢复有边界（2026-09-15 用户裁定）：只有「还在作品集板块内」的
         // 往返才恢复——详情页（/works/<no>/，含 /en/works/）返回、浏览器后退
-        // （back_forward）、刷新（reload）；从板块外（首页/博客/游乐场…）点
+        // （back_forward）、刷新（reload）；从板块外（首页/博客/游乐园…）点
         // 进来一律回到初始态（首图开始），并清掉残留进度。guard 在挂载时
         // 求值（works-rail.js），referrer 判据对中英文详情页同时成立。
         persistGuard: () =>
