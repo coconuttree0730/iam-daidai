@@ -1,11 +1,12 @@
 ---
-// 游乐场 · 印章贴纸涂鸦墙（/lab/stamps/，2026-09-15 新增，LAB-05）
+// 游乐园 · 印章贴纸涂鸦墙（/lab/stamps/，2026-09-15 新增，LAB-05）
 //
 // 交互：点墙盖章 / 橡皮逐枚擦除 / 清空（两步确认）/ 随机盖一枚（键盘入口）。
 // 印章持久化在浏览器本地（localStorage['daidai:stamps:v1']），下次再来还在。
 //
-// 契约：**旋转封顶 ≤14°**（全站裁定：圆章/贴纸 ≤14°）；贴纸素材 = 3 个图集姿态
-// 裁帧（keyed 序列）+ 2 个 chibi（复用 public/motion/ 现成素材的降采样副本）。
+// 契约：**旋转封顶 ≤14°**（全站裁定：圆章/贴纸 ≤14°）；贴纸素材 = 6 个图集姿态
+// 裁帧（keyed 序列）+ 3 个 chibi（复用 public/motion/ 现成素材的降采样副本）。
+// STICKERS 带 w/h 自然宽高——渲染按原始比例，不强制 5:6（2026-09-15 修正）。
 //
 // ⚠️ 样式走 src/styles/stamp-wall.css 独立文件：印章是**运行时注入**的 DOM，
 //    没有 Astro cid，scoped 样式整条不生效（MEMORY 的坑）。
@@ -16,7 +17,7 @@ import '../../styles/stamp-wall.css';
 
 const t = useTranslations('zh');
 ---
-<Base title="印章贴纸涂鸦墙 · 游乐场">
+<Base title="印章贴纸涂鸦墙 · 游乐园">
   <PageHead no="LAB-05" back={{ label: t('head.backLab'), href: '/lab/' }} />
 
   <main class="lab" id="main">
@@ -46,8 +47,10 @@ const t = useTranslations('zh');
       ></div>
 
       <p class="note">
-        贴纸素材取自 121 帧图集的三个姿态帧与两枚 chibi—— transparency 直接来自
-        RVM 抠图产物，没有重新抠过。
+        贴纸素材：六个立绘姿态帧（正面 / 左 / 右 / 抬头 / 抬手 / 抱臂，取自 121 帧
+        keyed 序列与 scroll 段）与三枚 chibi（档案柜 / 笔记本 / 抱文件）。透明通道
+        直接来自 RVM 抠图产物，制备脚本只做了去绿溢色、裁剪与降采样
+        （scripts/tools/prep_stamp_wall.py），没有重新抠过。
       </p>
     </section>
 
@@ -59,11 +62,15 @@ const t = useTranslations('zh');
 
 <script>
   const STICKERS = [
-    { src: '/lab/stamps/pose-front.webp', h: 240 },
-    { src: '/lab/stamps/pose-left.webp', h: 240 },
-    { src: '/lab/stamps/pose-right.webp', h: 240 },
-    { src: '/lab/stamps/chibi-tape.webp', h: 260 },
-    { src: '/lab/stamps/chibi-draw.webp', h: 280 },
+    { src: '/lab/stamps/pose-front.webp', w: 200, h: 240 },
+    { src: '/lab/stamps/pose-left.webp', w: 200, h: 240 },
+    { src: '/lab/stamps/pose-right.webp', w: 200, h: 240 },
+    { src: '/lab/stamps/chibi-tape.webp', w: 276, h: 260 },
+    { src: '/lab/stamps/chibi-draw.webp', w: 184, h: 280 },
+    { src: '/lab/stamps/pose-up.webp', w: 173, h: 240 },
+    { src: '/lab/stamps/pose-hand.webp', w: 163, h: 240 },
+    { src: '/lab/stamps/pose-arms.webp', w: 210, h: 240 },
+    { src: '/lab/stamps/chibi-archive.webp', w: 276, h: 260 },
   ];
   const KEY = 'daidai:stamps:v1';
   const CAP = 300;
@@ -151,7 +158,7 @@ const t = useTranslations('zh');
       for (let idx = state.items.length - 1; idx >= 0; idx--) {
         const it = state.items[idx];
         const st = STICKERS[it.i] ?? STICKERS[0];
-        const w = ((st.h * 5) / 6) * (it.s ?? 1);
+        const w = st.w * (it.s ?? 1);
         const h = st.h * (it.s ?? 1);
         const cx = (it.x / 100) * box.width;
         const cy = (it.y / 100) * box.height;
